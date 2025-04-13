@@ -91,9 +91,11 @@
         </a>
 
         <button class="hamburger-menu md:hidden" class:open={$isMenuOpen} on:click={toggleMenu} aria-label="Toggle menu">
-          <span></span>
-          <span></span>
-          <span></span>
+          <div class="hamburger-lines">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </button>
       </div>
     </div>
@@ -137,9 +139,11 @@
         </a>
 
         <button class="hamburger-menu md:hidden" class:open={$isMenuOpen} on:click={toggleMenu} aria-label="Toggle menu">
-          <span></span>
-          <span></span>
-          <span></span>
+          <div class="hamburger-lines">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </button>
       </div>
     </div>
@@ -148,46 +152,84 @@
 
 <style>
   .hamburger-menu {
-    width: 2rem;
-    height: 1.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
     position: relative;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 101;
+    border-radius: 50%;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+    background-color: transparent;
+  }
+
+  .hamburger-menu:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .hamburger-menu.open {
+    background-color: transparent;
+  }
+
+  .hamburger-lines {
+    width: 1.4rem;
+    height: 1.4rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
 
   .hamburger-menu span {
     display: block;
     position: absolute;
-    height: 1px;
+    height: 1.5px;
     width: 100%;
-    background-color: #333333;
-    transition: all 0.3s ease-in-out;
+    background-color: var(--color-charcoal);
+    border-radius: 3px;
+    opacity: 1;
+    left: 0;
+    transform: rotate(0deg);
+    transition: transform 0.5s cubic-bezier(0.7, 0, 0.3, 1),
+                opacity 0.25s ease-in-out;
   }
 
   .hamburger-menu span:nth-child(1) {
-    top: 0;
+    top: 0.3rem;
+    transform-origin: left center;
   }
 
   .hamburger-menu span:nth-child(2) {
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0.7rem;
+    transform-origin: left center;
   }
 
   .hamburger-menu span:nth-child(3) {
-    bottom: 0;
+    top: 1.1rem;
+    transform-origin: left center;
   }
 
   .hamburger-menu.open span:nth-child(1) {
-    top: 50%;
-    transform: translateY(-50%) rotate(45deg);
+    transform: rotate(45deg);
+    top: 0.25rem;
+    left: 0.3rem;
+    width: 100%;
+    background-color: var(--color-gold);
   }
 
   .hamburger-menu.open span:nth-child(2) {
+    width: 0%;
     opacity: 0;
   }
 
   .hamburger-menu.open span:nth-child(3) {
-    bottom: 50%;
-    transform: translateY(50%) rotate(-45deg);
+    transform: rotate(-45deg);
+    top: 1.15rem;
+    left: 0.3rem;
+    width: 100%;
+    background-color: var(--color-gold);
   }
 
   .header-sticky {
