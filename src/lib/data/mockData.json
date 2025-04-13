@@ -1,0 +1,1046 @@
+[
+  {
+    "query": "*[_type == \"size\"] | order(name asc)",
+    "result": [
+      {
+        "_id": "size-l",
+        "name": "L"
+      },
+      {
+        "_id": "size-m",
+        "name": "M"
+      },
+      {
+        "_id": "size-s",
+        "name": "S"
+      },
+      {
+        "_id": "size-xl",
+        "name": "XL"
+      }
+    ],
+    "ms": 7
+  },
+  {
+    "query": "*[_type == \"color\"] | order(name asc) {\n  _id,\n  name,\n  hex\n}",
+    "result": [
+      {
+        "_id": "color-black",
+        "name": "Black",
+        "hex": "#000000"
+      },
+      {
+        "_id": "color-blue",
+        "name": "Blue",
+        "hex": "#0000FF"
+      },
+      {
+        "_id": "color-green",
+        "name": "Green",
+        "hex": "#008000"
+      },
+      {
+        "_id": "color-red",
+        "name": "Red",
+        "hex": "#FF0000"
+      },
+      {
+        "_id": "color-white",
+        "name": "White",
+        "hex": "#FFFFFF"
+      }
+    ],
+    "ms": 2
+  },
+  {
+    "query": "  *[_type == \"category\"] | order(name asc) {\n  _id,\n  name,\n  image {\n    asset-\u003e{\n      url\n    }\n  }\n}",
+    "result": [
+      {
+        "_id": "cat-hoodies",
+        "name": "Hoodies",
+        "image": null
+      },
+      {
+        "_id": "cat-jeans",
+        "name": "Jeans",
+        "image": null
+      },
+      {
+        "_id": "cat-shoes",
+        "name": "Shoes",
+        "image": null
+      },
+      {
+        "_id": "cat-tshirts",
+        "name": "T-Shirts",
+        "image": null
+      }
+    ],
+    "ms": 11
+  },
+  {
+    "query": "*[_type == 'product'] | order(_createdAt desc) [0...20] {\n  _id,\n  name,\n  description,\n  isFeatured,\n  rating,\n  \"category\": category-\u003ename,\n  variants[]{\n    sku,\n    price,\n    stock,\n    \"size\": size-\u003ename,\n    \"color\": color-\u003e{\n      name,\n      hex\n    },\n    images[]{\n      \"url\": asset-\u003eurl\n    }\n  }\n}",
+    "result": [
+      {
+        "_id": "hkqhN9K6fFPCCNSeDQWBOP",
+        "name": "Rustic Aluminum Salad",
+        "description": "Satterfield - Klocko's most advanced Pizza technology increases smug capabilities",
+        "isFeatured": true,
+        "rating": 3.53,
+        "category": "Shoes",
+        "variants": [
+          {
+            "sku": "2ae2c934-0feb-470e-941c-e34c6f9163f1",
+            "price": 28.39,
+            "stock": 63,
+            "size": "XL",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": []
+          },
+          {
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": [],
+            "sku": "08bac193-8acd-4047-a03c-e45468791a19",
+            "price": 76.45,
+            "stock": 57,
+            "size": "XL"
+          }
+        ]
+      },
+      {
+        "category": "Jeans",
+        "variants": [
+          {
+            "stock": 83,
+            "size": "XL",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": [],
+            "sku": "84724c34-1dfd-4bc9-8d4c-33035580c6a8",
+            "price": 29.89
+          },
+          {
+            "images": [],
+            "sku": "1f7900b6-8736-4eac-a310-56082c9ce7e7",
+            "price": 99.79,
+            "stock": 72,
+            "size": "L",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            }
+          },
+          {
+            "stock": 30,
+            "size": "XL",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "e3f0234b-aabd-4e94-a781-c513d592dcb0",
+            "price": 32.19
+          },
+          {
+            "price": 52.15,
+            "stock": 88,
+            "size": "L",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "dbaf5944-c2de-47d2-bbc1-7b9540562c28"
+          },
+          {
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": [],
+            "sku": "a0c70243-bd87-4d27-8e33-67df278058ad",
+            "price": 76.69,
+            "stock": 66,
+            "size": "M"
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNaeRU",
+        "name": "Generic Metal Ball",
+        "description": "Introducing the Switzerland-inspired Sausages, blending cool style with local craftsmanship",
+        "isFeatured": false,
+        "rating": 3.14
+      },
+      {
+        "category": "Jeans",
+        "variants": [
+          {
+            "size": "M",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": [],
+            "sku": "fa8c15cc-662c-47cc-ad9e-eb191ccec5c9",
+            "price": 38.69,
+            "stock": 90
+          },
+          {
+            "price": 29.65,
+            "stock": 3,
+            "size": "S",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": [],
+            "sku": "27060a8e-8b74-4195-8c18-44f1b27e122f"
+          },
+          {
+            "sku": "c06ea727-fa4d-4ac2-ac86-c2eae2a6940e",
+            "price": 35.19,
+            "stock": 16,
+            "size": "M",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": []
+          },
+          {
+            "sku": "cb685982-4bc3-48a4-bb15-987bae9f184c",
+            "price": 89.05,
+            "stock": 82,
+            "size": "L",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNaeEr",
+        "name": "Unbranded Steel Bacon",
+        "description": "Discover the happy new Pizza with an exciting mix of Concrete ingredients",
+        "isFeatured": false,
+        "rating": 4.68
+      },
+      {
+        "category": "Hoodies",
+        "variants": [
+          {
+            "sku": "2a69886f-c5c9-4835-973e-7871e66ee43f",
+            "price": 63.39,
+            "stock": 54,
+            "size": "S",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": []
+          },
+          {
+            "price": 27.75,
+            "stock": 2,
+            "size": "S",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": [],
+            "sku": "fe6a50de-9c6c-42ab-b9cf-22fef8df0f98"
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNae2E",
+        "name": "Fresh Aluminum Chair",
+        "description": "Ergonomic Pants made with Rubber for all-day linear support",
+        "isFeatured": true,
+        "rating": 3.44
+      },
+      {
+        "variants": [
+          {
+            "stock": 11,
+            "size": "XL",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "16cf352c-52d0-45de-820e-d501b385d5a5",
+            "price": 29.79
+          },
+          {
+            "sku": "6fc0938d-aed7-4f94-8977-77f61caab5ce",
+            "price": 91.85,
+            "stock": 88,
+            "size": "S",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": []
+          },
+          {
+            "stock": 72,
+            "size": "XL",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": [],
+            "sku": "29c72e97-8fbb-4f22-8d59-3d0f0a7896a3",
+            "price": 89.99
+          },
+          {
+            "sku": "147a8c8a-5c7c-4d2e-8c15-71796053fa48",
+            "price": 89.29,
+            "stock": 46,
+            "size": "S",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": []
+          }
+        ],
+        "_id": "5uWHjB5cKcqFGOXwvneAre",
+        "name": "Generic Ceramic Mouse",
+        "description": "Our spicy-inspired Chair brings a taste of luxury to your aware lifestyle",
+        "isFeatured": true,
+        "rating": 4.83,
+        "category": "Hoodies"
+      },
+      {
+        "isFeatured": true,
+        "rating": 4.51,
+        "category": "Shoes",
+        "variants": [
+          {
+            "sku": "bab6b85c-16bf-428f-9b78-df57c9b5e8c7",
+            "price": 24.99,
+            "stock": 55,
+            "size": "S",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": []
+          },
+          {
+            "sku": "db2a8970-ba1c-4ca5-8f75-4791d5444ab5",
+            "price": 26.75,
+            "stock": 52,
+            "size": "S",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": []
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNadpb",
+        "name": "Recycled Cotton Tuna",
+        "description": "The Secured incremental system engine Soap offers reliable performance and better design"
+      },
+      {
+        "_id": "vdEa1h0NP33EHgRTNNadcy",
+        "name": "Generic Aluminum Chips",
+        "description": "Introducing the Western Sahara-inspired Ball, blending oblong style with local craftsmanship",
+        "isFeatured": true,
+        "rating": 3.11,
+        "category": "Jeans",
+        "variants": [
+          {
+            "size": "XL",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": [],
+            "sku": "3995cd30-920f-4aca-8c99-89332dd5a742",
+            "price": 91.25,
+            "stock": 90
+          },
+          {
+            "images": [],
+            "sku": "f593b293-f50f-4e99-8d3e-33a42f0cc508",
+            "price": 82.25,
+            "stock": 65,
+            "size": "M",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            }
+          },
+          {
+            "size": "M",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": [],
+            "sku": "34863809-a049-4cf6-a0b7-5b122c6e763c",
+            "price": 48.49,
+            "stock": 95
+          },
+          {
+            "images": [],
+            "sku": "8807362e-b4cc-47aa-a3f8-51569f662e67",
+            "price": 29.99,
+            "stock": 95,
+            "size": "S",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            }
+          },
+          {
+            "sku": "713a544b-eaf3-4df8-b977-f64c2e3ab0c9",
+            "price": 81.55,
+            "stock": 55,
+            "size": "S",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": []
+          }
+        ]
+      },
+      {
+        "_id": "5uWHjB5cKcqFGOXwvneAgc",
+        "name": "Handcrafted Ceramic Keyboard",
+        "description": "New teal Cheese with ergonomic design for unruly comfort",
+        "isFeatured": false,
+        "rating": 4.88,
+        "category": "T-Shirts",
+        "variants": [
+          {
+            "price": 30.6,
+            "stock": 19,
+            "size": "S",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": [],
+            "sku": "a2bebdba-4e14-4158-8222-1a5c0c4654b1"
+          },
+          {
+            "images": [],
+            "sku": "ab9daba2-66e4-4b2a-a0a6-d979b76d393f",
+            "price": 77.79,
+            "stock": 38,
+            "size": "XL",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            }
+          },
+          {
+            "size": "XL",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": [],
+            "sku": "60d01bb8-780f-4ad8-a881-f53649ad556a",
+            "price": 46.35,
+            "stock": 6
+          },
+          {
+            "size": "M",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "c79ad448-cd40-4387-bf05-35a04ae44d82",
+            "price": 95.75,
+            "stock": 99
+          },
+          {
+            "sku": "590cd5b3-8475-479e-8b91-b0be9f3b6322",
+            "price": 33.39,
+            "stock": 55,
+            "size": "XL",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          }
+        ]
+      },
+      {
+        "name": "Modern Granite Sausages",
+        "description": "Featuring Oxygen-enhanced technology, our Soap offers unparalleled nautical performance",
+        "isFeatured": true,
+        "rating": 3.03,
+        "category": "Shoes",
+        "variants": [
+          {
+            "size": "S",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": [],
+            "sku": "64d3f1f1-fc07-4eac-a5e0-4903d2824ba4",
+            "price": 98.95,
+            "stock": 91
+          },
+          {
+            "sku": "bc959aa5-060c-4a76-bd66-1c33768b72d7",
+            "price": 74.47,
+            "stock": 84,
+            "size": "S",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": []
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNadDi"
+      },
+      {
+        "category": "Jeans",
+        "variants": [
+          {
+            "price": 68.7,
+            "stock": 47,
+            "size": "S",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": [],
+            "sku": "42841e89-af26-4abb-a234-2c9cbababfe0"
+          },
+          {
+            "sku": "784450fc-cc8b-4629-8961-69773c10c5fe",
+            "price": 75.43,
+            "stock": 14,
+            "size": "XL",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          },
+          {
+            "sku": "93539fd0-d010-49df-a9f6-a415c6de38b6",
+            "price": 48.55,
+            "stock": 94,
+            "size": "L",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          }
+        ],
+        "_id": "5uWHjB5cKcqFGOXwvneAOE",
+        "name": "Bespoke Cotton Chicken",
+        "description": "The sleek and turbulent Salad comes with red LED lighting for smart functionality",
+        "isFeatured": true,
+        "rating": 4.98
+      },
+      {
+        "category": "T-Shirts",
+        "variants": [
+          {
+            "stock": 10,
+            "size": "S",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": [],
+            "sku": "c2f15504-9ed0-4ef2-9f48-9ad1bc42baaa",
+            "price": 91.98
+          },
+          {
+            "sku": "3d321818-08c9-431d-8ebb-be5f3c1dd5c5",
+            "price": 66.59,
+            "stock": 35,
+            "size": "L",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": []
+          },
+          {
+            "sku": "40c56cca-38a8-4d5b-8ee2-744818f1c4e1",
+            "price": 61.9,
+            "stock": 12,
+            "size": "S",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": []
+          },
+          {
+            "stock": 23,
+            "size": "L",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": [],
+            "sku": "45f8b00e-a5fa-4f9c-a94f-7e270b0f98b9",
+            "price": 56.39
+          }
+        ],
+        "_id": "5uWHjB5cKcqFGOXwvneA9W",
+        "name": "Fresh Cotton Pants",
+        "description": "Innovative Gloves featuring mean technology and Wooden construction",
+        "isFeatured": true,
+        "rating": 4.95
+      },
+      {
+        "isFeatured": false,
+        "rating": 3.33,
+        "category": "T-Shirts",
+        "variants": [
+          {
+            "stock": 76,
+            "size": "M",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": [],
+            "sku": "48f38d1b-94bd-40c7-be30-226862bfce62",
+            "price": 59.85
+          },
+          {
+            "sku": "9ff089c4-a693-4049-90b3-3ceece633f42",
+            "price": 70.79,
+            "stock": 38,
+            "size": "M",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          },
+          {
+            "sku": "56d678e7-4360-46f3-82de-5d8efad68947",
+            "price": 60.05,
+            "stock": 95,
+            "size": "L",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": []
+          },
+          {
+            "sku": "27271532-8a42-479d-bc10-096c33c7ba8b",
+            "price": 70.39,
+            "stock": 91,
+            "size": "S",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          }
+        ],
+        "_id": "hkqhN9K6fFPCCNSeDQW52y",
+        "name": "Bespoke Aluminum Gloves",
+        "description": "Savor the crispy essence in our Chips, designed for idolized culinary adventures"
+      },
+      {
+        "variants": [
+          {
+            "price": 69.85,
+            "stock": 62,
+            "size": "S",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": [],
+            "sku": "70aa40a6-f4d4-4ff3-9c3e-ac26829d3190"
+          },
+          {
+            "sku": "d637d038-9a7d-47aa-a87a-5eba22afbaeb",
+            "price": 57.69,
+            "stock": 55,
+            "size": "M",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": []
+          },
+          {
+            "price": 61.25,
+            "stock": 64,
+            "size": "XL",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "820d8126-b6b6-4f07-b4d6-1dde5f8f306a"
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNac8M",
+        "name": "Fresh Marble Tuna",
+        "description": "Experience the sky blue brilliance of our Computer, perfect for clear-cut environments",
+        "isFeatured": true,
+        "rating": 3.38,
+        "category": "Shoes"
+      },
+      {
+        "rating": 3.91,
+        "category": "T-Shirts",
+        "variants": [
+          {
+            "price": 46.39,
+            "stock": 57,
+            "size": "M",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": [],
+            "sku": "9dae8059-8afb-4811-bafb-e941490ea3d9"
+          },
+          {
+            "stock": 52,
+            "size": "XL",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "67157fa3-1964-40d2-92ca-8f7cf2bcb6ae",
+            "price": 38.99
+          },
+          {
+            "sku": "32bb6bae-090a-4319-abed-3cb6eee1a2fa",
+            "price": 34.05,
+            "stock": 70,
+            "size": "S",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": []
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNabSG",
+        "name": "Practical Bamboo Shoes",
+        "description": "The lime Chicken combines Slovakia aesthetics with Caesium-based durability",
+        "isFeatured": false
+      },
+      {
+        "rating": 3.61,
+        "category": "Jeans",
+        "variants": [
+          {
+            "sku": "3ba426a7-b10e-4f4d-9b96-2391c0a9d085",
+            "price": 74.55,
+            "stock": 65,
+            "size": "S",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": []
+          },
+          {
+            "images": [],
+            "sku": "3c6f219c-10f5-44e2-908f-afddd0ff545b",
+            "price": 36.95,
+            "stock": 50,
+            "size": "M",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            }
+          }
+        ],
+        "_id": "hkqhN9K6fFPCCNSeDQW4ts",
+        "name": "Fresh Aluminum Bike",
+        "description": "Our snake-friendly Computer ensures unusual comfort for your pets",
+        "isFeatured": false
+      },
+      {
+        "description": "Discover the bear-like agility of our Towels, perfect for lovely users",
+        "isFeatured": false,
+        "rating": 4.39,
+        "category": "Hoodies",
+        "variants": [
+          {
+            "price": 86.09,
+            "stock": 94,
+            "size": "S",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "0246e4d8-e489-41cf-b8d3-b1bad6052ab3"
+          },
+          {
+            "sku": "36f1d6f7-0833-4a7a-996d-905c143e875c",
+            "price": 47.4,
+            "stock": 64,
+            "size": "M",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          }
+        ],
+        "_id": "hkqhN9K6fFPCCNSeDQW4n3",
+        "name": "Frozen Granite Cheese"
+      },
+      {
+        "rating": 3.17,
+        "category": "T-Shirts",
+        "variants": [
+          {
+            "size": "L",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": [],
+            "sku": "768f050f-d521-4b7a-b2e7-a7ee1c4371df",
+            "price": 70.2,
+            "stock": 7
+          },
+          {
+            "sku": "9b231f10-6374-49dd-b462-5c3b34496b96",
+            "price": 29.99,
+            "stock": 94,
+            "size": "XL",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": []
+          },
+          {
+            "sku": "0096c815-8523-46af-a074-0b292e045050",
+            "price": 78.25,
+            "stock": 94,
+            "size": "L",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": []
+          },
+          {
+            "images": [],
+            "sku": "7f3a2a77-dcec-454a-a059-9839aa2626b8",
+            "price": 67.85,
+            "stock": 8,
+            "size": "S",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            }
+          },
+          {
+            "price": 46.59,
+            "stock": 30,
+            "size": "S",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            },
+            "images": [],
+            "sku": "2bcb4958-2d50-4bdd-89ae-05bd3f919028"
+          }
+        ],
+        "_id": "5uWHjB5cKcqFGOXwvne9nS",
+        "name": "Ergonomic Silk Pizza",
+        "description": "Discover the tight new Computer with an exciting mix of Marble ingredients",
+        "isFeatured": true
+      },
+      {
+        "_id": "hkqhN9K6fFPCCNSeDQW4k1",
+        "name": "Frozen Silk Table",
+        "description": "The Jana Pants is the latest in a series of french products from Boyer - Bayer",
+        "isFeatured": true,
+        "rating": 4.56,
+        "category": "Hoodies",
+        "variants": [
+          {
+            "sku": "8d30405c-4b9f-4c45-a613-be02b7aad5fc",
+            "price": 49.19,
+            "stock": 81,
+            "size": "M",
+            "color": {
+              "name": "Red",
+              "hex": "#FF0000"
+            },
+            "images": []
+          },
+          {
+            "sku": "04c012fe-9c46-4b2a-a328-1aec1a720855",
+            "price": 20.9,
+            "stock": 62,
+            "size": "L",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          },
+          {
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": [],
+            "sku": "66b06a1d-4f6b-47a3-8ad8-b0b39549de23",
+            "price": 89.35,
+            "stock": 18,
+            "size": "S"
+          },
+          {
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": [],
+            "sku": "b668c574-8b28-4ef1-a7a0-492db6e512d7",
+            "price": 84.55,
+            "stock": 7,
+            "size": "L"
+          }
+        ]
+      },
+      {
+        "rating": 4.13,
+        "category": "Hoodies",
+        "variants": [
+          {
+            "sku": "fff1f281-b52b-420e-a397-190f12d748d0",
+            "price": 47.99,
+            "stock": 66,
+            "size": "M",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": []
+          },
+          {
+            "images": [],
+            "sku": "94d1b59e-bfb8-48bb-860f-529ef45058a0",
+            "price": 94.25,
+            "stock": 33,
+            "size": "L",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            }
+          },
+          {
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": [],
+            "sku": "774b5466-35de-45fe-bd07-225375cfcf16",
+            "price": 66.1,
+            "stock": 40,
+            "size": "M"
+          }
+        ],
+        "_id": "vdEa1h0NP33EHgRTNNaaZX",
+        "name": "Licensed Plastic Ball",
+        "description": "Stylish Chicken designed to make you stand out with elastic looks",
+        "isFeatured": false
+      },
+      {
+        "category": "T-Shirts",
+        "variants": [
+          {
+            "sku": "35e8e87d-06de-4701-a559-aa9a1ad790eb",
+            "price": 70.29,
+            "stock": 53,
+            "size": "M",
+            "color": {
+              "name": "Blue",
+              "hex": "#0000FF"
+            },
+            "images": []
+          },
+          {
+            "sku": "313ed15e-641a-46d4-af1f-b190d012a00f",
+            "price": 78.85,
+            "stock": 38,
+            "size": "XL",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": []
+          },
+          {
+            "images": [],
+            "sku": "ed517d3c-e9a0-47dc-aef9-4e1fe6a9282d",
+            "price": 99.7,
+            "stock": 8,
+            "size": "M",
+            "color": {
+              "name": "Black",
+              "hex": "#000000"
+            }
+          },
+          {
+            "sku": "4d2363d6-4643-4416-a2ce-3c240daf55d8",
+            "price": 42.45,
+            "stock": 86,
+            "size": "XL",
+            "color": {
+              "name": "Green",
+              "hex": "#008000"
+            },
+            "images": []
+          },
+          {
+            "price": 30.45,
+            "stock": 17,
+            "size": "M",
+            "color": {
+              "name": "White",
+              "hex": "#FFFFFF"
+            },
+            "images": [],
+            "sku": "9cf283f0-9957-4502-9d89-d68faab89081"
+          }
+        ],
+        "_id": "5uWHjB5cKcqFGOXwvne9V4",
+        "name": "Frozen Marble Tuna",
+        "description": "Introducing the Myanmar-inspired Salad, blending familiar style with local craftsmanship",
+        "isFeatured": false,
+        "rating": 4.62
+      }
+    ]
+
+  }
+]
