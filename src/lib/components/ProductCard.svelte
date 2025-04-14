@@ -3,11 +3,14 @@
   import type { Product } from '$lib/types';
   import { onMount, createEventDispatcher } from 'svelte';
   import gsap from 'gsap';
-  import { addToCart } from '$lib/stores/index';
+  import { addToCart, isInWishlist, toggleWishlist } from '$lib/stores/index';
 
   export let product: Product;
 
   const dispatch = createEventDispatcher();
+
+  // Check if product is in wishlist initially
+  let isWishlisted = isInWishlist(product._id);
 
   // Calculate lowest and highest price
   const prices = product.variants.map(variant => variant.price);
@@ -31,11 +34,58 @@
   let isTouchDevice = false;
   let timeline: gsap.core.Timeline;
   let mainCartIcon: HTMLElement;
+  let wishlistButton: HTMLElement;
 
   // Fallback for images that fail to load
   function handleImageError(event) {
     event.currentTarget.src = '/images/product-placeholder.jpg';
   }
+
+  // Add to wishlist handler
+  const handleToggleWishlist = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    toggleWishlist(product._id);
+    isWishlisted = isInWishlist(product._id);
+
+    // Add visual feedback with animation
+    const btn = e.currentTarget;
+
+    // Create ripple effect
+    const ripple = document.createElement('div');
+    ripple.classList.add('wishlist-ripple');
+    ripple.style.position = 'absolute';
+    ripple.style.zIndex = '1';
+    ripple.style.top = '50%';
+    ripple.style.left = '50%';
+    ripple.style.transform = 'translate(-50%, -50%)';
+    ripple.style.width = '10px';
+    ripple.style.height = '10px';
+    ripple.style.backgroundColor = isWishlisted ? 'var(--color-gold)' : 'rgba(0,0,0,0.2)';
+    ripple.style.borderRadius = '50%';
+    ripple.style.pointerEvents = 'none';
+    btn.appendChild(ripple);
+
+    // Animate the heart with a beat effect
+    gsap.fromTo(btn,
+      { scale: 1 },
+      { scale: 1.2, duration: 0.15, ease: "power1.out", yoyo: true, repeat: 1 }
+    );
+
+    // Animate the ripple
+    gsap.to(ripple, {
+      duration: 0.5,
+      scale: 15,
+      opacity: 0,
+      ease: "power1.out",
+      onComplete: () => {
+        if (btn.contains(ripple)) {
+          btn.removeChild(ripple);
+        }
+      }
+    });
+  };
 
   onMount(() => {
     if (!cardElement || !imageContainer) return;
@@ -47,18 +97,18 @@
     timeline = gsap.timeline({ paused: true });
 
     try {
-      // Setup animations
+      // Setup animations - FASTER AND SMOOTHER
       timeline
         .to(cardElement, {
           y: -15,
-          duration: 0.5,
-          ease: "power3.out",
+          duration: 0.3,
+          ease: "power2.out",
           boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1), 0 0 20px rgba(212, 175, 55, 0.4), 0 0 30px rgba(212, 175, 55, 0.2)"
         }, 0)
         .to(imageContainer.querySelector('.primary-image'), {
           scale: 1.08,
-          duration: 0.7,
-          ease: "power2.out"
+          duration: 0.4,
+          ease: "power1.out"
         }, 0);
 
       // Add a glow effect around the card
@@ -69,8 +119,8 @@
       // Add the glow animation to the timeline
       timeline.to(cardGlow, {
         opacity: 1,
-        duration: 0.5,
-        ease: "power2.out"
+        duration: 0.3,
+        ease: "power1.out"
       }, 0);
 
       const secondaryImg = imageContainer.querySelector('.secondary-image');
@@ -78,8 +128,8 @@
         timeline.to(secondaryImg, {
           opacity: 1,
           scale: 1.08,
-          duration: 0.7,
-          ease: "power2.out"
+          duration: 0.4,
+          ease: "power1.out"
         }, 0);
       }
 
@@ -87,8 +137,8 @@
       if (overlay) {
         timeline.to(overlay, {
           opacity: 1,
-          duration: 0.4,
-          ease: "power2.out"
+          duration: 0.3,
+          ease: "power1.out"
         }, 0);
       }
 
@@ -97,9 +147,9 @@
         timeline.to(actions, {
           y: 0,
           opacity: 1,
-          duration: 0.5,
-          ease: "back.out(1.5)"
-        }, 0.1);
+          duration: 0.3,
+          ease: "back.out(1.7)"
+        }, 0.05);
       }
 
       const cta = cardElement.querySelector('.product-card-cta');
@@ -107,30 +157,30 @@
         timeline.to(cta, {
           y: 0,
           opacity: 1,
-          duration: 0.5,
-          ease: "back.out(1.5)"
-        }, 0.2);
+          duration: 0.3,
+          ease: "back.out(1.7)"
+        }, 0.1);
       }
 
       const title = cardElement.querySelector('.product-card-title');
       if (title) {
         timeline.to(title, {
           color: "var(--color-gold)",
-          duration: 0.4,
-          ease: "power2.out"
+          duration: 0.25,
+          ease: "power1.out"
         }, 0);
       }
     } catch (error) {
       console.error("Error setting up animations:", error);
     }
 
-    // Add loaded class after component is mounted for fade-in effect
+    // Add loaded class after component is mounted for fade-in effect - FASTER INITIAL LOAD
     gsap.to(cardElement, {
       opacity: 1,
       y: 0,
-      duration: 0.8,
-      ease: "power3.out",
-      delay: Math.random() * 0.3, // Staggered appearance
+      duration: 0.5,
+      ease: "power2.out",
+      delay: Math.random() * 0.2,
       onComplete: () => {
         isLoaded = true;
       }
@@ -141,6 +191,14 @@
     if (!mainCartIcon) {
       mainCartIcon = document.querySelector('.header-sticky .header-action-icon[aria-label="Cart"]');
     }
+
+    // Get reference to the wishlist button and update status
+    wishlistButton = cardElement.querySelector('.product-card-action.wishlist');
+
+    // Make sure the initial wishlist state is correct and synced with the store
+    setTimeout(() => {
+      isWishlisted = isInWishlist(product._id);
+    }, 100);
   });
 
   const handleMouseEnter = () => {
@@ -205,14 +263,14 @@
       const cartX = cartRect.left + (cartRect.width / 2);
       const cartY = cartRect.top + (cartRect.height / 2);
 
-      // Animate the flying image to the cart
+      // Animate the flying image to the cart - FASTER
       gsap.to(flyingImg, {
-        duration: 0.8,
+        duration: 0.6,
         x: cartX - (rect.left + rect.width / 2),
         y: cartY - (rect.top + rect.height / 2),
         scale: 0.1,
         opacity: 0.7,
-        ease: "power3.in",
+        ease: "power2.in",
         onComplete: () => {
           // Remove the flying image
           document.body.removeChild(flyingImg);
@@ -220,13 +278,13 @@
           // Add item to cart
           addToCart(product, 0);
 
-          // Animate cart icon
+          // Animate cart icon - SNAPPIER
           gsap.fromTo(mainCartIcon,
             { scale: 0.8 },
-            { scale: 1.2, duration: 0.2, ease: "elastic.out(1, 0.3)" }
+            { scale: 1.3, duration: 0.15, ease: "elastic.out(1.2, 0.4)" }
           );
 
-          // Create ripple effect
+          // Create ripple effect - FASTER
           const ripple = document.createElement('div');
           ripple.classList.add('cart-ripple');
           ripple.style.position = 'absolute';
@@ -242,10 +300,10 @@
           mainCartIcon.appendChild(ripple);
 
           gsap.to(ripple, {
-            duration: 0.6,
+            duration: 0.4,
             scale: 15,
             opacity: 0,
-            ease: "power2.out",
+            ease: "power1.out",
             onComplete: () => {
               mainCartIcon.removeChild(ripple);
             }
@@ -286,8 +344,12 @@
 
       <div class="product-card-overlay">
         <div class="product-card-actions">
-          <button class="product-card-action wishlist" aria-label="Add to wishlist">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="product-card-action wishlist {isWishlisted ? 'active' : ''}"
+            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            on:click={handleToggleWishlist}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
             </svg>
           </button>
@@ -371,7 +433,7 @@
     border-radius: 2px;
     overflow: hidden;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-    transition: all 0.3s ease;
+    transition: all 0.25s ease; /* Faster transition from 0.3s */
   }
 
   /* Add glow effect styling */
@@ -393,6 +455,7 @@
     opacity: 0;
     filter: blur(15px);
     will-change: opacity;
+    transition: opacity 0.25s ease; /* Added transition */
   }
 
   .product-card.hovered {
@@ -436,6 +499,7 @@
     object-fit: cover;
     z-index: 1;
     will-change: transform, opacity;
+    transition: transform 0.25s ease; /* Added transition for hover without GSAP */
   }
 
   .primary-image {
@@ -445,6 +509,7 @@
   .secondary-image {
     opacity: 0;
     z-index: 2;
+    transition: opacity 0.25s ease; /* Added transition */
   }
 
   .product-card-overlay {
@@ -461,6 +526,7 @@
     justify-content: space-between;
     padding: 1.25rem;
     will-change: opacity;
+    transition: opacity 0.25s ease; /* Added transition for fallback when GSAP fails */
   }
 
   .product-card-actions {
@@ -470,6 +536,7 @@
     transform: translateY(-15px);
     opacity: 0;
     will-change: transform, opacity;
+    transition: transform 0.25s ease, opacity 0.25s ease; /* Added transition for fallback */
   }
 
   .product-card-action {
@@ -483,7 +550,7 @@
     justify-content: center;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: all 0.3s ease;
+    transition: all 0.25s ease; /* Faster from 0.3s */
     color: var(--color-charcoal);
   }
 
@@ -521,10 +588,11 @@
     transform: translateY(15px);
     will-change: transform, opacity;
     box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+    transition: transform 0.25s ease, opacity 0.25s ease; /* Added for fallback */
   }
 
   .product-card-cta svg {
-    transition: transform 0.3s ease;
+    transition: transform 0.2s ease; /* Faster from 0.3s */
   }
 
   .product-card-cta:hover svg {
@@ -571,7 +639,7 @@
     font-size: 1.4rem;
     line-height: 1.2;
     margin-bottom: 0.5rem;
-    transition: color 0.3s ease;
+    transition: color 0.25s ease; /* Faster from 0.3s */
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -615,7 +683,7 @@
     font-weight: 500;
     border-radius: 2px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease; /* Faster from 0.3s */
     transform: translateY(5px);
     opacity: 0.9;
     position: relative;
@@ -640,7 +708,7 @@
   }
 
   .product-card.hovered .add-to-cart-button::before {
-    animation: shimmer 2s infinite;
+    animation: shimmer 1.5s infinite; /* Faster from 2s */
   }
 
   @keyframes shimmer {
@@ -688,5 +756,15 @@
   .product-card.hovered .add-to-cart-button {
     transform: translateY(0);
     opacity: 1;
+  }
+
+  .product-card-action.wishlist.active {
+    background-color: var(--color-gold-light);
+    color: var(--color-gold);
+  }
+
+  .product-card-action.wishlist.active:hover {
+    background-color: var(--color-gold);
+    color: white;
   }
 </style>

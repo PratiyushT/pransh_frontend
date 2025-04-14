@@ -74,3 +74,38 @@ export const updateCartItemQuantity = (productId: string, variantSku: string, qu
 export const clearCart = () => {
   cart.set([]);
 };
+
+// Wishlist functionality
+export const wishlist = writable<string[]>([]);
+
+// Wishlist count
+export const wishlistCount = derived(wishlist, $wishlist => $wishlist.length);
+
+// Check if a product is in the wishlist
+export const isInWishlist = (productId: string): boolean => {
+  return get(wishlist).includes(productId);
+};
+
+// Add product to wishlist
+export const addToWishlist = (productId: string) => {
+  wishlist.update(items => {
+    if (!items.includes(productId)) {
+      return [...items, productId];
+    }
+    return items;
+  });
+};
+
+// Remove product from wishlist
+export const removeFromWishlist = (productId: string) => {
+  wishlist.update(items => items.filter(id => id !== productId));
+};
+
+// Toggle wishlist status (add if not in wishlist, remove if already in wishlist)
+export const toggleWishlist = (productId: string) => {
+  if (isInWishlist(productId)) {
+    removeFromWishlist(productId);
+  } else {
+    addToWishlist(productId);
+  }
+};

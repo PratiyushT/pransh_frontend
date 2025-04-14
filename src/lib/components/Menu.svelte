@@ -1,11 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { isMenuOpen } from '$lib/stores/index';
+  import { isMenuOpen, cartCount, wishlistCount } from '$lib/stores/index';
   import { getCategories } from '$lib/utils/data';
   import gsap from 'gsap';
-
-  // For cart display (matching the header)
-  const cartCount = { subscribe: () => ({ unsubscribe: () => {} }) };
 
   const categories = getCategories();
   let menuLinks: HTMLElement;
@@ -79,6 +76,9 @@
     const icons = menuHeader.querySelectorAll('.menu-action-icon');
     const logo = menuHeader.querySelector('.menu-brand-logo');
 
+    // Reset any previous animations
+    gsap.killTweensOf([links, menuFooter, icons, logo]);
+
     // Preset the initial state
     gsap.set([links, menuFooter], {
       y: 30,
@@ -90,59 +90,90 @@
       y: -10
     });
 
+    // Create a main timeline for better control and smoother sequencing
+    const tl = gsap.timeline({
+      defaults: {
+        ease: "power3.out"
+      }
+    });
+
     // Animate header elements
-    gsap.to(logo, {
+    tl.to(logo, {
       opacity: 1,
       y: 0,
-      duration: 0.6,
-      delay: 0.2,
-      ease: "power2.out"
-    });
-
-    gsap.to(icons, {
-      opacity: 1,
-      y: 0,
-      stagger: 0.1,
       duration: 0.5,
-      delay: 0.3,
       ease: "power2.out"
-    });
+    }, 0.1);
 
-    // Animate links
-    gsap.to(links, {
+    tl.to(icons, {
+      opacity: 1,
+      y: 0,
+      stagger: 0.08,
+      duration: 0.4,
+      ease: "power2.out"
+    }, 0.2);
+
+    // Animate links with a more elegant stagger
+    tl.to(links, {
       y: 0,
       opacity: 1,
-      stagger: 0.1,
-      delay: 0.4,
-      duration: 0.7,
-      ease: "power3.out"
-    });
+      stagger: 0.08, // Faster stagger for more responsive feel
+      duration: 0.5, // Slightly faster
+      ease: "back.out(1.4)" // Add a slight bounce effect
+    }, 0.3);
 
     // Animate footer
-    gsap.to(menuFooter, {
+    tl.to(menuFooter, {
       y: 0,
       opacity: 1,
-      duration: 0.7,
-      delay: 0.8,
+      duration: 0.5,
       ease: "power2.out"
-    });
+    }, 0.5);
   }
 
   function animateMenuClose() {
-    // No need to animate out since the menu will be hidden with CSS transforms
-    // Just reset the animation states for the next opening
+    // Add a smooth exit animation instead of just resetting
     const links = menuLinks.querySelectorAll('.menu-link');
     const icons = menuHeader.querySelectorAll('.menu-action-icon');
     const logo = menuHeader.querySelector('.menu-brand-logo');
 
-    gsap.set([links, menuFooter], {
-      y: 30,
-      opacity: 0
+    // Create a timeline for exit animation
+    const tl = gsap.timeline({
+      defaults: {
+        ease: "power2.in",
+        duration: 0.3
+      }
     });
 
-    gsap.set([icons, logo], {
+    // Animate out in reverse order
+    tl.to(menuFooter, {
+      y: 20,
+      opacity: 0
+    }, 0);
+
+    tl.to(links, {
+      y: 20,
       opacity: 0,
-      y: -10
+      stagger: 0.05
+    }, 0);
+
+    tl.to([icons, logo], {
+      y: -10,
+      opacity: 0,
+      stagger: 0.05
+    }, 0.1);
+
+    // After animation completes, reset to initial state for next opening
+    tl.call(() => {
+      gsap.set([links, menuFooter], {
+        y: 30,
+        opacity: 0
+      });
+
+      gsap.set([icons, logo], {
+        opacity: 0,
+        y: -10
+      });
     });
   }
 
@@ -186,6 +217,18 @@
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
+          </a>
+
+          <!-- Added Wishlist Icon -->
+          <a href="/wishlist" class="menu-action-icon relative" aria-label="Wishlist" on:click={closeMenu}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            {#if $wishlistCount > 0}
+              <span class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-gold text-white text-xs flex items-center justify-center">
+                {$wishlistCount}
+              </span>
+            {/if}
           </a>
 
           <a href="/cart" class="menu-action-icon relative" aria-label="Cart" on:click={closeMenu}>
@@ -276,7 +319,7 @@
     flex-direction: column;
     z-index: 100;
     transform: translateY(-100%);
-    transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); /* Smoother easing */
     pointer-events: none;
     overflow: hidden;
   }
@@ -464,7 +507,7 @@
     position: relative;
     display: inline-block;
     color: var(--color-charcoal);
-    transition: color 0.4s ease, transform 0.4s ease;
+    transition: color 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* More responsive and bouncy */
     transform-origin: center;
     padding: 0.2rem 0.5rem;
     letter-spacing: 0.02em;
@@ -480,7 +523,7 @@
     background-color: var(--color-gold);
     transform: scaleX(0);
     transform-origin: right;
-    transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); /* Smoother transition */
     opacity: 0.7;
   }
 
