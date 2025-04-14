@@ -53,13 +53,25 @@
           y: -15,
           duration: 0.5,
           ease: "power3.out",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)"
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1), 0 0 20px rgba(212, 175, 55, 0.4), 0 0 30px rgba(212, 175, 55, 0.2)"
         }, 0)
         .to(imageContainer.querySelector('.primary-image'), {
           scale: 1.08,
           duration: 0.7,
           ease: "power2.out"
         }, 0);
+
+      // Add a glow effect around the card
+      const cardGlow = document.createElement('div');
+      cardGlow.classList.add('card-glow-effect');
+      cardElement.appendChild(cardGlow);
+
+      // Add the glow animation to the timeline
+      timeline.to(cardGlow, {
+        opacity: 1,
+        duration: 0.5,
+        ease: "power2.out"
+      }, 0);
 
       const secondaryImg = imageContainer.querySelector('.secondary-image');
       if (secondaryImg) {
@@ -359,6 +371,48 @@
     border-radius: 2px;
     overflow: hidden;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+  }
+
+  /* Add glow effect styling */
+  .card-glow-effect {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(212, 175, 55, 0.15) 0%,
+      rgba(212, 175, 55, 0.05) 60%,
+      rgba(212, 175, 55, 0) 70%
+    );
+    border-radius: 8px;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0;
+    filter: blur(15px);
+    will-change: opacity;
+  }
+
+  .product-card.hovered {
+    border-color: rgba(212, 175, 55, 0.3);
+  }
+
+  .product-card.hovered::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 2px;
+    padding: 2px;
+    background: linear-gradient(225deg, var(--color-gold-light), transparent, var(--color-gold));
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.7;
   }
 
   .product-card.loaded {
@@ -564,6 +618,35 @@
     transition: all 0.3s ease;
     transform: translateY(5px);
     opacity: 0.9;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .add-to-cart-button::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    transform: translateX(-100%) rotate(30deg);
+    transition: none;
+  }
+
+  .product-card.hovered .add-to-cart-button::before {
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%) rotate(30deg);
+    }
   }
 
   .add-to-cart-button:hover {
@@ -571,11 +654,7 @@
     color: var(--color-white);
     transform: translateY(0);
     opacity: 1;
-  }
-
-  .product-card:hover .add-to-cart-button {
-    transform: translateY(0);
-    opacity: 1;
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
   }
 
   /* Flying cart item animation will be handled through JS */
@@ -603,5 +682,11 @@
       transform: translateY(0);
       opacity: 1;
     }
+  }
+
+  .product-card:hover .add-to-cart-button,
+  .product-card.hovered .add-to-cart-button {
+    transform: translateY(0);
+    opacity: 1;
   }
 </style>

@@ -6,6 +6,7 @@
   import { isLoading } from '$lib/stores/index';
   import gsap from 'gsap';
   import Header from '$lib/components/Header.svelte';
+  import Footer from '$lib/components/Footer.svelte';
   import Menu from '$lib/components/Menu.svelte';
   import PageLoader from '$lib/components/PageLoader.svelte';
 
@@ -102,6 +103,8 @@
       <slot />
     </div>
   </main>
+
+  <Footer />
 </div>
 
 <style>
