@@ -20,13 +20,21 @@
   let filterSection: HTMLElement;
   let isInitialLoad = true;
 
-  // Filters
+  // Current applied filters
   let selectedCategory = slug !== 'all' ? slug : '';
   let selectedSizes: string[] = [];
   let selectedColors: string[] = [];
   let minPrice = 0;
   let maxPrice = 100;
   let sortBy = 'featured';
+
+  // Pending filter changes (not applied until user clicks Apply button)
+  let pendingCategory = selectedCategory;
+  let pendingSizes: string[] = [];
+  let pendingColors: string[] = [];
+  let pendingMinPrice = 0;
+  let pendingMaxPrice = 100;
+  let pendingSortBy = 'featured';
 
   // Categories, sizes and colors
   const categories = getCategories();
@@ -42,6 +50,8 @@
   // Initial price filter values
   minPrice = globalMinPrice;
   maxPrice = globalMaxPrice;
+  pendingMinPrice = globalMinPrice;
+  pendingMaxPrice = globalMaxPrice;
 
   // Initialize products
   onMount(() => {
@@ -166,45 +176,74 @@
     }
   };
 
-  // Handle filter changes
-  const handleSizeChange = (size: string) => {
-    if (selectedSizes.includes(size)) {
-      selectedSizes = selectedSizes.filter(s => s !== size);
-    } else {
-      selectedSizes = [...selectedSizes, size];
-    }
+  // Initialize pending filters with current values
+  const initPendingFilters = () => {
+    pendingCategory = selectedCategory;
+    pendingSizes = [...selectedSizes];
+    pendingColors = [...selectedColors];
+    pendingMinPrice = minPrice;
+    pendingMaxPrice = maxPrice;
+    pendingSortBy = sortBy;
+  };
+
+  // Apply pending filters
+  const applyFilters = () => {
+    selectedCategory = pendingCategory;
+    selectedSizes = [...pendingSizes];
+    selectedColors = [...pendingColors];
+    minPrice = pendingMinPrice;
+    maxPrice = pendingMaxPrice;
+    sortBy = pendingSortBy;
     updateProducts();
   };
 
-  const handleColorChange = (color: string) => {
-    if (selectedColors.includes(color)) {
-      selectedColors = selectedColors.filter(c => c !== color);
+  // Handle pending filter changes
+  const handlePendingSizeChange = (size: string) => {
+    if (pendingSizes.includes(size)) {
+      pendingSizes = pendingSizes.filter(s => s !== size);
     } else {
-      selectedColors = [...selectedColors, color];
+      pendingSizes = [...pendingSizes, size];
     }
-    updateProducts();
   };
 
-  const handleCategoryChange = (category: string) => {
-    selectedCategory = category;
-    updateProducts();
+  const handlePendingColorChange = (color: string) => {
+    if (pendingColors.includes(color)) {
+      pendingColors = pendingColors.filter(c => c !== color);
+    } else {
+      pendingColors = [...pendingColors, color];
+    }
+  };
+
+  const handlePendingCategoryChange = (category: string) => {
+    pendingCategory = category;
   };
 
   const handleSortChange = (e: Event) => {
     const target = e.target as HTMLSelectElement;
-    sortBy = target.value;
+    pendingSortBy = target.value;
+    sortBy = pendingSortBy; // Apply sort immediately for better UX
     updateProducts();
   };
 
   const resetFilters = () => {
+    // Reset active filters
     selectedCategory = slug !== 'all' ? slug : '';
     selectedSizes = [];
     selectedColors = [];
     minPrice = globalMinPrice;
     maxPrice = globalMaxPrice;
     sortBy = 'featured';
+
+    // Reset pending filters
+    initPendingFilters();
+
     updateProducts();
   };
+
+  // Initialize pending filters on mount
+  onMount(() => {
+    initPendingFilters();
+  });
 
   const toggleFilter = () => {
     isFilterOpen = !isFilterOpen;
@@ -270,15 +309,27 @@
     <!-- Filters and Products -->
     <div class="flex flex-col lg:flex-row gap-8">
       <!-- Mobile Filter Toggle -->
-      <div class="lg:hidden mb-4">
+      <div class="lg:hidden mb-6">
         <button
-          class="filter-toggle w-full py-3 px-4 flex items-center justify-between"
+          class="luxury-filter-toggle"
           on:click={toggleFilter}
         >
-          <span class="font-serif text-lg">Filters & Sorting</span>
-          <div class="toggle-icon">
-            <span class={isFilterOpen ? 'open' : ''}></span>
-            <span class={isFilterOpen ? 'open' : ''}></span>
+          <div class="filter-toggle-content">
+            <span class="filter-toggle-text">Filters & Sorting</span>
+            <div class="filter-toggle-icon">
+              {#if isFilterOpen}
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+              {/if}
+            </div>
           </div>
         </button>
       </div>
@@ -305,8 +356,8 @@
                   type="radio"
                   name="category"
                   value=""
-                  checked={selectedCategory === ''}
-                  on:change={() => handleCategoryChange('')}
+                  checked={pendingCategory === ''}
+                  on:change={() => handlePendingCategoryChange('')}
                   class="filter-radio"
                 >
                 <span class="filter-text">All Categories</span>
@@ -318,8 +369,8 @@
                     type="radio"
                     name="category"
                     value={category.name.toLowerCase()}
-                    checked={selectedCategory === category.name.toLowerCase()}
-                    on:change={() => handleCategoryChange(category.name.toLowerCase())}
+                    checked={pendingCategory === category.name.toLowerCase()}
+                    on:change={() => handlePendingCategoryChange(category.name.toLowerCase())}
                     class="filter-radio"
                   >
                   <span class="filter-text">{category.name}</span>
@@ -331,19 +382,19 @@
           <!-- Sizes -->
           <div class="filter-group">
             <h3 class="filter-title">Sizes</h3>
-            <div class="flex flex-wrap gap-2 mt-4">
+            <div class="flex flex-wrap gap-3 mt-4">
               {#each sizes as size}
                 <label
-                  class="size-selector {selectedSizes.includes(size.name) ? 'active' : ''}"
+                  class="luxury-size-selector {pendingSizes.includes(size.name) ? 'active' : ''}"
                 >
                   <input
                     type="checkbox"
                     class="sr-only"
                     value={size.name}
-                    checked={selectedSizes.includes(size.name)}
-                    on:change={() => handleSizeChange(size.name)}
+                    checked={pendingSizes.includes(size.name)}
+                    on:change={() => handlePendingSizeChange(size.name)}
                   >
-                  {size.name}
+                  <span>{size.name}</span>
                 </label>
               {/each}
             </div>
@@ -352,20 +403,27 @@
           <!-- Colors -->
           <div class="filter-group">
             <h3 class="filter-title">Colors</h3>
-            <div class="flex flex-wrap gap-3 mt-4">
+            <div class="flex flex-wrap gap-4 mt-4">
               {#each colors as color}
                 <label
-                  class="color-selector {selectedColors.includes(color.name) ? 'active' : ''}"
-                  style="background-color: {color.hex}; border-color: {color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex}"
+                  class="luxury-color-selector {pendingColors.includes(color.name) ? 'active' : ''}"
+                  style="background-color: {color.hex}; {color.hex === '#FFFFFF' ? 'border: 1px solid #e2e2e2;' : ''}"
                   title={color.name}
                 >
                   <input
                     type="checkbox"
                     class="sr-only"
                     value={color.name}
-                    checked={selectedColors.includes(color.name)}
-                    on:change={() => handleColorChange(color.name)}
+                    checked={pendingColors.includes(color.name)}
+                    on:change={() => handlePendingColorChange(color.name)}
                   >
+                  {#if pendingColors.includes(color.name)}
+                    <span class="color-checkmark">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color.hex === '#FFFFFF' || color.hex === '#F9F5EB' ? '#000000' : '#FFFFFF'} stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </span>
+                  {/if}
                 </label>
               {/each}
             </div>
@@ -375,8 +433,8 @@
           <div class="filter-group">
             <h3 class="filter-title">Price Range</h3>
             <div class="flex items-center justify-between mb-4 mt-4">
-              <span class="price-label">${minPrice}</span>
-              <span class="price-label">${maxPrice}</span>
+              <span class="price-label">${pendingMinPrice}</span>
+              <span class="price-label">${pendingMaxPrice}</span>
             </div>
 
             <!-- Simplified range sliders -->
@@ -385,19 +443,24 @@
                 type="range"
                 min={globalMinPrice}
                 max={globalMaxPrice}
-                bind:value={minPrice}
-                on:change={updateProducts}
+                bind:value={pendingMinPrice}
                 class="price-slider"
               >
               <input
                 type="range"
                 min={globalMinPrice}
                 max={globalMaxPrice}
-                bind:value={maxPrice}
-                on:change={updateProducts}
+                bind:value={pendingMaxPrice}
                 class="price-slider"
               >
             </div>
+          </div>
+
+          <!-- Apply Filters Button -->
+          <div class="mt-8 mb-2">
+            <button class="luxury-apply-filters-btn" on:click={applyFilters}>
+              Apply Filters
+            </button>
           </div>
         </div>
       </div>
@@ -416,7 +479,7 @@
               <select
                 id="sort-select"
                 class="sort-select"
-                bind:value={selectedSort}
+                bind:value={pendingSortBy}
                 on:change={handleSortChange}
               >
                 <option value="featured">Featured</option>
@@ -488,66 +551,114 @@
   }
 
   /* Filter Toggle Styling */
-  .filter-toggle {
+  .luxury-filter-toggle {
     background-color: var(--color-white);
     border: 1px solid var(--color-cream-dark);
-    border-radius: 4px;
+    border-radius: 6px;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
   }
 
-  .filter-toggle:hover {
+  .luxury-filter-toggle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(212, 175, 55, 0.05), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .luxury-filter-toggle:hover {
     border-color: var(--color-gold);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.15);
+    transform: translateY(-1px);
   }
 
-  .toggle-icon {
-    width: 20px;
-    height: 20px;
+  .luxury-filter-toggle:hover::before {
+    opacity: 1;
+  }
+
+  .filter-toggle-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .filter-toggle-text {
+    color: var(--color-charcoal);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    margin-right: 10px;
+    font-family: var(--heading-font);
+    font-size: 1.15rem;
     position: relative;
   }
 
-  .toggle-icon span {
+  .filter-toggle-text::after {
+    content: '';
     position: absolute;
-    width: 100%;
-    height: 2px;
-    background-color: var(--color-charcoal);
-    transition: all 0.3s ease;
-    right: 0;
-  }
-
-  .toggle-icon span:first-child {
-    top: 8px;
-    transform: rotate(0deg);
-  }
-
-  .toggle-icon span:last-child {
-    bottom: 8px;
-    width: 70%;
-    transform: rotate(0deg);
-  }
-
-  .toggle-icon span.open:first-child {
-    transform: rotate(45deg);
-    top: 9px;
+    bottom: -4px;
+    left: 0;
+    width: 0;
+    height: 1px;
     background-color: var(--color-gold);
+    transition: width 0.3s ease;
   }
 
-  .toggle-icon span.open:last-child {
-    transform: rotate(-45deg);
-    bottom: 9px;
+  .luxury-filter-toggle:hover .filter-toggle-text::after {
     width: 100%;
-    background-color: var(--color-gold);
+  }
+
+  .filter-toggle-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-charcoal);
+    transition: color 0.3s ease;
+  }
+
+  .luxury-filter-toggle:hover .filter-toggle-icon {
+    color: var(--color-gold);
+  }
+
+  .filter-toggle-icon svg {
+    transition: transform 0.3s ease;
   }
 
   /* Filter Container Styling */
+  .filter-container {
+    transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  }
+
   .filter-wrapper {
     background-color: var(--color-white);
-    padding: 1.5rem;
+    padding: 1.75rem;
     border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     position: sticky;
     top: 110px;
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .filter-wrapper:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    border-color: rgba(212, 175, 55, 0.2);
   }
 
   .filter-heading {
@@ -555,6 +666,24 @@
     font-size: 1.5rem;
     color: var(--color-charcoal);
     font-weight: 500;
+    letter-spacing: 0.03em;
+    position: relative;
+    padding-bottom: 5px;
+  }
+
+  .filter-heading::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 30px;
+    height: 2px;
+    background-color: var(--color-gold);
+    transition: width 0.3s ease;
+  }
+
+  .filter-wrapper:hover .filter-heading::after {
+    width: 50px;
   }
 
   .reset-button {
@@ -565,6 +694,25 @@
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  .reset-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(212, 175, 55, 0.05);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .reset-button:hover::before {
+    opacity: 1;
   }
 
   .reset-button:after {
@@ -572,14 +720,15 @@
     position: absolute;
     width: 0;
     height: 1px;
-    bottom: -2px;
-    left: 0;
+    bottom: 2px;
+    left: 8px;
+    right: 8px;
     background-color: var(--color-gold);
     transition: width 0.3s ease;
   }
 
   .reset-button:hover:after {
-    width: 100%;
+    width: calc(100% - 16px);
   }
 
   .filter-group {
@@ -691,63 +840,44 @@
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   }
 
-  .size-selector {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--color-charcoal-light);
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    border-radius: 2px;
-  }
-
-  .size-selector:hover {
-    border-color: var(--color-gold);
-    transform: translateY(-3px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .size-selector.active {
+  .luxury-apply-filters-btn {
+    width: 100%;
+    padding: 0.9rem 1.5rem;
     background-color: var(--color-gold);
-    color: var(--color-white);
-    border-color: var(--color-gold);
-    transform: translateY(-3px) scale(1.05);
-    box-shadow: 0 6px 12px rgba(212, 175, 55, 0.3);
-  }
-
-  .color-selector {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    font-family: var(--heading-font);
+    font-size: 1rem;
     cursor: pointer;
-    border: 2px solid;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(212, 175, 55, 0.2);
     position: relative;
+    overflow: hidden;
   }
 
-  .color-selector.active {
-    transform: scale(1.15);
-    box-shadow: 0 0 0 2px var(--color-gold);
-  }
-
-  .color-selector:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  .color-selector.active::after {
+  .luxury-apply-filters-btn::before {
     content: '';
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 10px;
-    height: 10px;
-    background-color: rgba(255,255,255,0.5);
-    border-radius: 50%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.1), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+  }
+
+  .luxury-apply-filters-btn:hover {
+    background-color: var(--color-gold-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(212, 175, 55, 0.3);
+  }
+
+  .luxury-apply-filters-btn:hover::before {
+    transform: translateX(100%);
   }
 
   /* Products Area Styling */
@@ -760,10 +890,17 @@
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
-    padding: 1.5rem;
+    padding: 1.5rem 1.75rem;
     background-color: var(--color-white);
     border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .sort-container:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    border-color: rgba(212, 175, 55, 0.2);
   }
 
   @media (min-width: 640px) {
@@ -783,6 +920,8 @@
     margin-right: 1rem;
     font-weight: 500;
     color: var(--color-charcoal);
+    font-family: var(--heading-font);
+    letter-spacing: 0.03em;
   }
 
   .select-wrapper {
@@ -798,6 +937,11 @@
     pointer-events: none;
     font-size: 10px;
     color: var(--color-gold);
+    transition: transform 0.3s ease;
+  }
+
+  .select-wrapper:hover::after {
+    transform: translateY(-50%) translateY(2px);
   }
 
   .sort-select {
@@ -810,6 +954,8 @@
     border-radius: 4px;
     appearance: none;
     cursor: pointer;
+    color: var(--color-charcoal);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
   }
 
   .sort-select:focus {
@@ -820,12 +966,33 @@
 
   .sort-select:hover {
     border-color: var(--color-gold);
+    box-shadow: 0 4px 8px rgba(212, 175, 55, 0.1);
+  }
+
+  .sort-select option {
+    padding: 10px;
+    background-color: var(--color-white);
+    color: var(--color-charcoal);
   }
 
   .results-count {
     font-size: 0.95rem;
     color: var(--color-charcoal-light);
     font-weight: 500;
+    position: relative;
+    padding-left: 15px;
+  }
+
+  .results-count::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    background-color: var(--color-gold);
+    border-radius: 50%;
   }
 
   /* Product Grid */
@@ -881,17 +1048,101 @@
     box-shadow: 0 6px 15px rgba(212, 175, 55, 0.4);
   }
 
-  /* Animations */
-  .fade-in {
+  /* Luxury Size Selector */
+  .luxury-size-selector {
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-cream-dark);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border-radius: 4px;
+    position: relative;
+    background-color: var(--color-white);
+    padding: 0 12px;
+  }
+
+  .luxury-size-selector span {
+    transition: all 0.3s ease;
+  }
+
+  .luxury-size-selector::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(212, 175, 55, 0.05), transparent);
     opacity: 0;
-    transform: translateY(20px);
-    animation: fadeIn 0.8s forwards;
+    transition: opacity 0.3s ease;
+    border-radius: 3px;
+  }
+
+  .luxury-size-selector:hover {
+    border-color: var(--color-gold);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .luxury-size-selector:hover::before {
+    opacity: 1;
+  }
+
+  .luxury-size-selector.active {
+    background-color: var(--color-gold);
+    color: var(--color-white);
+    border-color: var(--color-gold);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 12px rgba(212, 175, 55, 0.3);
+  }
+
+  .luxury-size-selector.active span {
+    font-weight: 500;
+  }
+
+  /* Luxury Color Selector */
+  .luxury-color-selector {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .luxury-color-selector.active {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--color-gold);
+  }
+
+  .luxury-color-selector:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .color-checkmark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-in-out;
   }
 
   @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: scale(1);
     }
   }
 
@@ -905,6 +1156,20 @@
   @media (min-width: 1024px) {
     .product-grid {
       grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  /* Animations */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeIn 0.8s forwards;
+  }
+
+  @keyframes fadeIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 </style>
