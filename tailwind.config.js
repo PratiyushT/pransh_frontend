@@ -11,6 +11,9 @@ export default {
       white: '#FFFFFF',
       black: '#000000',
       transparent: 'transparent',
+      gold: '#D4AF37',
+      'gold-dark': '#B8941F',
+      'gold-light': '#E6C869',
       gray: {
         100: '#F9F9F9',
         200: '#F5F5F5',

@@ -92,7 +92,7 @@
             </li>
             {#each categories as category}
               <li>
-                <a href={`/category/${category.slug}`} class="footer-link">{category.name}</a>
+                <a href={`/category/${category.name.toLowerCase()}`} class="footer-link">{category.name}</a>
               </li>
             {/each}
             <li>

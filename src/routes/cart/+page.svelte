@@ -219,3 +219,9 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .btn-primary {
+    @apply bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-colors;
+  }
+</style>

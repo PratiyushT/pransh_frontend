@@ -42,7 +42,7 @@ const products: Product[] = [
         color: colors[0],
         price: 599.99,
         stock: 5,
-        images: [{ _id: '111', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '111', url: '/images/products/dress.jpg' }]
       },
       {
         _id: '1-2',
@@ -51,7 +51,7 @@ const products: Product[] = [
         color: colors[0],
         price: 599.99,
         stock: 3,
-        images: [{ _id: '112', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '112', url: '/images/products/dress.jpg' }]
       },
       {
         _id: '1-3',
@@ -60,7 +60,7 @@ const products: Product[] = [
         color: colors[2],
         price: 649.99,
         stock: 2,
-        images: [{ _id: '113', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '113', url: '/images/products/dress.jpg' }]
       }
     ],
     rating: 4.8,
@@ -79,7 +79,7 @@ const products: Product[] = [
         color: colors[1],
         price: 299.99,
         stock: 8,
-        images: [{ _id: '211', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '211', url: '/images/products/blouse1.jpg' }]
       },
       {
         _id: '2-2',
@@ -88,7 +88,7 @@ const products: Product[] = [
         color: colors[1],
         price: 299.99,
         stock: 6,
-        images: [{ _id: '212', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '212', url: '/images/products/blouse1.jpg' }]
       },
       {
         _id: '2-3',
@@ -97,7 +97,7 @@ const products: Product[] = [
         color: colors[4],
         price: 299.99,
         stock: 4,
-        images: [{ _id: '213', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '213', url: '/images/products/blouse1.jpg' }]
       }
     ],
     rating: 4.5,
@@ -116,7 +116,7 @@ const products: Product[] = [
         color: colors[3],
         price: 449.99,
         stock: 3,
-        images: [{ _id: '311', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '311', url: '/images/products/suit1.jpg' }]
       },
       {
         _id: '3-2',
@@ -125,7 +125,7 @@ const products: Product[] = [
         color: colors[3],
         price: 449.99,
         stock: 5,
-        images: [{ _id: '312', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '312', url: '/images/products/suit1.jpg' }]
       },
       {
         _id: '3-3',
@@ -134,7 +134,7 @@ const products: Product[] = [
         color: colors[0],
         price: 449.99,
         stock: 4,
-        images: [{ _id: '313', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '313', url: '/images/products/suit1.jpg' }]
       }
     ],
     rating: 4.9,
@@ -153,7 +153,7 @@ const products: Product[] = [
         color: colors[5],
         price: 129.99,
         stock: 10,
-        images: [{ _id: '411', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '411', url: '/images/products/saree.jpg' }]
       },
       {
         _id: '4-2',
@@ -162,7 +162,7 @@ const products: Product[] = [
         color: colors[2],
         price: 129.99,
         stock: 8,
-        images: [{ _id: '412', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '412', url: '/images/products/saree.jpg' }]
       }
     ],
     rating: 4.7,
@@ -181,7 +181,7 @@ const products: Product[] = [
         color: colors[4],
         price: 199.99,
         stock: 6,
-        images: [{ _id: '511', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '511', url: '/images/products/dress.jpg' }]
       },
       {
         _id: '5-2',
@@ -190,7 +190,7 @@ const products: Product[] = [
         color: colors[4],
         price: 199.99,
         stock: 4,
-        images: [{ _id: '512', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '512', url: '/images/products/dress.jpg' }]
       },
       {
         _id: '5-3',
@@ -199,7 +199,7 @@ const products: Product[] = [
         color: colors[1],
         price: 199.99,
         stock: 5,
-        images: [{ _id: '513', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '513', url: '/images/products/dress.jpg' }]
       }
     ],
     rating: 4.6,
@@ -218,7 +218,7 @@ const products: Product[] = [
         color: colors[0],
         price: 149.99,
         stock: 7,
-        images: [{ _id: '611', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '611', url: '/images/products/suit1.jpg' }]
       },
       {
         _id: '6-2',
@@ -227,7 +227,7 @@ const products: Product[] = [
         color: colors[0],
         price: 149.99,
         stock: 5,
-        images: [{ _id: '612', url: '/images/product-placeholder.jpg' }]
+        images: [{ _id: '612', url: '/images/products/suit1.jpg' }]
       }
     ],
     rating: 4.5,

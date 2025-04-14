@@ -227,7 +227,7 @@
         <a href="/about" class="btn btn-primary">Learn More</a>
       </div>
       <div class="experience-image-container">
-        <img src="/images/product-placeholder.jpg" alt="Luxury Experience" class="experience-image">
+        <img src="/images/products/saree.jpg" alt="Luxury Experience" class="experience-image">
         <div class="experience-image-accent"></div>
       </div>
     </div>
@@ -254,7 +254,7 @@
     align-items: center;
     justify-content: center;
     background-color: var(--color-cream-dark);
-    background-image: url('/images/product-placeholder.jpg');
+    background-image: url('/images/products/dress.jpg');
     background-size: cover;
     background-position: center;
     color: var(--color-white);

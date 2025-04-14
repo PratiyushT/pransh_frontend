@@ -74,7 +74,9 @@
 <header class="header">
   <div class="container">
     <div class="header-inner">
-      <a href="/" class="brand-logo">Pransh</a>
+      <a href="/" class="brand-logo">
+        <img src="/images/pransh-logo.svg" alt="Pransh Logo" height="30">
+      </a>
 
       <nav class="hidden md:block">
         <ul class="nav-links">
@@ -139,7 +141,9 @@
 <div class="header-sticky" class:visible={isVisible} bind:this={headerSticky}>
   <div class="container">
     <div class="header-inner">
-      <a href="/" class="brand-logo text-lg">Pransh</a>
+      <a href="/" class="brand-logo text-lg">
+        <img src="/images/pransh-logo.svg" alt="Pransh Logo" height="24">
+      </a>
 
       <nav class="hidden md:block">
         <ul class="nav-links">
