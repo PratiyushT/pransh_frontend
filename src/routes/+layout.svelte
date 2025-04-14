@@ -117,15 +117,21 @@
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
+    margin: 0;
+    padding: 0;
   }
 
   .main-content {
     flex-grow: 1;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Prevent over-expansion */
   }
 
   .page-wrapper {
     width: 100%;
+    flex: 1 0 auto; /* Don't shrink */
   }
 
   .site-wrapper.page-loading {

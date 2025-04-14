@@ -13,7 +13,6 @@
   let heroContent: HTMLElement;
   let featuredSection: HTMLElement;
   let experienceSection: HTMLElement;
-  let newsletterSection: HTMLElement;
 
   const handleQuickView = (event) => {
     quickViewProduct = event.detail.product;
@@ -121,23 +120,6 @@
           ease: "power2.out"
         });
       }
-    }
-
-    // Newsletter section animations
-    if (newsletterSection && isInViewport(newsletterSection)) {
-      const elements = newsletterSection.querySelectorAll('h2, p, form');
-      elements.forEach((el, index) => {
-        if (!el.classList.contains('animated')) {
-          el.classList.add('animated');
-          gsap.from(el, {
-            duration: 0.8,
-            opacity: 0,
-            y: 30,
-            delay: 0.1 * index,
-            ease: "power2.out"
-          });
-        }
-      });
     }
   }
 
@@ -248,23 +230,6 @@
         <img src="/images/product-placeholder.jpg" alt="Luxury Experience" class="experience-image">
         <div class="experience-image-accent"></div>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- Newsletter Section -->
-<section class="section-sm newsletter-section" bind:this={newsletterSection}>
-  <div class="container">
-    <div class="text-center max-w-2xl mx-auto">
-      <h2 class="mb-4">Join Our World</h2>
-      <p class="mb-8">Subscribe to our newsletter and be the first to know about new collections, exclusive events, and special offers.</p>
-
-      <form class="newsletter-form">
-        <div class="newsletter-input-container">
-          <input type="email" placeholder="Your email address" class="newsletter-input" required>
-          <button type="submit" class="newsletter-button">Subscribe</button>
-        </div>
-      </form>
     </div>
   </div>
 </section>
@@ -414,51 +379,6 @@
     border: 1px solid var(--color-gold);
     border-radius: 2px;
     z-index: -1;
-  }
-
-  .newsletter-section {
-    background-color: var(--color-white);
-    padding: 5rem 0;
-  }
-
-  .newsletter-form {
-    max-width: 500px;
-    margin: 0 auto;
-  }
-
-  .newsletter-input-container {
-    display: flex;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .newsletter-input {
-    flex-grow: 1;
-    padding: 1rem 1.25rem;
-    border: none;
-    font-size: 0.95rem;
-  }
-
-  .newsletter-input:focus {
-    outline: none;
-  }
-
-  .newsletter-button {
-    background-color: var(--color-gold);
-    color: var(--color-white);
-    border: none;
-    padding: 0 1.5rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-
-  .newsletter-button:hover {
-    background-color: var(--color-gold-dark);
   }
 
   @media (min-width: 768px) {

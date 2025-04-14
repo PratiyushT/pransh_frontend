@@ -8,6 +8,13 @@
   box-sizing: border-box;
 }
 
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  min-height: 100%;
+}
+
 :root {
   --color-gold: #D4AF37;
   --color-gold-light: #E6C869;
@@ -34,6 +41,8 @@ body {
   line-height: 1.6;
   font-weight: 300;
   letter-spacing: 0.02em;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Typography */

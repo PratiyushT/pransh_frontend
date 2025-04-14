@@ -39,19 +39,13 @@
   <!-- Newsletter Section with Gold Background -->
   <div class="newsletter-section" bind:this={newsletterSection}>
     <div class="newsletter-overlay"></div>
-    <div class="container mx-auto px-4 py-16 sm:py-20 relative z-10">
-      <div class="text-center max-w-xl mx-auto">
-        <div class="newsletter-icon mb-5 mx-auto">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-            <polyline points="22,6 12,13 2,6"></polyline>
-          </svg>
-        </div>
-        <h2 class="text-2xl md:text-3xl font-serif mb-4 text-white">Join Our Exclusive Circle</h2>
-        <p class="mb-8 text-white/90 max-w-md mx-auto leading-relaxed">Subscribe to receive exclusive offers, early access to new collections, and personalized style recommendations.</p>
+    <div class="container mx-auto px-6 py-24 sm:py-28 relative z-10">
+      <div class="text-center max-w-2xl mx-auto">
+        <h2 class="text-3xl md:text-4xl font-serif mb-6 text-white">Join Our Exclusive Circle</h2>
+        <p class="mb-10 text-white/90 max-w-lg mx-auto leading-relaxed text-lg">Subscribe to receive exclusive offers, early access to new collections, and personalized style recommendations.</p>
 
         <form class="newsletter-form">
-          <div class="flex flex-col md:flex-row gap-3">
+          <div class="flex flex-col md:flex-row gap-6">
             <input
               type="email"
               placeholder="Your email address"
@@ -238,6 +232,8 @@
     overflow: hidden;
     --x-position: 50%;
     --y-position: 50%;
+    margin-top: -1px; /* Ensure overlap to prevent any gap */
+    transform: translateY(-20px); /* Pull the newsletter section up to cover the gap */
   }
 
   .newsletter-overlay {
@@ -266,43 +262,33 @@
       rgba(255, 255, 255, 0) 100%
     );
     transform: rotate(30deg);
-    animation: shine 6s infinite ease-in-out;
+    animation: shine 8s infinite ease-in-out;
     z-index: 0;
+    will-change: transform;
   }
 
   @keyframes shine {
     0% {
       transform: translateX(-100%) rotate(30deg);
     }
-    100% {
+    20%, 100% {
       transform: translateX(100%) rotate(30deg);
     }
   }
 
-  .newsletter-icon {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.15);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-  }
-
   .newsletter-form {
-    max-width: 500px;
+    max-width: 600px;
     margin: 0 auto;
   }
 
   .newsletter-input {
-    padding: 0.9rem 1.3rem;
+    padding: 1.2rem 1.5rem;
     border: none;
-    border-radius: 2px;
-    font-size: 0.95rem;
+    border-radius: 3px;
+    font-size: 1rem;
     flex-grow: 1;
     width: 100%;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
     background-color: rgba(255, 255, 255, 0.95);
     color: var(--color-charcoal);
     transition: all 0.3s ease;
@@ -310,22 +296,22 @@
 
   .newsletter-input:focus {
     outline: none;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
     background-color: white;
   }
 
   .newsletter-button {
-    padding: 0.9rem 1.8rem;
+    padding: 1.2rem 2rem;
     border: 2px solid white;
     background-color: transparent;
     color: white;
     font-weight: 500;
-    border-radius: 2px;
+    border-radius: 3px;
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     transition: all 0.3s ease;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     white-space: nowrap;
   }
 
@@ -333,13 +319,17 @@
     background-color: white;
     color: var(--color-gold);
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   }
 
   /* Main Footer Styling */
   .footer {
     background-color: var(--color-charcoal);
     color: rgba(255, 255, 255, 0.8);
+    margin-top: -20px; /* Negative margin to pull everything up */
+    padding-top: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .footer-main {
@@ -534,6 +524,15 @@
   @media (max-width: 768px) {
     .newsletter-section::before {
       animation-duration: 8s;
+    }
+
+    .newsletter-form {
+      padding: 0 1rem;
+    }
+
+    /* Increase gap on mobile */
+    .newsletter-form .flex {
+      gap: 1rem;
     }
 
     .footer-brand, .footer-links-col, .footer-contact {
