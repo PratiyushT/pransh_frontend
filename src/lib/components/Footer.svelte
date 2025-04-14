@@ -36,16 +36,15 @@
 </script>
 
 <footer class="footer">
-  <!-- Newsletter Section with Gold Background -->
   <div class="newsletter-section" bind:this={newsletterSection}>
     <div class="newsletter-overlay"></div>
-    <div class="container mx-auto px-6 py-24 sm:py-28 relative z-10">
-      <div class="text-center max-w-2xl mx-auto">
-        <h2 class="text-3xl md:text-4xl font-serif mb-6 text-white">Join Our Exclusive Circle</h2>
-        <p class="mb-10 text-white/90 max-w-lg mx-auto leading-relaxed text-lg">Subscribe to receive exclusive offers, early access to new collections, and personalized style recommendations.</p>
+    <div class="container mx-auto px-6 py-24 sm:py-32 relative z-10"> <!-- Updated padding for bigger newsletter -->
+      <div class="text-center max-w-3xl mx-auto">
+        <h2 class="text-3xl md:text-5xl font-serif mb-8 text-white">Join Our Exclusive Circle</h2>
+        <p class="mb-12 text-white/90 max-w-xl mx-auto leading-relaxed text-lg">Subscribe to receive exclusive offers, early access to new collections, and personalized style recommendations.</p>
 
         <form class="newsletter-form">
-          <div class="flex flex-col md:flex-row gap-6">
+          <div class="flex flex-col md:flex-row gap-8">
             <input
               type="email"
               placeholder="Your email address"
@@ -277,15 +276,15 @@
   }
 
   .newsletter-form {
-    max-width: 600px;
+    max-width: 700px;
     margin: 0 auto;
   }
 
   .newsletter-input {
-    padding: 1.2rem 1.5rem;
+    padding: 1.4rem 1.5rem;
     border: none;
     border-radius: 3px;
-    font-size: 1rem;
+    font-size: 1.1rem;
     flex-grow: 1;
     width: 100%;
     box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
@@ -301,7 +300,7 @@
   }
 
   .newsletter-button {
-    padding: 1.2rem 2rem;
+    padding: 1.4rem 2.5rem;
     border: 2px solid white;
     background-color: transparent;
     color: white;
@@ -311,7 +310,7 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     transition: all 0.3s ease;
-    font-size: 0.95rem;
+    font-size: 1rem;
     white-space: nowrap;
   }
 
@@ -324,8 +323,8 @@
 
   /* Main Footer Styling */
   .footer {
-    background-color: var(--color-charcoal);
-    color: rgba(255, 255, 255, 0.8);
+    background-color: var(--color-cream);
+    color: var(--color-charcoal);
     margin-top: -20px; /* Negative margin to pull everything up */
     padding-top: 0;
     display: flex;
@@ -354,7 +353,7 @@
   .footer-heading {
     font-family: var(--heading-font);
     font-size: 1.25rem;
-    color: white;
+    color: rgba(0, 0, 0, 0.7); /* Updated to match cream background */
     margin-bottom: 1.5rem;
     position: relative;
     padding-bottom: 0.75rem;
@@ -384,7 +383,7 @@
   }
 
   .footer-link {
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(0, 0, 0, 0.5); /* Updated to match cream background */
     transition: var(--transition-smooth);
     position: relative;
     display: inline-block;
@@ -401,7 +400,7 @@
   }
 
   .footer-link:hover {
-    color: white;
+    color: var(--color-charcoal);
   }
 
   .footer-link:hover::before {
@@ -418,9 +417,9 @@
     justify-content: center;
     width: 2.5rem;
     height: 2.5rem;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.05);
     border-radius: 50%;
-    color: white;
+    color: var(--color-charcoal);
     transition: all 0.3s ease;
   }
 
@@ -440,7 +439,7 @@
   .contact-icon {
     width: 2.5rem;
     height: 2.5rem;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.05);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -453,11 +452,11 @@
   .contact-text {
     padding-top: 0.5rem;
     line-height: 1.5;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--color-charcoal-light);
   }
 
   .contact-link {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--color-charcoal-light);
     transition: color 0.3s ease;
     position: relative;
     display: inline-block;
@@ -488,8 +487,8 @@
     background: linear-gradient(
       to right,
       transparent,
-      rgba(255, 255, 255, 0.1) 15%,
-      rgba(255, 255, 255, 0.1) 85%,
+      rgba(0, 0, 0, 0.1) 15%,
+      rgba(0, 0, 0, 0.1) 85%,
       transparent
     );
   }
