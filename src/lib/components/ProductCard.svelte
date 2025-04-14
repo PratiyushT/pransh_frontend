@@ -3,6 +3,7 @@
   import type { Product } from '$lib/types';
   import { onMount, createEventDispatcher } from 'svelte';
   import gsap from 'gsap';
+  import { addToCart } from '$lib/stores/index';
 
   export let product: Product;
 
@@ -29,6 +30,7 @@
   let isLoaded = false;
   let isTouchDevice = false;
   let timeline: gsap.core.Timeline;
+  let mainCartIcon: HTMLElement;
 
   // Fallback for images that fail to load
   function handleImageError(event) {
@@ -121,6 +123,12 @@
         isLoaded = true;
       }
     });
+
+    // Find the cart icon in the header for add-to-cart animation
+    mainCartIcon = document.querySelector('.header .header-action-icon[aria-label="Cart"]');
+    if (!mainCartIcon) {
+      mainCartIcon = document.querySelector('.header-sticky .header-action-icon[aria-label="Cart"]');
+    }
   });
 
   const handleMouseEnter = () => {
@@ -153,6 +161,89 @@
     e.preventDefault();
     e.stopPropagation();
     dispatch('quickview', { product });
+  };
+
+  // Add to cart handler with animation
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Create clone of product image for animation
+    const productImage = imageContainer.querySelector('.primary-image');
+    const rect = productImage.getBoundingClientRect();
+
+    // Create a flying image element
+    const flyingImg = document.createElement('img');
+    flyingImg.src = primaryImage;
+    flyingImg.classList.add('flying-cart-item');
+    flyingImg.style.position = 'fixed';
+    flyingImg.style.zIndex = '9999';
+    flyingImg.style.width = '80px';
+    flyingImg.style.height = '80px';
+    flyingImg.style.objectFit = 'cover';
+    flyingImg.style.borderRadius = '50%';
+    flyingImg.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.2)';
+    flyingImg.style.left = `${rect.left + (rect.width / 2) - 40}px`;
+    flyingImg.style.top = `${rect.top + (rect.height / 2) - 40}px`;
+    document.body.appendChild(flyingImg);
+
+    // Get the cart icon position
+    if (mainCartIcon) {
+      const cartRect = mainCartIcon.getBoundingClientRect();
+      const cartX = cartRect.left + (cartRect.width / 2);
+      const cartY = cartRect.top + (cartRect.height / 2);
+
+      // Animate the flying image to the cart
+      gsap.to(flyingImg, {
+        duration: 0.8,
+        x: cartX - (rect.left + rect.width / 2),
+        y: cartY - (rect.top + rect.height / 2),
+        scale: 0.1,
+        opacity: 0.7,
+        ease: "power3.in",
+        onComplete: () => {
+          // Remove the flying image
+          document.body.removeChild(flyingImg);
+
+          // Add item to cart
+          addToCart(product, 0);
+
+          // Animate cart icon
+          gsap.fromTo(mainCartIcon,
+            { scale: 0.8 },
+            { scale: 1.2, duration: 0.2, ease: "elastic.out(1, 0.3)" }
+          );
+
+          // Create ripple effect
+          const ripple = document.createElement('div');
+          ripple.classList.add('cart-ripple');
+          ripple.style.position = 'absolute';
+          ripple.style.zIndex = '9998';
+          ripple.style.top = '50%';
+          ripple.style.left = '50%';
+          ripple.style.transform = 'translate(-50%, -50%)';
+          ripple.style.width = '10px';
+          ripple.style.height = '10px';
+          ripple.style.backgroundColor = 'var(--color-gold)';
+          ripple.style.borderRadius = '50%';
+          ripple.style.pointerEvents = 'none';
+          mainCartIcon.appendChild(ripple);
+
+          gsap.to(ripple, {
+            duration: 0.6,
+            scale: 15,
+            opacity: 0,
+            ease: "power2.out",
+            onComplete: () => {
+              mainCartIcon.removeChild(ripple);
+            }
+          });
+        }
+      });
+    } else {
+      // Fallback if cart icon not found
+      addToCart(product, 0);
+    }
   };
 </script>
 
@@ -197,6 +288,15 @@
               <line x1="8" y1="12" x2="16" y2="12"></line>
             </svg>
           </button>
+          <button class="product-card-action add-to-cart"
+            aria-label="Add to cart"
+            on:click={handleAddToCart}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+          </button>
         </div>
         <div class="product-card-cta">
           <span>View Details</span>
@@ -223,6 +323,15 @@
           {/each}
         </div>
       {/if}
+
+      <button class="add-to-cart-button" on:click={handleAddToCart}>
+        <span>Add to Cart</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+      </button>
     </div>
   </div>
 </a>
@@ -331,6 +440,16 @@
     box-shadow: 0 6px 16px rgba(0,0,0,0.2);
   }
 
+  .product-card-action.add-to-cart {
+    background-color: var(--color-gold);
+    color: var(--color-white);
+  }
+
+  .product-card-action.add-to-cart:hover {
+    background-color: var(--color-gold-dark);
+    transform: scale(1.15) translateY(-3px);
+  }
+
   .product-card-cta {
     display: flex;
     align-items: center;
@@ -414,7 +533,7 @@
   }
 
   .product-card-rating {
-    margin-top: auto;
+    margin-bottom: 1rem;
     display: flex;
     gap: 0.2rem;
     font-size: 0.95rem;
@@ -428,6 +547,43 @@
     color: var(--color-gold);
   }
 
+  .add-to-cart-button {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-gold);
+    color: var(--color-gold);
+    font-weight: 500;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    transform: translateY(5px);
+    opacity: 0.9;
+  }
+
+  .add-to-cart-button:hover {
+    background-color: var(--color-gold);
+    color: var(--color-white);
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .product-card:hover .add-to-cart-button {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* Flying cart item animation will be handled through JS */
+  :global(.flying-cart-item) {
+    pointer-events: none;
+  }
+
+  /* Add responsive adjustments */
   @media (max-width: 768px) {
     .product-card-overlay {
       background: linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.4) 100%);
@@ -441,6 +597,11 @@
 
     .product-card-title {
       font-size: 1.25rem;
+    }
+
+    .add-to-cart-button {
+      transform: translateY(0);
+      opacity: 1;
     }
   }
 </style>

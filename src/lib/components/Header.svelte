@@ -1,12 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { isMenuOpen } from '$lib/stores/index';
-  const cartCount = { subscribe: () => ({ unsubscribe: () => {} }) };
+  import { isMenuOpen, cartCount } from '$lib/stores/index';
+  import gsap from 'gsap';
 
   let prevScrollY = 0;
   let headerSticky: HTMLElement;
   let isVisible = false;
+  let isScrolled = false;
   let scrollY: number;
+  let cartIconHeader: HTMLElement;
+  let cartIconSticky: HTMLElement;
 
   onMount(() => {
     const handleScroll = () => {
@@ -14,16 +17,11 @@
 
       // Show sticky header when scrolling down past 100px
       if (scrollY > 100) {
-        if (scrollY > prevScrollY) {
-          // Scrolling down - hide header
-          isVisible = false;
-        } else {
-          // Scrolling up - show header
-          isVisible = true;
-        }
+        isScrolled = true;
+        isVisible = true; // Always visible when scrolled
       } else {
-        // At the top - no sticky header
-        isVisible = false;
+        isScrolled = false;
+        isVisible = false; // Hide at the top
       }
 
       prevScrollY = scrollY;
@@ -31,10 +29,31 @@
 
     window.addEventListener('scroll', handleScroll);
 
+    // Set up GSAP animation for the header
+    gsap.fromTo(headerSticky,
+      { y: -100, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", paused: true }
+    );
+
+    // Store references to cart icons for the add-to-cart animation
+    cartIconHeader = document.querySelector('.header .header-action-icon[aria-label="Cart"]');
+    cartIconSticky = document.querySelector('.header-sticky .header-action-icon[aria-label="Cart"]');
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
   });
+
+  // Watch isVisible to trigger the animation
+  $: if (isVisible) {
+    if (headerSticky) {
+      gsap.to(headerSticky, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" });
+    }
+  } else {
+    if (headerSticky) {
+      gsap.to(headerSticky, { y: -100, opacity: 0, duration: 0.3, ease: "power3.in" });
+    }
+  }
 
   const toggleMenu = () => {
     $isMenuOpen = !$isMenuOpen;
@@ -74,14 +93,14 @@
           </svg>
         </a>
 
-        <a href="/cart" class="header-action-icon relative" aria-label="Cart">
+        <a href="/cart" class="header-action-icon relative" aria-label="Cart" bind:this={cartIconHeader}>
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1"></circle>
             <circle cx="20" cy="21" r="1"></circle>
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
           {#if $cartCount > 0}
-            <span class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-primary text-white text-xs flex items-center justify-center">
+            <span class="cart-count absolute -top-2 -right-2 w-5 h-5 rounded-full bg-gold text-white text-xs flex items-center justify-center">
               {$cartCount}
             </span>
           {/if}
@@ -121,14 +140,14 @@
           </svg>
         </a>
 
-        <a href="/cart" class="header-action-icon relative" aria-label="Cart">
+        <a href="/cart" class="header-action-icon relative" aria-label="Cart" bind:this={cartIconSticky}>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1"></circle>
             <circle cx="20" cy="21" r="1"></circle>
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
           {#if $cartCount > 0}
-            <span class="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-primary text-white text-xs flex items-center justify-center">
+            <span class="cart-count absolute -top-2 -right-2 w-4 h-4 rounded-full bg-gold text-white text-xs flex items-center justify-center">
               {$cartCount}
             </span>
           {/if}
@@ -233,14 +252,54 @@
     top: 0;
     left: 0;
     width: 100%;
-    background-color: rgba(250, 249, 246, 0.9);
-    backdrop-filter: blur(4px);
+    background-color: rgba(250, 249, 246, 0.92);
+    backdrop-filter: blur(10px);
     z-index: 30;
-    transition: all 0.3s;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    will-change: transform, opacity;
     transform: translateY(-100%);
   }
 
   .header-sticky.visible {
     transform: translateY(0);
+  }
+
+  .header-action-icon {
+    position: relative;
+    transition: transform 0.3s ease, color 0.3s ease;
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .header-action-icon:hover {
+    color: var(--color-gold);
+    transform: translateY(-2px);
+  }
+
+  .cart-count {
+    background-color: var(--color-gold);
+    transition: all 0.3s ease;
+    will-change: transform;
+    transform-origin: center;
+  }
+
+  .nav-link {
+    position: relative;
+    transition: color 0.3s ease;
+  }
+
+  .nav-link:after {
+    content: '';
+    position: absolute;
+    width: 0%;
+    height: 2px;
+    bottom: -4px;
+    left: 0;
+    background-color: var(--color-gold);
+    transition: width 0.3s ease;
+  }
+
+  .nav-link:hover:after {
+    width: 100%;
   }
 </style>
