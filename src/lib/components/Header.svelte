@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { isMenuOpen } from '$lib/stores/index';
-  // Import just isMenuOpen for now since we don't have cart implementation yet
   const cartCount = { subscribe: () => ({ unsubscribe: () => {} }) };
 
   let prevScrollY = 0;
@@ -54,11 +53,9 @@
 
       <nav class="hidden md:block">
         <ul class="nav-links">
-          <li><a href="/category/women" class="nav-link">Women</a></li>
-          <li><a href="/category/men" class="nav-link">Men</a></li>
-          <li><a href="/category/accessories" class="nav-link">Accessories</a></li>
-          <li><a href="/collection/new" class="nav-link">New Arrivals</a></li>
-          <li><a href="/about" class="nav-link">Our Story</a></li>
+          <li><a href="/" class="nav-link">Home</a></li>
+          <li><a href="/category/all" class="nav-link">Shop</a></li>
+          <li><a href="/about" class="nav-link">About & Contact</a></li>
         </ul>
       </nav>
 
@@ -110,10 +107,9 @@
 
       <nav class="hidden md:block">
         <ul class="nav-links">
-          <li><a href="/category/women" class="nav-link text-sm">Women</a></li>
-          <li><a href="/category/men" class="nav-link text-sm">Men</a></li>
-          <li><a href="/category/accessories" class="nav-link text-sm">Accessories</a></li>
-          <li><a href="/collection/new" class="nav-link text-sm">New Arrivals</a></li>
+          <li><a href="/" class="nav-link text-sm">Home</a></li>
+          <li><a href="/category/all" class="nav-link text-sm">Shop</a></li>
+          <li><a href="/about" class="nav-link text-sm">About & Contact</a></li>
         </ul>
       </nav>
 

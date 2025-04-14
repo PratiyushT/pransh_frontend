@@ -4,47 +4,108 @@
   import { getCategories } from '$lib/utils/data';
   import gsap from 'gsap';
 
+  // For cart display (matching the header)
+  const cartCount = { subscribe: () => ({ unsubscribe: () => {} }) };
+
   const categories = getCategories();
   let menuLinks: HTMLElement;
   let menuFooter: HTMLElement;
+  let menuHeader: HTMLElement;
+  let menuContent: HTMLElement;
+  let touchStartY: number = 0;
+  let touchEndY: number = 0;
 
-  // Close menu when escape key is pressed
+  // Close menu function
+  const closeMenu = () => {
+    $isMenuOpen = false;
+    document.body.style.overflow = '';
+  };
+
   onMount(() => {
+    // Close menu when escape key is pressed
     const handleEscapeKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && $isMenuOpen) {
-        $isMenuOpen = false;
-        document.body.style.overflow = '';
+        closeMenu();
       }
     };
+
+    // Handle swipe down to close
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      touchEndY = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = () => {
+      if (touchEndY - touchStartY > 100) { // If swiped down more than 100px
+        closeMenu();
+      }
+      // Reset values
+      touchStartY = 0;
+      touchEndY = 0;
+    };
+
+    if (menuContent) {
+      menuContent.addEventListener('touchstart', handleTouchStart, { passive: true });
+      menuContent.addEventListener('touchmove', handleTouchMove, { passive: true });
+      menuContent.addEventListener('touchend', handleTouchEnd, { passive: true });
+    }
 
     window.addEventListener('keydown', handleEscapeKey);
 
     return () => {
       window.removeEventListener('keydown', handleEscapeKey);
+      if (menuContent) {
+        menuContent.removeEventListener('touchstart', handleTouchStart);
+        menuContent.removeEventListener('touchmove', handleTouchMove);
+        menuContent.removeEventListener('touchend', handleTouchEnd);
+      }
     };
   });
 
   // Watch for menu open/close to trigger animations
-  $: if ($isMenuOpen && menuLinks && menuFooter) {
+  $: if ($isMenuOpen && menuLinks && menuFooter && menuHeader) {
     // Animation for open
     animateMenuOpen();
-  } else if (!$isMenuOpen && menuLinks && menuFooter) {
+  } else if (!$isMenuOpen && menuLinks && menuFooter && menuHeader) {
     // Animation for close
     animateMenuClose();
   }
 
   function animateMenuOpen() {
     const links = menuLinks.querySelectorAll('.menu-link');
+    const icons = menuHeader.querySelectorAll('.menu-action-icon');
+    const logo = menuHeader.querySelector('.menu-brand-logo');
 
     // Preset the initial state
-    gsap.set(links, {
+    gsap.set([links, menuFooter], {
       y: 30,
       opacity: 0
     });
 
-    gsap.set(menuFooter, {
-      y: 20,
-      opacity: 0
+    gsap.set([icons, logo], {
+      opacity: 0,
+      y: -10
+    });
+
+    // Animate header elements
+    gsap.to(logo, {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+      delay: 0.2,
+      ease: "power2.out"
+    });
+
+    gsap.to(icons, {
+      opacity: 1,
+      y: 0,
+      stagger: 0.1,
+      duration: 0.5,
+      delay: 0.3,
+      ease: "power2.out"
     });
 
     // Animate links
@@ -52,7 +113,7 @@
       y: 0,
       opacity: 1,
       stagger: 0.1,
-      delay: 0.2,
+      delay: 0.4,
       duration: 0.7,
       ease: "power3.out"
     });
@@ -62,7 +123,7 @@
       y: 0,
       opacity: 1,
       duration: 0.7,
-      delay: 0.6,
+      delay: 0.8,
       ease: "power2.out"
     });
   }
@@ -71,50 +132,108 @@
     // No need to animate out since the menu will be hidden with CSS transforms
     // Just reset the animation states for the next opening
     const links = menuLinks.querySelectorAll('.menu-link');
+    const icons = menuHeader.querySelectorAll('.menu-action-icon');
+    const logo = menuHeader.querySelector('.menu-brand-logo');
 
-    gsap.set(links, {
+    gsap.set([links, menuFooter], {
       y: 30,
       opacity: 0
     });
 
-    gsap.set(menuFooter, {
-      y: 20,
-      opacity: 0
+    gsap.set([icons, logo], {
+      opacity: 0,
+      y: -10
     });
+  }
+
+  // Show a hint for swipe gesture
+  $: if ($isMenuOpen) {
+    setTimeout(() => {
+      const swipeHint = document.querySelector('.swipe-hint');
+      if (swipeHint) {
+        gsap.fromTo(swipeHint,
+          { y: -20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.5, delay: 1.5 }
+        );
+
+        // Hide hint after showing
+        setTimeout(() => {
+          gsap.to(swipeHint, { opacity: 0, duration: 0.5, delay: 2 });
+        }, 2000);
+      }
+    }, 500);
   }
 </script>
 
 <div class="fullscreen-menu" class:open={$isMenuOpen}>
   <div class="menu-glass-layer"></div>
-  <div class="menu-content">
-    <nav class="menu-nav py-20">
+  <div class="menu-content" bind:this={menuContent}>
+    <!-- Menu Header with Logo and Icons -->
+    <div class="menu-header" bind:this={menuHeader}>
+      <div class="menu-header-inner">
+        <a href="/" class="menu-brand-logo" on:click={closeMenu}>Pransh</a>
+
+        <div class="menu-actions">
+          <a href="/search" class="menu-action-icon" aria-label="Search" on:click={closeMenu}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </a>
+
+          <a href="/account" class="menu-action-icon" aria-label="Account" on:click={closeMenu}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </a>
+
+          <a href="/cart" class="menu-action-icon relative" aria-label="Cart" on:click={closeMenu}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            {#if $cartCount > 0}
+              <span class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-gold text-white text-xs flex items-center justify-center">
+                {$cartCount}
+              </span>
+            {/if}
+          </a>
+
+          <button class="menu-close-button" on:click={closeMenu} aria-label="Close menu">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Swipe down hint (mobile only) -->
+    <div class="swipe-hint md:hidden">
+      <div class="swipe-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <polyline points="19 12 12 19 5 12"></polyline>
+        </svg>
+      </div>
+      <span>Swipe down to close</span>
+    </div>
+
+    <nav class="menu-nav">
       <ul class="menu-links" bind:this={menuLinks}>
         <li>
-          <a href="/" class="menu-link" on:click={() => ($isMenuOpen = false)}>Home</a>
+          <a href="/" class="menu-link" on:click={closeMenu}>Home</a>
         </li>
 
         <li>
-          <a href="/category/women" class="menu-link" on:click={() => ($isMenuOpen = false)}>Women</a>
+          <a href="/category/all" class="menu-link" on:click={closeMenu}>Shop</a>
         </li>
 
         <li>
-          <a href="/category/men" class="menu-link" on:click={() => ($isMenuOpen = false)}>Men</a>
-        </li>
-
-        <li>
-          <a href="/category/accessories" class="menu-link" on:click={() => ($isMenuOpen = false)}>Accessories</a>
-        </li>
-
-        <li>
-          <a href="/collection/new" class="menu-link" on:click={() => ($isMenuOpen = false)}>New Arrivals</a>
-        </li>
-
-        <li>
-          <a href="/about" class="menu-link" on:click={() => ($isMenuOpen = false)}>Our Story</a>
-        </li>
-
-        <li>
-          <a href="/contact" class="menu-link" on:click={() => ($isMenuOpen = false)}>Contact</a>
+          <a href="/about" class="menu-link" on:click={closeMenu}>About & Contact</a>
         </li>
       </ul>
     </nav>
@@ -158,8 +277,8 @@
     z-index: 100;
     transform: translateY(-100%);
     transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
-    overflow-y: auto;
     pointer-events: none;
+    overflow: hidden;
   }
 
   .fullscreen-menu.open {
@@ -170,7 +289,7 @@
   .menu-glass-layer {
     position: absolute;
     inset: 0;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -211,7 +330,7 @@
   .menu-content {
     display: flex;
     flex-direction: column;
-    min-height: 100%;
+    height: 100%;
     padding: 0 1.5rem;
     position: relative;
     max-width: 1320px;
@@ -219,11 +338,116 @@
     margin: 0 auto;
   }
 
+  /* Menu Header */
+  .menu-header {
+    padding: 1.5rem 0;
+    opacity: 1;
+  }
+
+  .menu-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .menu-brand-logo {
+    font-family: var(--heading-font);
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--color-gold);
+    letter-spacing: 0.05em;
+    transition: transform 0.3s ease;
+  }
+
+  .menu-brand-logo:hover {
+    transform: scale(1.05);
+  }
+
+  .menu-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .menu-action-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-charcoal);
+    transition: all 0.3s ease;
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+
+  .menu-action-icon:hover {
+    background-color: rgba(212, 175, 55, 0.1);
+    color: var(--color-gold);
+    transform: translateY(-2px);
+  }
+
+  .menu-close-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-charcoal);
+    background-color: rgba(0, 0, 0, 0.03);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .menu-close-button:hover {
+    background-color: rgba(212, 175, 55, 0.1);
+    color: var(--color-gold);
+    transform: rotate(90deg);
+  }
+
+  /* Swipe hint */
+  .swipe-hint {
+    position: absolute;
+    top: 5rem;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 0.85rem;
+  }
+
+  .swipe-icon {
+    margin-bottom: 0.5rem;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: translateY(0);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateY(5px);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 0.8;
+    }
+  }
+
   .menu-nav {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
   }
 
   .menu-links {
@@ -231,7 +455,7 @@
     flex-direction: column;
     align-items: center;
     gap: 1.5rem;
-    padding: 2rem 0;
+    padding: 1rem 0;
   }
 
   .menu-link {
@@ -290,6 +514,11 @@
     background-color: var(--color-gold);
     color: white;
     transform: translateY(-3px);
+  }
+
+  /* Gold background for cart count */
+  .bg-gold {
+    background-color: var(--color-gold);
   }
 
   @media (min-width: 768px) {

@@ -199,7 +199,7 @@
     </p>
     <div class="hero-btns">
       <a href="/category/all" class="btn btn-primary">Shop Collection</a>
-      <a href="/about" class="btn btn-secondary">Our Story</a>
+      <a href="/about" class="btn btn-secondary">About & Contact</a>
     </div>
   </div>
 </section>
