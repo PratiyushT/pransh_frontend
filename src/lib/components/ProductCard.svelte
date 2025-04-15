@@ -234,87 +234,15 @@
   };
 
   // Add to cart handler with animation
-  // const handleAddToCart = (e) => {
-  //   e.preventDefault();
-  //   e.stopPropagation();
-  //
-  //   // Create clone of product image for animation
-  //   const productImage = imageContainer.querySelector('.primary-image');
-  //   const rect = productImage.getBoundingClientRect();
-  //
-  //   // Create a flying image element
-  //   const flyingImg = document.createElement('img');
-  //   flyingImg.src = primaryImage;
-  //   flyingImg.classList.add('flying-cart-item');
-  //   flyingImg.style.position = 'fixed';
-  //   flyingImg.style.zIndex = '9999';
-  //   flyingImg.style.width = '80px';
-  //   flyingImg.style.height = '80px';
-  //   flyingImg.style.objectFit = 'cover';
-  //   flyingImg.style.borderRadius = '50%';
-  //   flyingImg.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.2)';
-  //   flyingImg.style.left = `${rect.left + (rect.width / 2) - 40}px`;
-  //   flyingImg.style.top = `${rect.top + (rect.height / 2) - 40}px`;
-  //   document.body.appendChild(flyingImg);
-  //
-  //   // Get the cart icon position
-  //   if (mainCartIcon) {
-  //     const cartRect = mainCartIcon.getBoundingClientRect();
-  //     const cartX = cartRect.left + (cartRect.width / 2);
-  //     const cartY = cartRect.top + (cartRect.height / 2);
-  //
-  //     // Animate the flying image to the cart - FASTER
-  //     gsap.to(flyingImg, {
-  //       duration: 0.6,
-  //       x: cartX - (rect.left + rect.width / 2),
-  //       y: cartY - (rect.top + rect.height / 2),
-  //       scale: 0.1,
-  //       opacity: 0.7,
-  //       ease: "power2.in",
-  //       onComplete: () => {
-  //         // Remove the flying image
-  //         document.body.removeChild(flyingImg);
-  //
-  //         // Add item to cart
-  //         addToCart(product, 0);
-  //
-  //         // Animate cart icon - SNAPPIER
-  //         gsap.fromTo(mainCartIcon,
-  //           { scale: 0.8 },
-  //           { scale: 1.3, duration: 0.15, ease: "elastic.out(1.2, 0.4)" }
-  //         );
-  //
-  //         // Create ripple effect - FASTER
-  //         const ripple = document.createElement('div');
-  //         ripple.classList.add('cart-ripple');
-  //         ripple.style.position = 'absolute';
-  //         ripple.style.zIndex = '9998';
-  //         ripple.style.top = '50%';
-  //         ripple.style.left = '50%';
-  //         ripple.style.transform = 'translate(-50%, -50%)';
-  //         ripple.style.width = '10px';
-  //         ripple.style.height = '10px';
-  //         ripple.style.backgroundColor = 'var(--color-gold)';
-  //         ripple.style.borderRadius = '50%';
-  //         ripple.style.pointerEvents = 'none';
-  //         mainCartIcon.appendChild(ripple);
-  //
-  //         gsap.to(ripple, {
-  //           duration: 0.4,
-  //           scale: 15,
-  //           opacity: 0,
-  //           ease: "power1.out",
-  //           onComplete: () => {
-  //             mainCartIcon.removeChild(ripple);
-  //           }
-  //         });
-  //       }
-  //     });
-  //   } else {
-  //     // Fallback if cart icon not found
-  //     addToCart(product, 0);
-  //   }
-  // };
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Instead of adding directly to cart, open the QuickView modal
+    // so the user can select size
+    dispatch('quickview', { product });
+  };
+
 </script>
 
 <a

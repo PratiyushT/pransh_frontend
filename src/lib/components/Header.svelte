@@ -12,30 +12,46 @@
   let cartIconSticky: HTMLElement;
   let wishlistIconHeader: HTMLElement;
   let wishlistIconSticky: HTMLElement;
+  let headerAnimation: gsap.core.Timeline;
+  let scrollDirection = "up";
+  let throttleTimeout: ReturnType<typeof setTimeout> | null = null;
+  let mainHeader: HTMLElement;
 
   onMount(() => {
+    // Initialize GSAP timeline for smoother animation control
+    headerAnimation = gsap.timeline({ paused: true });
+    headerAnimation.fromTo(headerSticky,
+      { y: -100, opacity: 0, pointerEvents: "none" },
+      { y: 0, opacity: 1, duration: 0.4, ease: "power2.out", pointerEvents: "auto" }
+    );
+
+    // Throttled scroll handler for better performance
     const handleScroll = () => {
-      scrollY = window.scrollY;
+      if (throttleTimeout) return;
 
-      // Show sticky header when scrolling down past 100px
-      if (scrollY > 100) {
-        isScrolled = true;
-        isVisible = true; // Always visible when scrolled
-      } else {
-        isScrolled = false;
-        isVisible = false; // Hide at the top
-      }
+      throttleTimeout = setTimeout(() => {
+        scrollY = window.scrollY;
+        scrollDirection = scrollY > prevScrollY ? "down" : "up";
 
-      prevScrollY = scrollY;
+        // Show sticky header when scrolling down past 80px (slightly faster appearance)
+        if (scrollY > 80) {
+          isScrolled = true;
+          isVisible = true; // Show sticky header only when we're not at the very top
+        } else {
+          isScrolled = false;
+          // When scrolling up to the very top, complete the animation before hiding
+          if (scrollY < 10 && scrollDirection === "up") {
+            // Ensure we hide the sticky header when we reach the top
+            isVisible = false;
+          }
+        }
+
+        prevScrollY = scrollY;
+        throttleTimeout = null;
+      }, 10); // Small throttle for smoother transitions
     };
 
     window.addEventListener('scroll', handleScroll);
-
-    // Set up GSAP animation for the header
-    gsap.fromTo(headerSticky,
-      { y: -100, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", paused: true }
-    );
 
     // Store references to cart icons for the add-to-cart animation
     cartIconHeader = document.querySelector('.header .header-action-icon.cart-icon[aria-label="Cart"]');
@@ -47,17 +63,35 @@
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      if (throttleTimeout) {
+        clearTimeout(throttleTimeout);
+      }
     };
   });
 
-  // Watch isVisible to trigger the animation
-  $: if (isVisible) {
-    if (headerSticky) {
-      gsap.to(headerSticky, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" });
+  // Watch isVisible to trigger the animation with smoother transitions
+  $: if (isVisible && headerAnimation) {
+    // When the sticky header becomes visible, slightly adjust the main header
+    headerAnimation.play();
+
+    if (mainHeader) {
+      // Adjust main header visibility when sticky header is active
+      gsap.to(mainHeader, {
+        opacity: scrollY < 50 ? 1 : 0,
+        duration: 0.3,
+        ease: "power2.inOut"
+      });
     }
-  } else {
-    if (headerSticky) {
-      gsap.to(headerSticky, { y: -100, opacity: 0, duration: 0.3, ease: "power3.in" });
+  } else if (headerAnimation) {
+    headerAnimation.reverse();
+
+    if (mainHeader) {
+      // Make sure main header is fully visible when sticky header is hidden
+      gsap.to(mainHeader, {
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out"
+      });
     }
   }
 
@@ -71,7 +105,7 @@
   };
 </script>
 
-<header class="header">
+<header class="header" bind:this={mainHeader}>
   <div class="container">
     <div class="header-inner">
       <a href="/" class="brand-logo">
@@ -279,21 +313,35 @@
     background-color: var(--color-gold);
   }
 
+  .header {
+    position: relative;
+    z-index: 20;
+    background-color: var(--color-white);
+    width: 100%;
+    transition: opacity 0.3s ease;
+    will-change: opacity;
+  }
+
   .header-sticky {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    background-color: rgba(250, 249, 246, 0.92);
-    backdrop-filter: blur(10px);
-    z-index: 30;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    background-color: rgba(250, 249, 246, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 25; /* Adjust z-index to be between header and menu */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     will-change: transform, opacity;
     transform: translateY(-100%);
+    pointer-events: none; /* Prevent interaction when hidden */
+    transition: box-shadow 0.3s ease, transform 0.3s ease; /* Smooth all transitions */
   }
 
   .header-sticky.visible {
     transform: translateY(0);
+    pointer-events: all; /* Enable interaction when visible */
+    z-index: 25; /* Keep consistent z-index */
   }
 
   .header-action-icon {

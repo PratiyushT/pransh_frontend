@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Product, CartItem } from '$lib/types';
+import { browser } from '$app/environment';
 
 // Loading state
 export const isLoading = writable(true);
@@ -7,8 +8,20 @@ export const isLoading = writable(true);
 // Menu state
 export const isMenuOpen = writable(false);
 
+// Initialize cart from localStorage if available
+const storedCart = browser && localStorage.getItem('cart')
+  ? JSON.parse(localStorage.getItem('cart') || '[]')
+  : [];
+
 // Cart state
-export const cart = writable<CartItem[]>([]);
+export const cart = writable<CartItem[]>(storedCart);
+
+// Update localStorage when cart changes
+if (browser) {
+  cart.subscribe(items => {
+    localStorage.setItem('cart', JSON.stringify(items));
+  });
+}
 
 // Cart count
 export const cartCount = derived(cart, ($cart) => {
@@ -75,8 +88,20 @@ export const clearCart = () => {
   cart.set([]);
 };
 
+// Initialize wishlist from localStorage if available
+const storedWishlist = browser && localStorage.getItem('wishlist')
+  ? JSON.parse(localStorage.getItem('wishlist') || '[]')
+  : [];
+
 // Wishlist functionality
-export const wishlist = writable<string[]>([]);
+export const wishlist = writable<string[]>(storedWishlist);
+
+// Update localStorage when wishlist changes
+if (browser) {
+  wishlist.subscribe(items => {
+    localStorage.setItem('wishlist', JSON.stringify(items));
+  });
+}
 
 // Wishlist count
 export const wishlistCount = derived(wishlist, $wishlist => $wishlist.length);

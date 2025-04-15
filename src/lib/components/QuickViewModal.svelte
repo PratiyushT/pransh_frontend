@@ -54,6 +54,33 @@
     }
   };
 
+  // Handle size selection
+  let availableSizes = [];
+
+  // Get available sizes for the selected color
+  $: {
+    if (product && selectedVariant) {
+      // Find all variants with the same color and get their sizes
+      availableSizes = product.variants
+        .filter(variant => variant.color.name === selectedVariant.color.name)
+        .map(variant => variant.size)
+        .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+    }
+  }
+
+  const selectSize = (size) => {
+    if (size) {
+      // Find variant with selected color and size
+      const variantIndex = product?.variants.findIndex(
+        v => v.color.name === selectedVariant?.color.name && v.size === size
+      );
+
+      if (variantIndex !== -1 && variantIndex !== undefined) {
+        selectedVariantIndex = variantIndex;
+      }
+    }
+  };
+
   // Handle quantity changes
   const decreaseQuantity = () => {
     if (quantity > 1) quantity--;
@@ -199,6 +226,22 @@
               </div>
             </div>
           {/if}
+
+          <div class="option-group">
+            <h3 class="option-title">Size</h3>
+            <div class="size-options">
+              {#each availableSizes as size}
+                <button
+                  class="size-option {selectedVariant?.size === size ? 'active' : ''}"
+                  on:click={() => selectSize(size)}
+                  aria-label={`Select size ${size}`}
+                  aria-pressed={selectedVariant?.size === size}
+                >
+                  {size}
+                </button>
+              {/each}
+            </div>
+          </div>
 
           <div class="option-group">
             <h3 class="option-title">Quantity</h3>
@@ -485,6 +528,36 @@
 
   .color-option.active {
     box-shadow: 0 0 0 2px var(--color-white), 0 0 0 3px var(--color-gold);
+  }
+
+  .size-options {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .size-option {
+    min-width: 40px;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--color-charcoal-light);
+    border-radius: 2px;
+    background: var(--color-white);
+    color: var(--color-charcoal);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+  }
+
+  .size-option:hover {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+  }
+
+  .size-option.active {
+    background-color: var(--color-gold);
+    color: var(--color-white);
+    border-color: var(--color-gold);
   }
 
   .quantity-selector {

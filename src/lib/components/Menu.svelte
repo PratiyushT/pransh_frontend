@@ -316,11 +316,12 @@
     inset: 0;
     display: flex;
     flex-direction: column;
-    z-index: 100;
+    z-index: 30; /* Ensure menu is above all headers */
     transform: translateY(-100%);
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); /* Smoother easing */
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); /* Smoother easing for more natural feel */
     pointer-events: none;
     overflow: hidden;
+    will-change: transform; /* Optimize for animation performance */
   }
 
   .fullscreen-menu.open {
@@ -331,42 +332,13 @@
   .menu-glass-layer {
     position: absolute;
     inset: 0;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     z-index: -1;
     overflow: hidden;
-  }
-
-  .menu-glass-layer::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.2),
-      transparent
-    );
-    transform: skewX(-20deg);
-    pointer-events: none;
-    animation: shine 1.5s ease forwards 0.5s;
-  }
-
-  @keyframes shine {
-    0% {
-      left: -100%;
-      opacity: 0.5;
-    }
-    100% {
-      left: 200%;
-      opacity: 0;
-    }
   }
 
   .menu-content {
@@ -510,6 +482,7 @@
     transform-origin: center;
     padding: 0.2rem 0.5rem;
     letter-spacing: 0.02em;
+    will-change: transform, color; /* Optimize for animation performance */
   }
 
   .menu-link::before {
@@ -522,8 +495,9 @@
     background-color: var(--color-gold);
     transform: scaleX(0);
     transform-origin: right;
-    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); /* Smoother transition */
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); /* Smoother transition */
     opacity: 0.7;
+    will-change: transform; /* Optimize for animation performance */
   }
 
   .menu-link:hover {
