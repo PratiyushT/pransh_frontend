@@ -77,9 +77,19 @@ export const addToCart = (product: Product, variantIndex: number, quantity: numb
 
 // Remove from cart
 export const removeFromCart = (productId: string, variantSku: string) => {
-  cart.update(items => items.filter(item =>
-    !(item.productId === productId && item.variantSku === variantSku)
-  ));
+  cart.update(items => {
+    // Only filter out the exact match of both productId AND variantSku
+    const newItems = items.filter(item => {
+      // Make sure we're comparing both productId and variantSku
+      const isMatchingProduct = item.productId === productId;
+      const isMatchingVariant = item.variantSku === variantSku;
+
+      // Keep the item unless both product ID and variant SKU match
+      return !(isMatchingProduct && isMatchingVariant);
+    });
+
+    return newItems;
+  });
 };
 
 // Update cart item quantity
@@ -97,7 +107,6 @@ export const updateCartItemQuantity = (productId: string, variantSku: string, qu
 export const clearCart = () => {
   cart.set([]);
 };
-
 
 //
 // WISHLIST STORE

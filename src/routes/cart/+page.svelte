@@ -46,7 +46,9 @@
     if (isRemoving) return;
     isRemoving = true;
 
-    const itemElement = document.getElementById(`cart-item-${productId}-${variantSku}`);
+    // Ensure we're using the correct unique ID for the cart item
+    const itemId = `cart-item-${productId}-${variantSku}`;
+    const itemElement = document.getElementById(itemId);
 
     if (itemElement) {
       gsap.to(itemElement, {
@@ -89,8 +91,7 @@
 
   // Proceed to checkout
   const proceedToCheckout = () => {
-    // In a real app, this would navigate to the checkout page
-    // or show a checkout modal
+    // Navigate to the checkout page
     const checkoutBtn = document.querySelector('.checkout-btn');
 
     if (checkoutBtn) {
@@ -100,11 +101,11 @@
         yoyo: true,
         repeat: 1,
         onComplete: () => {
-          alert('Proceeding to checkout...');
+          window.location.href = '/checkout';
         }
       });
     } else {
-      alert('Proceeding to checkout...');
+      window.location.href = '/checkout';
     }
   };
 
@@ -292,7 +293,7 @@
 
         <!-- Order Summary -->
         <div class="w-full mt-0 xl:mt-0 relative z-10">
-          <div class="order-summary bg-white p-8 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300 sticky top-24">
+          <div class="order-summary bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300 sticky top-24">
             <h2 class="font-serif text-2xl sm:text-3xl mb-10 text-gold text-center">Order Summary</h2>
 
             <div class="space-y-8 mb-10">
@@ -439,6 +440,20 @@
 
   .cart-item:hover::before {
     width: 100%;
+  }
+
+  /* Fix for Order Summary visibility and alignment */
+  .order-summary {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 10 !important;
+    height: fit-content;
+  }
+
+  /* Ensure consistent card styling */
+  .cart-page .bg-white {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
   }
 
   @media (max-width: 639px) {
