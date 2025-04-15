@@ -143,9 +143,9 @@
   <div class="max-w-[1320px] mx-auto">
     <h1 class="text-3xl sm:text-4xl font-serif mb-16 text-center elegant-title">Shopping Cart</h1>
 
-    <div class="flex flex-col xl:flex-row gap-16 justify-center">
+    <div class="flex flex-col xl:flex-row gap-16 max-w-[1320px] w-full mx-auto px-6 xl:px-0">
       {#if $cart.length > 0}
-        <div class="w-full xl:w-2/3 max-w-4xl mx-auto">
+        <div class="w-full xl:w-2/3 max-w-4xl">
           <div class="bg-white p-10 sm:p-14 shadow-xl rounded-md transition-all duration-300 border border-gray-300">
             <div class="hidden md:grid md:grid-cols-12 border-b pb-8 mb-10">
               <div class="md:col-span-6">
@@ -291,7 +291,7 @@
         </div>
 
         <!-- Order Summary -->
-        <div class="w-full xl:w-1/3 max-w-md mx-auto mt-16 xl:mt-0">
+        <div class="w-full xl:w-1/3 max-w-md mt-16 xl:mt-0">
           <div class="order-summary bg-white p-10 sm:p-14 shadow-xl rounded-md transition-all duration-300 hover:shadow-2xl border border-gray-300">
             <h2 class="font-serif text-2xl sm:text-3xl mb-12 text-gold text-center">Order Summary</h2>
 
