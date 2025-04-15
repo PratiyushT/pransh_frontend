@@ -3,7 +3,7 @@
   import type { Product } from '$lib/types';
   import { onMount, createEventDispatcher } from 'svelte';
   import gsap from 'gsap';
-  import { addToCart, isInWishlist, toggleWishlist } from '$lib/stores/index';
+  import { isInWishlist, toggleWishlist } from '$lib';
 
   export let product: Product;
 
@@ -234,87 +234,87 @@
   };
 
   // Add to cart handler with animation
-  const handleAddToCart = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Create clone of product image for animation
-    const productImage = imageContainer.querySelector('.primary-image');
-    const rect = productImage.getBoundingClientRect();
-
-    // Create a flying image element
-    const flyingImg = document.createElement('img');
-    flyingImg.src = primaryImage;
-    flyingImg.classList.add('flying-cart-item');
-    flyingImg.style.position = 'fixed';
-    flyingImg.style.zIndex = '9999';
-    flyingImg.style.width = '80px';
-    flyingImg.style.height = '80px';
-    flyingImg.style.objectFit = 'cover';
-    flyingImg.style.borderRadius = '50%';
-    flyingImg.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.2)';
-    flyingImg.style.left = `${rect.left + (rect.width / 2) - 40}px`;
-    flyingImg.style.top = `${rect.top + (rect.height / 2) - 40}px`;
-    document.body.appendChild(flyingImg);
-
-    // Get the cart icon position
-    if (mainCartIcon) {
-      const cartRect = mainCartIcon.getBoundingClientRect();
-      const cartX = cartRect.left + (cartRect.width / 2);
-      const cartY = cartRect.top + (cartRect.height / 2);
-
-      // Animate the flying image to the cart - FASTER
-      gsap.to(flyingImg, {
-        duration: 0.6,
-        x: cartX - (rect.left + rect.width / 2),
-        y: cartY - (rect.top + rect.height / 2),
-        scale: 0.1,
-        opacity: 0.7,
-        ease: "power2.in",
-        onComplete: () => {
-          // Remove the flying image
-          document.body.removeChild(flyingImg);
-
-          // Add item to cart
-          addToCart(product, 0);
-
-          // Animate cart icon - SNAPPIER
-          gsap.fromTo(mainCartIcon,
-            { scale: 0.8 },
-            { scale: 1.3, duration: 0.15, ease: "elastic.out(1.2, 0.4)" }
-          );
-
-          // Create ripple effect - FASTER
-          const ripple = document.createElement('div');
-          ripple.classList.add('cart-ripple');
-          ripple.style.position = 'absolute';
-          ripple.style.zIndex = '9998';
-          ripple.style.top = '50%';
-          ripple.style.left = '50%';
-          ripple.style.transform = 'translate(-50%, -50%)';
-          ripple.style.width = '10px';
-          ripple.style.height = '10px';
-          ripple.style.backgroundColor = 'var(--color-gold)';
-          ripple.style.borderRadius = '50%';
-          ripple.style.pointerEvents = 'none';
-          mainCartIcon.appendChild(ripple);
-
-          gsap.to(ripple, {
-            duration: 0.4,
-            scale: 15,
-            opacity: 0,
-            ease: "power1.out",
-            onComplete: () => {
-              mainCartIcon.removeChild(ripple);
-            }
-          });
-        }
-      });
-    } else {
-      // Fallback if cart icon not found
-      addToCart(product, 0);
-    }
-  };
+  // const handleAddToCart = (e) => {
+  //   e.preventDefault();
+  //   e.stopPropagation();
+  //
+  //   // Create clone of product image for animation
+  //   const productImage = imageContainer.querySelector('.primary-image');
+  //   const rect = productImage.getBoundingClientRect();
+  //
+  //   // Create a flying image element
+  //   const flyingImg = document.createElement('img');
+  //   flyingImg.src = primaryImage;
+  //   flyingImg.classList.add('flying-cart-item');
+  //   flyingImg.style.position = 'fixed';
+  //   flyingImg.style.zIndex = '9999';
+  //   flyingImg.style.width = '80px';
+  //   flyingImg.style.height = '80px';
+  //   flyingImg.style.objectFit = 'cover';
+  //   flyingImg.style.borderRadius = '50%';
+  //   flyingImg.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.2)';
+  //   flyingImg.style.left = `${rect.left + (rect.width / 2) - 40}px`;
+  //   flyingImg.style.top = `${rect.top + (rect.height / 2) - 40}px`;
+  //   document.body.appendChild(flyingImg);
+  //
+  //   // Get the cart icon position
+  //   if (mainCartIcon) {
+  //     const cartRect = mainCartIcon.getBoundingClientRect();
+  //     const cartX = cartRect.left + (cartRect.width / 2);
+  //     const cartY = cartRect.top + (cartRect.height / 2);
+  //
+  //     // Animate the flying image to the cart - FASTER
+  //     gsap.to(flyingImg, {
+  //       duration: 0.6,
+  //       x: cartX - (rect.left + rect.width / 2),
+  //       y: cartY - (rect.top + rect.height / 2),
+  //       scale: 0.1,
+  //       opacity: 0.7,
+  //       ease: "power2.in",
+  //       onComplete: () => {
+  //         // Remove the flying image
+  //         document.body.removeChild(flyingImg);
+  //
+  //         // Add item to cart
+  //         addToCart(product, 0);
+  //
+  //         // Animate cart icon - SNAPPIER
+  //         gsap.fromTo(mainCartIcon,
+  //           { scale: 0.8 },
+  //           { scale: 1.3, duration: 0.15, ease: "elastic.out(1.2, 0.4)" }
+  //         );
+  //
+  //         // Create ripple effect - FASTER
+  //         const ripple = document.createElement('div');
+  //         ripple.classList.add('cart-ripple');
+  //         ripple.style.position = 'absolute';
+  //         ripple.style.zIndex = '9998';
+  //         ripple.style.top = '50%';
+  //         ripple.style.left = '50%';
+  //         ripple.style.transform = 'translate(-50%, -50%)';
+  //         ripple.style.width = '10px';
+  //         ripple.style.height = '10px';
+  //         ripple.style.backgroundColor = 'var(--color-gold)';
+  //         ripple.style.borderRadius = '50%';
+  //         ripple.style.pointerEvents = 'none';
+  //         mainCartIcon.appendChild(ripple);
+  //
+  //         gsap.to(ripple, {
+  //           duration: 0.4,
+  //           scale: 15,
+  //           opacity: 0,
+  //           ease: "power1.out",
+  //           onComplete: () => {
+  //             mainCartIcon.removeChild(ripple);
+  //           }
+  //         });
+  //       }
+  //     });
+  //   } else {
+  //     // Fallback if cart icon not found
+  //     addToCart(product, 0);
+  //   }
+  // };
 </script>
 
 <a
@@ -353,18 +353,9 @@
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
             </svg>
           </button>
-          <button class="product-card-action quick-view"
-            aria-label="Quick view"
-            on:click={handleQuickView}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="16"></line>
-              <line x1="8" y1="12" x2="16" y2="12"></line>
-            </svg>
-          </button>
           <button class="product-card-action add-to-cart"
             aria-label="Add to cart"
-            on:click={handleAddToCart}>
+            on:click={handleQuickView}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="21" r="1"></circle>
               <circle cx="20" cy="21" r="1"></circle>
