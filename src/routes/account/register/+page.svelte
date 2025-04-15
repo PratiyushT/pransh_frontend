@@ -14,6 +14,21 @@
   let errorMessage = '';
   let formSubmitted = false;
 
+  // Address data
+  let showAddressFields = false;
+  let streetAddress = '';
+  let city = '';
+  let state = '';
+  let zipCode = '';
+  let country = '';
+
+  // Country options
+  const countries = [
+    'United States', 'Canada', 'United Kingdom', 'Australia',
+    'India', 'Germany', 'France', 'Japan', 'China', 'Brazil',
+    'Other'
+  ];
+
   // Form validation
   $: isFirstNameValid = !formSubmitted || firstName.length > 1;
   $: isLastNameValid = !formSubmitted || lastName.length > 1;
@@ -21,9 +36,28 @@
   $: isPasswordValid = !formSubmitted || password.length >= 6;
   $: isConfirmPasswordValid = !formSubmitted || password === confirmPassword;
   $: isTermsAccepted = !formSubmitted || acceptTerms;
+
+  // Address validation
+  $: isStreetAddressValid = !formSubmitted || !showAddressFields || streetAddress.length > 3;
+  $: isCityValid = !formSubmitted || !showAddressFields || city.length > 2;
+  $: isStateValid = !formSubmitted || !showAddressFields || state.length > 1;
+  $: isZipCodeValid = !formSubmitted || !showAddressFields || zipCode.length > 3;
+  $: isCountryValid = !formSubmitted || !showAddressFields || country.length > 0;
+
   $: isFormValid = firstName && lastName && email && password && confirmPassword &&
-                  password === confirmPassword && acceptTerms &&
-                  isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid;
+                password === confirmPassword && acceptTerms &&
+                isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
+                (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid && isZipCodeValid && isCountryValid));
+
+  // Toggle address fields visibility
+  const toggleAddressFields = () => {
+    showAddressFields = !showAddressFields;
+
+    // If closing address section and there was an error, reset the fields
+    if (!showAddressFields && formSubmitted) {
+      resetFieldError();
+    }
+  };
 
   // Handle registration form submission
   const handleSubmit = async () => {
@@ -48,6 +82,17 @@
       localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('userEmail', email);
       localStorage.setItem('userName', `${firstName} ${lastName}`);
+
+      // Store address if provided
+      if (showAddressFields) {
+        localStorage.setItem('userAddress', JSON.stringify({
+          street: streetAddress,
+          city,
+          state,
+          zipCode,
+          country
+        }));
+      }
 
       // Navigate to account page after registration
       goto('/account');
@@ -205,6 +250,114 @@
         {/if}
       </div>
 
+      <!-- Address toggle -->
+      <div class="form-field">
+        <button
+          type="button"
+          class="text-gold hover:text-gold-dark flex items-center text-sm font-medium transition-colors"
+          on:click={toggleAddressFields}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={showAddressFields ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+          </svg>
+          {showAddressFields ? 'Hide Shipping Address' : 'Add Shipping Address'}
+        </button>
+      </div>
+
+      {#if showAddressFields}
+        <div class="address-fields space-y-6 border-t border-b border-gray-200 py-6 mt-4 animate-fade-in">
+          <!-- Street Address -->
+          <div class="form-field">
+            <label for="streetAddress" class="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
+            <input
+              type="text"
+              id="streetAddress"
+              bind:value={streetAddress}
+              on:input={resetFieldError}
+              class="w-full px-3 py-2 border {!isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+              placeholder="123 Main St, Apt 4B"
+              required={showAddressFields}
+            >
+            {#if !isStreetAddressValid}
+              <p class="mt-1 text-sm text-red-600">Please enter a valid street address</p>
+            {/if}
+          </div>
+
+          <!-- City and State -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-field">
+              <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
+              <input
+                type="text"
+                id="city"
+                bind:value={city}
+                on:input={resetFieldError}
+                class="w-full px-3 py-2 border {!isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                placeholder="New York"
+                required={showAddressFields}
+              >
+              {#if !isCityValid}
+                <p class="mt-1 text-sm text-red-600">City is required</p>
+              {/if}
+            </div>
+
+            <div class="form-field">
+              <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State/Province</label>
+              <input
+                type="text"
+                id="state"
+                bind:value={state}
+                on:input={resetFieldError}
+                class="w-full px-3 py-2 border {!isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                placeholder="NY"
+                required={showAddressFields}
+              >
+              {#if !isStateValid}
+                <p class="mt-1 text-sm text-red-600">State/Province is required</p>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Zip and Country -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-field">
+              <label for="zipCode" class="block text-sm font-medium text-gray-700 mb-1">Zip/Postal Code</label>
+              <input
+                type="text"
+                id="zipCode"
+                bind:value={zipCode}
+                on:input={resetFieldError}
+                class="w-full px-3 py-2 border {!isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                placeholder="10001"
+                required={showAddressFields}
+              >
+              {#if !isZipCodeValid}
+                <p class="mt-1 text-sm text-red-600">Zip/Postal code is required</p>
+              {/if}
+            </div>
+
+            <div class="form-field">
+              <label for="country" class="block text-sm font-medium text-gray-700 mb-1">Country</label>
+              <select
+                id="country"
+                bind:value={country}
+                on:change={resetFieldError}
+                class="w-full px-3 py-2 border {!isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white"
+                required={showAddressFields}
+              >
+                <option value="">Select Country</option>
+                {#each countries as countryOption}
+                  <option value={countryOption}>{countryOption}</option>
+                {/each}
+              </select>
+              {#if !isCountryValid}
+                <p class="mt-1 text-sm text-red-600">Country is required</p>
+              {/if}
+            </div>
+          </div>
+        </div>
+      {/if}
+
       <!-- Terms and conditions -->
       <div class="form-field">
         <div class="flex items-start">
@@ -309,5 +462,20 @@
 
   .animate-spin {
     animation: spin 1s linear infinite;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 </style>

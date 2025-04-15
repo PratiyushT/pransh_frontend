@@ -143,10 +143,10 @@
   <div class="max-w-[1320px] mx-auto">
     <h1 class="text-3xl sm:text-4xl font-serif mb-16 text-center elegant-title">Shopping Cart</h1>
 
-    <div class="flex flex-col xl:flex-row gap-16 w-full px-6 xl:px-0">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 xl:gap-16 w-full px-2 sm:px-4 xl:px-0">
       {#if $cart.length > 0}
-        <div class="w-full xl:w-2/3 max-w-4xl">
-          <div class="bg-white p-10 sm:p-14 shadow-xl rounded-md transition-all duration-300 border border-gray-300">
+        <div class="xl:col-span-2">
+          <div class="bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300">
             <div class="hidden md:grid md:grid-cols-12 border-b pb-8 mb-10">
               <div class="md:col-span-6">
                 <span class="font-medium text-gray-600 text-lg">Product</span>
@@ -291,29 +291,29 @@
         </div>
 
         <!-- Order Summary -->
-        <div class="w-full xl:w-1/3 max-w-md mt-16 xl:mt-0">
-          <div class="order-summary bg-white p-10 sm:p-14 shadow-xl rounded-md transition-all duration-300 hover:shadow-2xl border border-gray-300">
-            <h2 class="font-serif text-2xl sm:text-3xl mb-12 text-gold text-center">Order Summary</h2>
+        <div class="w-full mt-0 xl:mt-0 relative z-10">
+          <div class="order-summary bg-white p-8 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300 sticky top-24">
+            <h2 class="font-serif text-2xl sm:text-3xl mb-10 text-gold text-center">Order Summary</h2>
 
-            <div class="space-y-10 mb-12">
-              <div class="flex justify-between items-center py-5 border-b border-gray-300">
+            <div class="space-y-8 mb-10">
+              <div class="flex justify-between items-center py-4 border-b border-gray-300">
                 <span class="text-gray-600 text-lg">Subtotal</span>
                 <span class="font-medium text-gray-700 text-lg">{formatPrice(subtotal)}</span>
               </div>
 
-              <div class="flex justify-between items-center py-5 border-b border-gray-300">
+              <div class="flex justify-between items-center py-4 border-b border-gray-300">
                 <span class="text-gray-600 text-lg">Shipping</span>
                 <span class="text-gray-700 text-lg">{subtotal > 0 ? formatPrice(shippingCost) : 'N/A'}</span>
               </div>
 
-              <div class="pt-6 flex justify-between items-center">
+              <div class="pt-4 flex justify-between items-center">
                 <span class="text-xl font-serif text-gray-700">Total</span>
                 <span class="text-2xl text-gold font-medium">{formatPrice(total)}</span>
               </div>
             </div>
 
             <button
-              class="checkout-btn btn btn-primary w-full mb-10 transform transition-transform hover:translate-y-[-2px] shadow-md text-lg py-4"
+              class="checkout-btn btn btn-primary w-full mb-8 transform transition-transform hover:translate-y-[-2px] shadow-md text-lg py-4"
               on:click={proceedToCheckout}
               disabled={$cart.length === 0}
             >
@@ -321,14 +321,14 @@
             </button>
 
             <div class="text-center">
-              <p class="text-sm text-gray-500 italic mb-8">
+              <p class="text-sm text-gray-500 italic mb-6">
                 Taxes and discounts calculated at checkout
               </p>
 
-              <div class="flex justify-center space-x-6 mt-10">
-                <img src="https://same-assets.com/payment-visa.svg" alt="Visa" class="h-10 opacity-70 hover:opacity-100 transition-opacity duration-300" />
-                <img src="https://same-assets.com/payment-mastercard.svg" alt="Mastercard" class="h-10 opacity-70 hover:opacity-100 transition-opacity duration-300" />
-                <img src="https://same-assets.com/payment-amex.svg" alt="American Express" class="h-10 opacity-70 hover:opacity-100 transition-opacity duration-300" />
+              <div class="flex justify-center space-x-4 mt-8">
+                <img src="https://same-assets.com/payment-visa.svg" alt="Visa" class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300" />
+                <img src="https://same-assets.com/payment-mastercard.svg" alt="Mastercard" class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300" />
+                <img src="https://same-assets.com/payment-amex.svg" alt="American Express" class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300" />
               </div>
             </div>
           </div>

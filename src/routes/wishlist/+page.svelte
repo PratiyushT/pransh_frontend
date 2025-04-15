@@ -4,6 +4,8 @@
   import { formatPrice, getProducts } from '$lib/utils/data';
   import type { Product } from '$lib/types';
   import gsap from 'gsap';
+  import ProductCard from '$lib/components/ProductCard.svelte';
+  import QuickViewModal from '$lib/components/QuickViewModal.svelte';
 
   // Products data - we need to fetch complete products by their IDs
   let products: Product[] = [];
@@ -12,6 +14,22 @@
   let showClearConfirm = false;
   let lastRemovedProduct: string | null = null;
   let addingAllToCart = false;
+  let quickViewProduct = null;
+  let quickViewOpen = false;
+
+  // Handle quick view
+  const handleQuickView = (event) => {
+    quickViewProduct = event.detail.product;
+    quickViewOpen = true;
+    // Prevent scrolling when modal is open
+    document.body.style.overflow = 'hidden';
+  };
+
+  const handleCloseQuickView = () => {
+    quickViewOpen = false;
+    // Re-enable scrolling when modal closes
+    document.body.style.overflow = '';
+  };
 
   // Fetch product data for each product in wishlist
   const fetchWishlistProducts = async () => {
@@ -371,84 +389,18 @@
   {:else if $wishlistCount > 0}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
       {#each products as product}
-        <div class="favorite-card bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md rounded-sm relative overflow-hidden">
-          <!-- Sale tag if product is featured -->
-          {#if product.isFeatured}
-            <div class="absolute top-0 right-0 bg-gold text-white text-xs font-medium px-2 py-1 z-10">
-              FEATURED
-            </div>
-          {/if}
-
-          <div class="relative aspect-[3/4] overflow-hidden mb-4 group">
-            <img
-              src={product.variants[0]?.images?.[0]?.url || '/images/product-placeholder.jpg'}
-              alt={product.name}
-              class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            >
-            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
-
-            <div class="absolute bottom-0 left-0 right-0 p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out">
-              <button
-                class="w-full py-2 bg-gold text-white hover:bg-gold-dark transition-colors duration-300 overflow-hidden relative"
-                on:click={(e) => moveToCart(product, e)}
-              >
-                Add to Cart
-              </button>
-            </div>
-          </div>
-
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-medium text-lg mb-1 line-clamp-1">{product.name}</h3>
-              <p class="text-gray-500 text-sm mb-2">{product.category}</p>
-              <div class="flex items-center gap-2">
-                <p class="font-medium text-gold">
-                  {formatPrice(product.variants[0]?.price || 0)}
-                </p>
-                {#if product.rating}
-                  <div class="flex items-center ml-2">
-                    <span class="text-xs bg-gold text-white rounded px-1.5 py-0.5 flex items-center">
-                      {product.rating}
-                      <svg class="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                      </svg>
-                    </span>
-                  </div>
-                {/if}
-              </div>
-            </div>
-
-            <button
-              class="text-gray-400 hover:text-red-500 transition-colors duration-300 transform hover:rotate-90"
-              on:click={(e) => handleRemoveItem(product._id, e.currentTarget.closest('.favorite-card'))}
-              aria-label="Remove from favorites"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <!-- Quick actions -->
-          <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-            <div class="text-xs text-gray-500">
-              {#if product.variants.length > 0}
-                {product.variants.length} {product.variants.length === 1 ? 'variant' : 'variants'}
-              {/if}
-            </div>
-            <button
-              class="text-sm text-gold hover:text-gold-dark transition-colors duration-300 flex items-center"
-              on:click={(e) => moveToCart(product, e)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              Quick Add
-            </button>
-          </div>
+        <div class="product-card-wrapper">
+          <ProductCard {product} on:quickview={handleQuickView} />
         </div>
       {/each}
     </div>
+
+    <!-- QuickView Modal -->
+    <QuickViewModal
+      product={quickViewProduct}
+      open={quickViewOpen}
+      on:close={handleCloseQuickView}
+    />
 
     <div class="mt-12 flex justify-center">
       <a
@@ -542,14 +494,10 @@
     }
   }
 
-  .favorite-card {
+  .product-card-wrapper {
+    height: 100%;
     transform: translateY(0);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-
-  .favorite-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.07);
+    transition: transform 0.3s ease;
   }
 
   .loading-spinner {
