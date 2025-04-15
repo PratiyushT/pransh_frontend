@@ -101,7 +101,7 @@
     }
   }
 
-  // When the component mounts, add keyboard event listener
+  // When the Page mounts, add keyboard event listener
   onMount(() => {
     document.addEventListener('keydown', handleKeydown);
     return () => {

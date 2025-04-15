@@ -160,7 +160,7 @@
     handleScrollAnimations();
 
     return () => {
-      // Clean up on component unmount
+      // Clean up on Page unmount
       window.removeEventListener('scroll', handleScrollAnimations);
     };
   });

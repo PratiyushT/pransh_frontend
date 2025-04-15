@@ -1,9 +1,9 @@
 <script lang="ts">
   import '../app.css';
-  import { onMount, afterUpdate } from 'svelte';
-  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { navigating } from '$app/stores';
-  import { isLoading } from '$lib/stores/index';
+  import { isLoading } from '$lib';
   import gsap from 'gsap';
   import Header from '$lib/components/Header.svelte';
   import Footer from '$lib/components/Footer.svelte';
@@ -47,7 +47,7 @@
     }
 
     // Store current path for detecting route changes
-    currentPath = $page.url.pathname;
+    currentPath = page.url.pathname;
   });
 
   // Handle page transitions when routes change
@@ -65,8 +65,8 @@
   }
 
   // After navigation completes, fade in new page content
-  $: if (!$navigating && $page.url.pathname !== currentPath && pageWrapper) {
-    currentPath = $page.url.pathname;
+  $: if (!$navigating && page.url.pathname !== currentPath && pageWrapper) {
+    currentPath = page.url.pathname;
 
     // Reset scroll position
     setTimeout(() => {

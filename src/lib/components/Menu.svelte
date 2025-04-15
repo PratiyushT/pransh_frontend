@@ -212,20 +212,19 @@
             </svg>
           </a>
 
-          <a href="/account" class="menu-action-icon" aria-label="Account" on:click={closeMenu}>
+          <a href="/account" class="menu-action-icon hidden sm:flex" aria-label="Account" on:click={closeMenu}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
           </a>
 
-          <!-- Added Wishlist Icon -->
           <a href="/wishlist" class="menu-action-icon relative" aria-label="Wishlist" on:click={closeMenu}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
             </svg>
             {#if $wishlistCount > 0}
-              <span class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-gold text-white text-xs flex items-center justify-center">
+              <span class="count-badge absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center">
                 {$wishlistCount}
               </span>
             {/if}
@@ -238,7 +237,7 @@
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
             {#if $cartCount > 0}
-              <span class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-gold text-white text-xs flex items-center justify-center">
+              <span class="count-badge absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center">
                 {$cartCount}
               </span>
             {/if}
@@ -281,9 +280,9 @@
       </ul>
     </nav>
 
-    <div class="menu-footer mt-auto p-8 border-t border-gray-200" bind:this={menuFooter}>
-      <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-        <div class="flex gap-6">
+    <div class="menu-footer mt-auto p-4 sm:p-6 md:p-8 border-t border-gray-200" bind:this={menuFooter}>
+      <div class="flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4 md:gap-6">
+        <div class="flex gap-4 sm:gap-6">
           <a href="https://instagram.com" class="footer-social-icon" aria-label="Follow us on Instagram">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -374,7 +373,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 0 1.5rem;
+    padding: 0 1rem; /* Reduced horizontal padding for mobile */
     position: relative;
     max-width: 1320px;
     width: 100%;
@@ -383,7 +382,7 @@
 
   /* Menu Header */
   .menu-header {
-    padding: 1.5rem 0;
+    padding: 1rem 0; /* Reduced padding for mobile */
     opacity: 1;
   }
 
@@ -395,7 +394,7 @@
 
   .menu-brand-logo {
     font-family: var(--heading-font);
-    font-size: 2rem;
+    font-size: 1.75rem; /* Reduced font size for mobile */
     font-weight: 600;
     color: var(--color-gold);
     letter-spacing: 0.05em;
@@ -409,12 +408,12 @@
   .menu-actions {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 0.75rem; /* Reduced from 1.5rem for mobile */
   }
 
   .menu-action-icon {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem; /* Reduced from 2.5rem for mobile */
+    height: 2.25rem; /* Reduced from 2.5rem for mobile */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -432,8 +431,8 @@
   }
 
   .menu-close-button {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem; /* Reduced from 2.5rem for mobile */
+    height: 2.25rem; /* Reduced from 2.5rem for mobile */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -503,7 +502,7 @@
 
   .menu-link {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 2rem;
+    font-size: 1.75rem; /* Smaller font size for mobile */
     position: relative;
     display: inline-block;
     color: var(--color-charcoal);
@@ -542,8 +541,8 @@
   }
 
   .footer-social-icon {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem; /* Smaller size for mobile */
+    height: 2.25rem; /* Smaller size for mobile */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -560,19 +559,63 @@
   }
 
   /* Gold background for cart count */
-  .bg-gold {
+  .bg-gold, .count-badge {
     background-color: var(--color-gold);
+  }
+
+  @media (min-width: 640px) {
+    .menu-actions {
+      gap: 1.25rem; /* Increased for tablets and above */
+    }
+
+    .menu-action-icon, .menu-close-button {
+      width: 2.5rem; /* Back to original size for tablets and above */
+      height: 2.5rem; /* Back to original size for tablets and above */
+    }
+
+    .menu-header {
+      padding: 1.25rem 0; /* Increased padding for tablets */
+    }
+
+    .menu-brand-logo {
+      font-size: 2rem; /* Original size for tablets and above */
+    }
+
+    .menu-content {
+      padding: 0 1.5rem; /* Increased horizontal padding for tablets */
+    }
+
+    .menu-link {
+      font-size: 2rem; /* Increased font size for tablets */
+    }
+
+    .footer-social-icon {
+      width: 2.5rem; /* Original size for tablets and up */
+      height: 2.5rem; /* Original size for tablets and up */
+    }
   }
 
   @media (min-width: 768px) {
     .menu-link {
       font-size: 2.5rem;
     }
+
+    .menu-actions {
+      gap: 1.5rem; /* Original gap for desktops */
+    }
+
+    .menu-header {
+      padding: 1.5rem 0; /* Original padding for desktops */
+    }
   }
 
   @media (min-width: 1024px) {
     .menu-link {
       font-size: 3rem;
+    }
+
+    .menu-content {
+      padding: 0 1.5rem; /* Maintain padding for large screens */
     }
   }
 </style>

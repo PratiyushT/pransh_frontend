@@ -222,6 +222,30 @@
 
 <style>
   .btn-primary {
-    @apply bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-colors;
+    display: inline-block;
+    background-color: var(--color-gold);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500; /* Fixed: changed from font-medium to font-weight */
+    transition: background-color 0.3s ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-gold-dark);
+  }
+
+  .cart-count, .wishlist-count {
+    position: absolute;
+    top: -0.5rem;
+    right: -0.5rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background-color: var(--color-gold);
+    color: white;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 </style>

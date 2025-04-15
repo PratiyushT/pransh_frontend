@@ -170,16 +170,12 @@
       </svg>
       <h2 class="font-serif text-2xl mb-4">Your wishlist is empty</h2>
       <p class="mb-8 text-gray">Looks like you haven't added any items to your wishlist yet.</p>
-      <a href="/category/all" class="btn btn-primary">Start Shopping</a>
+      <a href="/category/all" class="btn bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-colors">Start Shopping</a>
     </div>
   {/if}
 </div>
 
 <style>
-  .btn-primary {
-    @apply bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-colors;
-  }
-
   @keyframes spin {
     from {
       transform: rotate(0deg);

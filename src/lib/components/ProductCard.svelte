@@ -174,7 +174,7 @@
       console.error("Error setting up animations:", error);
     }
 
-    // Add loaded class after component is mounted for fade-in effect - FASTER INITIAL LOAD
+    // Add loaded class after Page is mounted for fade-in effect - FASTER INITIAL LOAD
     gsap.to(cardElement, {
       opacity: 1,
       y: 0,
