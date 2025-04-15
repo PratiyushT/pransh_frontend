@@ -1,15 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { wishlist, wishlistCount, isInWishlist, removeFromWishlist, addToCart } from '$lib/stores';
-  import { formatPrice } from '$lib/utils/data';
+  import { wishlist, wishlistCount, isInWishlist, removeFromWishlist, addToCart, clearCart, addToWishlist } from '$lib/stores';
+  import { formatPrice, getProducts } from '$lib/utils/data';
   import type { Product } from '$lib/types';
   import gsap from 'gsap';
-  import mockProductsData from '$lib/data/mockData.json';
 
   // Products data - we need to fetch complete products by their IDs
   let products: Product[] = [];
   let isLoading = true;
   let removingProduct = false;
+  let showClearConfirm = false;
+  let lastRemovedProduct: string | null = null;
+  let addingAllToCart = false;
 
   // Fetch product data for each product in wishlist
   const fetchWishlistProducts = async () => {
@@ -19,8 +21,8 @@
       // Simulate API fetch delay for a smoother UX
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Use the mock data from the project instead of fetching from API
-      const allProducts: Product[] = mockProductsData.products;
+      // Use the data utility function instead of accessing mockProductsData directly
+      const allProducts: Product[] = getProducts();
 
       // Filter only products that are in the wishlist
       products = allProducts.filter(p => $wishlist.includes(p._id));
@@ -104,15 +106,36 @@
     }
 
     // Show animated confirmation toast
-    const toast = document.createElement('div');
-    toast.className = 'fixed bottom-8 right-8 bg-green-100 text-green-800 p-4 rounded-md shadow-lg z-50 flex items-center';
-    toast.innerHTML = `
-      <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-      </svg>
-      <span>Added to cart</span>
-    `;
+    showToast('Added to cart', 'success');
+  };
 
+  // Show toast notification
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-8 right-8 p-4 rounded-md shadow-lg z-50 flex items-center ${
+      type === 'success' ? 'bg-green-100 text-green-800' :
+      type === 'error' ? 'bg-red-100 text-red-800' :
+      'bg-blue-100 text-blue-800'
+    }`;
+
+    // Set icon based on type
+    let icon = '';
+    if (type === 'success') {
+      icon = `<svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>`;
+    } else if (type === 'error') {
+      icon = `<svg class="w-6 h-6 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>`;
+    } else {
+      icon = `<svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>`;
+    }
+
+    toast.innerHTML = `${icon}<span>${message}</span>`;
     document.body.appendChild(toast);
 
     gsap.fromTo(toast,
@@ -139,6 +162,7 @@
   const handleRemoveItem = (productId: string, element: HTMLElement) => {
     if (removingProduct) return;
     removingProduct = true;
+    lastRemovedProduct = productId;
 
     gsap.to(element, {
       scale: 0.9,
@@ -152,6 +176,110 @@
         removingProduct = false;
       }
     });
+  };
+
+  // Clear all items from wishlist
+  const clearWishlist = () => {
+    if ($wishlistCount === 0) return;
+
+    const favoriteItems = document.querySelectorAll('.favorite-card');
+
+    gsap.to(favoriteItems, {
+      scale: 0.9,
+      opacity: 0,
+      stagger: 0.05,
+      duration: 0.3,
+      ease: "power2.in",
+      onComplete: () => {
+        wishlist.set([]);
+        products = [];
+        showClearConfirm = false;
+        showToast('Wishlist cleared', 'info');
+      }
+    });
+  };
+
+  // Add all items to cart
+  const addAllToCart = () => {
+    if (addingAllToCart || $wishlistCount === 0) return;
+    addingAllToCart = true;
+
+    const cartIcon = document.querySelector('.cart-icon');
+
+    if (cartIcon) {
+      // Create small representative dots for each product
+      const container = document.createElement('div');
+      container.className = 'fixed inset-0 pointer-events-none z-50';
+      document.body.appendChild(container);
+
+      products.forEach((product, index) => {
+        const card = document.querySelectorAll('.favorite-card')[index];
+        if (!card) return;
+
+        const cardRect = card.getBoundingClientRect();
+
+        // Create dot
+        const dot = document.createElement('div');
+        dot.className = 'absolute w-4 h-4 bg-gold rounded-full';
+        dot.style.top = `${cardRect.top + (cardRect.height / 2)}px`;
+        dot.style.left = `${cardRect.left + (cardRect.width / 2)}px`;
+        container.appendChild(dot);
+
+        // Add to cart with a small delay between each
+        setTimeout(() => {
+          addToCart(product, 0, 1);
+        }, index * 100);
+
+        // Animate dot to cart
+        const cartIconRect = cartIcon.getBoundingClientRect();
+        gsap.to(dot, {
+          x: cartIconRect.left - cardRect.left + (cartIconRect.width / 2) - 8, // 8 is half of dot size
+          y: cartIconRect.top - cardRect.top + (cartIconRect.height / 2) - 8,
+          delay: index * 0.1,
+          duration: 0.5,
+          ease: "power2.in",
+          onComplete: () => {
+            dot.remove();
+            if (index === products.length - 1) {
+              // Last one, clear the container
+              container.remove();
+
+              // Clear wishlist after all animations complete
+              wishlist.set([]);
+              products = [];
+              addingAllToCart = false;
+
+              // Animate cart icon
+              gsap.fromTo(cartIcon,
+                { scale: 1 },
+                { scale: 1.5, duration: 0.4, yoyo: true, repeat: 1, ease: "elastic.out(1, 0.3)" }
+              );
+
+              showToast('All items added to cart', 'success');
+            }
+          }
+        });
+      });
+    } else {
+      // Fallback if cart icon not found
+      products.forEach(product => {
+        addToCart(product, 0, 1);
+      });
+      wishlist.set([]);
+      products = [];
+      addingAllToCart = false;
+      showToast('All items added to cart', 'success');
+    }
+  };
+
+  // Restore last removed item
+  const undoRemove = () => {
+    if (lastRemovedProduct) {
+      // Add back to wishlist
+      addToWishlist(lastRemovedProduct);
+      lastRemovedProduct = null;
+      showToast('Item restored to wishlist', 'info');
+    }
   };
 
   // Load data on component mount
@@ -199,12 +327,38 @@
 </svelte:head>
 
 <div class="container mx-auto py-12 px-4">
-  <h1 class="page-title text-3xl font-serif mb-8 text-center relative">
-    <span class="relative inline-block">
-      My Favorites
-      <span class="absolute h-[2px] w-20 bg-gold left-1/2 -translate-x-1/2 bottom-[-12px]"></span>
-    </span>
-  </h1>
+  <div class="flex flex-col md:flex-row justify-between items-center mb-8">
+    <h1 class="page-title text-3xl font-serif text-center md:text-left relative">
+      <span class="relative inline-block">
+        My Favorites
+        <span class="absolute h-[2px] w-16 bg-gold left-0 bottom-[-8px]"></span>
+      </span>
+    </h1>
+
+    {#if $wishlistCount > 0}
+      <div class="flex space-x-4 mt-4 md:mt-0">
+        <button
+          class="text-sm text-gray-600 hover:text-gold transition-colors duration-300 group flex items-center"
+          on:click={() => showClearConfirm = true}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 group-hover:text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Clear All
+        </button>
+        <button
+          class="text-sm text-gold hover:text-gold-dark transition-colors duration-300 group flex items-center"
+          on:click={addAllToCart}
+          disabled={addingAllToCart || $wishlistCount === 0}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Add All to Cart
+        </button>
+      </div>
+    {/if}
+  </div>
 
   {#if isLoading}
     <div class="text-center py-12">
@@ -215,9 +369,16 @@
       <p class="mt-4 text-gray-600">Loading your favorites...</p>
     </div>
   {:else if $wishlistCount > 0}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
       {#each products as product}
-        <div class="favorite-card bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md rounded-sm">
+        <div class="favorite-card bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md rounded-sm relative overflow-hidden">
+          <!-- Sale tag if product is featured -->
+          {#if product.isFeatured}
+            <div class="absolute top-0 right-0 bg-gold text-white text-xs font-medium px-2 py-1 z-10">
+              FEATURED
+            </div>
+          {/if}
+
           <div class="relative aspect-[3/4] overflow-hidden mb-4 group">
             <img
               src={product.variants[0]?.images?.[0]?.url || '/images/product-placeholder.jpg'}
@@ -238,11 +399,23 @@
 
           <div class="flex justify-between items-start">
             <div>
-              <h3 class="font-medium text-lg mb-1">{product.name}</h3>
+              <h3 class="font-medium text-lg mb-1 line-clamp-1">{product.name}</h3>
               <p class="text-gray-500 text-sm mb-2">{product.category}</p>
-              <p class="font-medium text-gold">
-                {formatPrice(product.variants[0]?.price || 0)}
-              </p>
+              <div class="flex items-center gap-2">
+                <p class="font-medium text-gold">
+                  {formatPrice(product.variants[0]?.price || 0)}
+                </p>
+                {#if product.rating}
+                  <div class="flex items-center ml-2">
+                    <span class="text-xs bg-gold text-white rounded px-1.5 py-0.5 flex items-center">
+                      {product.rating}
+                      <svg class="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                      </svg>
+                    </span>
+                  </div>
+                {/if}
+              </div>
             </div>
 
             <button
@@ -253,6 +426,24 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
               </svg>
+            </button>
+          </div>
+
+          <!-- Quick actions -->
+          <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+            <div class="text-xs text-gray-500">
+              {#if product.variants.length > 0}
+                {product.variants.length} {product.variants.length === 1 ? 'variant' : 'variants'}
+              {/if}
+            </div>
+            <button
+              class="text-sm text-gold hover:text-gold-dark transition-colors duration-300 flex items-center"
+              on:click={(e) => moveToCart(product, e)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Quick Add
             </button>
           </div>
         </div>
@@ -273,18 +464,54 @@
   {:else}
     <div class="bg-white p-12 text-center max-w-2xl mx-auto shadow-sm rounded-sm">
       <div class="w-24 h-24 mx-auto mb-6 bg-gray-50 rounded-full flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
         </svg>
       </div>
       <h2 class="font-serif text-2xl mb-4 text-gold">Your favorites list is empty</h2>
-      <p class="mb-8 text-gray">Discover and save your favorite luxury pieces for easy access later.</p>
-      <a href="/category/all" class="btn bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-all duration-300 hover:shadow-md transform hover:-translate-y-1">
-        Start Exploring
-      </a>
+      <p class="mb-8 text-gray-500">Discover and save your favorite luxury pieces for easy access later.</p>
+
+      {#if lastRemovedProduct}
+        <button
+          class="text-gold hover:text-gold-dark underline mb-4 inline-block"
+          on:click={undoRemove}
+        >
+          Undo last remove
+        </button>
+      {/if}
+
+      <div>
+        <a href="/category/all" class="btn bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-all duration-300 hover:shadow-md transform hover:-translate-y-1">
+          Start Exploring
+        </a>
+      </div>
     </div>
   {/if}
 </div>
+
+<!-- Confirmation modal for clear wishlist -->
+{#if showClearConfirm}
+  <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-md p-6 max-w-sm w-full shadow-xl transform transition-all">
+      <h3 class="text-xl font-medium mb-4">Clear Wishlist</h3>
+      <p class="text-gray-500 mb-6">Are you sure you want to remove all items from your wishlist? This action cannot be undone.</p>
+      <div class="flex justify-end space-x-4">
+        <button
+          class="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+          on:click={() => showClearConfirm = false}
+        >
+          Cancel
+        </button>
+        <button
+          class="px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors rounded"
+          on:click={clearWishlist}
+        >
+          Clear All
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   @keyframes spin {
@@ -342,5 +569,34 @@
       transform: scale(0.95);
       opacity: 0.7;
     }
+  }
+
+  /* Add line clamp utility for text truncation */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Add gold color classes if they don't exist in the project */
+  .bg-gold {
+    background-color: #b8860b;
+  }
+
+  .text-gold {
+    color: #b8860b;
+  }
+
+  .border-gold {
+    border-color: #b8860b;
+  }
+
+  .hover\:bg-gold-dark:hover {
+    background-color: #a67a09;
+  }
+
+  .hover\:text-gold-dark:hover {
+    color: #a67a09;
   }
 </style>
