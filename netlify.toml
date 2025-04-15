@@ -1,26 +1,18 @@
 [build]
-  command = "bun run build"
+  command = "npm run build"
   publish = ".svelte-kit/output"
 
 [build.environment]
   NODE_VERSION = "20"
 
-[[plugins]]
-  package = "@sveltejs/adapter-netlify"
-
 [dev]
-  command = "bun run dev"
+  command = "npm run dev"
   port = 5173
   targetPort = 5173
   framework = "#custom"
 
 [functions]
   directory = ".netlify/functions"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 [images]
   remote_images = ["https://ext.same-assets.com/*", "https://same-assets.com/*"]
