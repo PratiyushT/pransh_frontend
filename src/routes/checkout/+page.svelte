@@ -56,6 +56,37 @@
   let billingComplete = false;
   let paymentComplete = false;
 
+  // Field interaction tracking
+  let shippingTouched = {
+    firstName: false,
+    lastName: false,
+    email: false,
+    phoneNumber: false,
+    addressLine1: false,
+    city: false,
+    state: false,
+    postalCode: false
+  };
+
+  let billingTouched = {
+    firstName: false,
+    lastName: false,
+    addressLine1: false,
+    city: false,
+    state: false,
+    postalCode: false
+  };
+
+  let paymentTouched = {
+    cardholderName: false,
+    cardNumber: false,
+    expiryDate: false,
+    cvv: false
+  };
+
+  // Debounce timeout
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
   // Validation status for required fields
   let validationErrors = {
     shipping: {
@@ -148,10 +179,131 @@
     }
   };
 
+  // Mark fields as touched
+  const touchShippingField = (field: string) => {
+    shippingTouched[field] = true;
+    debouncedValidation();
+  };
+
+  const touchBillingField = (field: string) => {
+    billingTouched[field] = true;
+    debouncedValidation();
+  };
+
+  const touchPaymentField = (field: string) => {
+    paymentTouched[field] = true;
+    debouncedValidation();
+  };
+
+  // Reset form errors when fields change
+  const resetFieldError = () => {
+    debouncedValidation();
+  };
+
+  // Debounced validation to prevent excessive validation
+  function debouncedValidation() {
+    if (debounceTimeout) clearTimeout(debounceTimeout);
+
+    debounceTimeout = setTimeout(() => {
+      // Validate shipping fields if touched
+      if (shippingTouched.firstName) {
+        validationErrors.shipping.firstName = !shippingInfo.firstName.trim();
+      }
+
+      if (shippingTouched.lastName) {
+        validationErrors.shipping.lastName = !shippingInfo.lastName.trim();
+      }
+
+      if (shippingTouched.email) {
+        validationErrors.shipping.email = !validateEmail(shippingInfo.email);
+      }
+
+      if (shippingTouched.phoneNumber) {
+        validationErrors.shipping.phoneNumber = !validatePhone(shippingInfo.phoneNumber);
+      }
+
+      if (shippingTouched.addressLine1) {
+        validationErrors.shipping.addressLine1 = !shippingInfo.addressLine1.trim();
+      }
+
+      if (shippingTouched.city) {
+        validationErrors.shipping.city = !shippingInfo.city.trim();
+      }
+
+      if (shippingTouched.state) {
+        validationErrors.shipping.state = !shippingInfo.state.trim();
+      }
+
+      if (shippingTouched.postalCode) {
+        validationErrors.shipping.postalCode = !validatePostalCode(shippingInfo.postalCode, shippingInfo.country);
+      }
+
+      // Validate billing fields if not same as shipping and touched
+      if (!billingInfo.sameAsShipping) {
+        if (billingTouched.firstName) {
+          validationErrors.billing.firstName = !billingInfo.firstName.trim();
+        }
+
+        if (billingTouched.lastName) {
+          validationErrors.billing.lastName = !billingInfo.lastName.trim();
+        }
+
+        if (billingTouched.addressLine1) {
+          validationErrors.billing.addressLine1 = !billingInfo.addressLine1.trim();
+        }
+
+        if (billingTouched.city) {
+          validationErrors.billing.city = !billingInfo.city.trim();
+        }
+
+        if (billingTouched.state) {
+          validationErrors.billing.state = !billingInfo.state.trim();
+        }
+
+        if (billingTouched.postalCode) {
+          validationErrors.billing.postalCode = !validatePostalCode(billingInfo.postalCode, billingInfo.country);
+        }
+      }
+
+      // Validate payment fields if credit card and touched
+      if (selectedPaymentMethod === 'credit') {
+        if (paymentTouched.cardholderName) {
+          validationErrors.payment.cardholderName = !paymentInfo.cardholderName.trim();
+        }
+
+        if (paymentTouched.cardNumber) {
+          validationErrors.payment.cardNumber = !validateCardNumber(paymentInfo.cardNumber);
+        }
+
+        if (paymentTouched.expiryDate) {
+          validationErrors.payment.expiryDate = !validateCardExpiry(paymentInfo.expiryDate);
+        }
+
+        if (paymentTouched.cvv) {
+          validationErrors.payment.cvv = !validateCVV(paymentInfo.cvv);
+        }
+      }
+
+      // Trigger update
+      validationErrors = { ...validationErrors };
+    }, 300);
+  }
+
   // Navigation methods
   const nextStep = () => {
     if (currentStep < totalSteps) {
-      // Validate current step before proceeding
+      // Mark all fields in current step as touched before validation
+      if (currentStep === 1) {
+        Object.keys(shippingTouched).forEach(key => {
+          shippingTouched[key] = true;
+        });
+      } else if (currentStep === 2 && !billingInfo.sameAsShipping) {
+        Object.keys(billingTouched).forEach(key => {
+          billingTouched[key] = true;
+        });
+      }
+
+      // Run validation and proceed if valid
       if (currentStep === 1 && validateShippingInfo()) {
         shippingComplete = true;
         currentStep += 1;
@@ -454,6 +606,9 @@
 
     // Update the payment info
     paymentInfo.cardNumber = input.value;
+
+    // Add validation
+    touchPaymentField('cardNumber');
   };
 
   // Format expiry date
@@ -469,6 +624,10 @@
 
     // Update the payment info
     paymentInfo.expiryDate = input.value;
+
+    // Add validation
+    touchPaymentField('expiryDate');
+    resetFieldError();
   };
 
   // Lifecycle
@@ -497,6 +656,11 @@
 
     // Initialize animation
     animateStepTransition();
+
+    // Cleanup function to clear any pending timeouts
+    return () => {
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+    };
   });
 </script>
 
@@ -598,9 +762,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.firstName}
                     bind:value={shippingInfo.firstName}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('firstName')}
                     placeholder="Enter your first name"
                   />
-                  {#if validationErrors.shipping.firstName}
+                  {#if shippingTouched.firstName && validationErrors.shipping.firstName}
                     <p class="text-red-500 text-sm mt-1">First name is required</p>
                   {/if}
                 </div>
@@ -614,9 +780,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.lastName}
                     bind:value={shippingInfo.lastName}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('lastName')}
                     placeholder="Enter your last name"
                   />
-                  {#if validationErrors.shipping.lastName}
+                  {#if shippingTouched.lastName && validationErrors.shipping.lastName}
                     <p class="text-red-500 text-sm mt-1">Last name is required</p>
                   {/if}
                 </div>
@@ -630,9 +798,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.email}
                     bind:value={shippingInfo.email}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('email')}
                     placeholder="Enter your email address"
                   />
-                  {#if validationErrors.shipping.email}
+                  {#if shippingTouched.email && validationErrors.shipping.email}
                     <p class="text-red-500 text-sm mt-1">Please enter a valid email address</p>
                   {/if}
                 </div>
@@ -646,9 +816,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.phoneNumber}
                     bind:value={shippingInfo.phoneNumber}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('phoneNumber')}
                     placeholder="Enter your phone number"
                   />
-                  {#if validationErrors.shipping.phoneNumber}
+                  {#if shippingTouched.phoneNumber && validationErrors.shipping.phoneNumber}
                     <p class="text-red-500 text-sm mt-1">Please enter a valid phone number</p>
                   {/if}
                 </div>
@@ -664,9 +836,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.addressLine1}
                     bind:value={shippingInfo.addressLine1}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('addressLine1')}
                     placeholder="Street address, P.O. box, company name, etc."
                   />
-                  {#if validationErrors.shipping.addressLine1}
+                  {#if shippingTouched.addressLine1 && validationErrors.shipping.addressLine1}
                     <p class="text-red-500 text-sm mt-1">Address is required</p>
                   {/if}
                 </div>
@@ -694,9 +868,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.city}
                     bind:value={shippingInfo.city}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('city')}
                     placeholder="Enter your city"
                   />
-                  {#if validationErrors.shipping.city}
+                  {#if shippingTouched.city && validationErrors.shipping.city}
                     <p class="text-red-500 text-sm mt-1">City is required</p>
                   {/if}
                 </div>
@@ -710,9 +886,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.state}
                     bind:value={shippingInfo.state}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('state')}
                     placeholder="Enter your state/province"
                   />
-                  {#if validationErrors.shipping.state}
+                  {#if shippingTouched.state && validationErrors.shipping.state}
                     <p class="text-red-500 text-sm mt-1">State/Province is required</p>
                   {/if}
                 </div>
@@ -726,9 +904,11 @@
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                     class:error={validationErrors.shipping.postalCode}
                     bind:value={shippingInfo.postalCode}
+                    on:input={resetFieldError}
+                    on:blur={() => touchShippingField('postalCode')}
                     placeholder="Enter your ZIP/postal code"
                   />
-                  {#if validationErrors.shipping.postalCode}
+                  {#if shippingTouched.postalCode && validationErrors.shipping.postalCode}
                     <p class="text-red-500 text-sm mt-1">Please enter a valid postal code</p>
                   {/if}
                 </div>
@@ -849,9 +1029,11 @@
                       class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                       class:error={validationErrors.billing.firstName}
                       bind:value={billingInfo.firstName}
+                      on:input={resetFieldError}
+                      on:blur={() => touchBillingField('firstName')}
                       placeholder="Enter first name"
                     />
-                    {#if validationErrors.billing.firstName}
+                    {#if billingTouched.firstName && validationErrors.billing.firstName}
                       <p class="text-red-500 text-sm mt-1">First name is required</p>
                     {/if}
                   </div>
@@ -865,9 +1047,11 @@
                       class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                       class:error={validationErrors.billing.lastName}
                       bind:value={billingInfo.lastName}
+                      on:input={resetFieldError}
+                      on:blur={() => touchBillingField('lastName')}
                       placeholder="Enter last name"
                     />
-                    {#if validationErrors.billing.lastName}
+                    {#if billingTouched.lastName && validationErrors.billing.lastName}
                       <p class="text-red-500 text-sm mt-1">Last name is required</p>
                     {/if}
                   </div>
@@ -883,9 +1067,11 @@
                       class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                       class:error={validationErrors.billing.addressLine1}
                       bind:value={billingInfo.addressLine1}
+                      on:input={resetFieldError}
+                      on:blur={() => touchBillingField('addressLine1')}
                       placeholder="Street address, P.O. box, company name, etc."
                     />
-                    {#if validationErrors.billing.addressLine1}
+                    {#if billingTouched.addressLine1 && validationErrors.billing.addressLine1}
                       <p class="text-red-500 text-sm mt-1">Address is required</p>
                     {/if}
                   </div>
@@ -913,9 +1099,11 @@
                       class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                       class:error={validationErrors.billing.city}
                       bind:value={billingInfo.city}
+                      on:input={resetFieldError}
+                      on:blur={() => touchBillingField('city')}
                       placeholder="Enter your city"
                     />
-                    {#if validationErrors.billing.city}
+                    {#if billingTouched.city && validationErrors.billing.city}
                       <p class="text-red-500 text-sm mt-1">City is required</p>
                     {/if}
                   </div>
@@ -929,9 +1117,11 @@
                       class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                       class:error={validationErrors.billing.state}
                       bind:value={billingInfo.state}
+                      on:input={resetFieldError}
+                      on:blur={() => touchBillingField('state')}
                       placeholder="Enter your state/province"
                     />
-                    {#if validationErrors.billing.state}
+                    {#if billingTouched.state && validationErrors.billing.state}
                       <p class="text-red-500 text-sm mt-1">State/Province is required</p>
                     {/if}
                   </div>
@@ -945,9 +1135,11 @@
                       class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                       class:error={validationErrors.billing.postalCode}
                       bind:value={billingInfo.postalCode}
+                      on:input={resetFieldError}
+                      on:blur={() => touchBillingField('postalCode')}
                       placeholder="Enter your ZIP/postal code"
                     />
-                    {#if validationErrors.billing.postalCode}
+                    {#if billingTouched.postalCode && validationErrors.billing.postalCode}
                       <p class="text-red-500 text-sm mt-1">Please enter a valid postal code</p>
                     {/if}
                   </div>
@@ -1074,9 +1266,11 @@
                       class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                       class:error={validationErrors.payment.cardholderName}
                       bind:value={paymentInfo.cardholderName}
+                      on:input={resetFieldError}
+                      on:blur={() => touchPaymentField('cardholderName')}
                       placeholder="Name as it appears on the card"
                     />
-                    {#if validationErrors.payment.cardholderName}
+                    {#if paymentTouched.cardholderName && validationErrors.payment.cardholderName}
                       <p class="text-red-500 text-sm mt-1">Cardholder name is required</p>
                     {/if}
                   </div>
@@ -1091,7 +1285,11 @@
                         class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300 pr-12"
                         class:error={validationErrors.payment.cardNumber}
                         value={paymentInfo.cardNumber}
-                        on:input={formatCardNumber}
+                        on:input={(e) => {
+                          formatCardNumber(e);
+                          resetFieldError();
+                        }}
+                        on:blur={() => touchPaymentField('cardNumber')}
                         placeholder="1234 5678 9012 3456"
                         maxlength="19"
                       />
@@ -1101,7 +1299,7 @@
                         </svg>
                       </div>
                     </div>
-                    {#if validationErrors.payment.cardNumber}
+                    {#if paymentTouched.cardNumber && validationErrors.payment.cardNumber}
                       <p class="text-red-500 text-sm mt-1">Please enter a valid card number</p>
                     {/if}
                   </div>
@@ -1117,10 +1315,11 @@
                         class:error={validationErrors.payment.expiryDate}
                         value={paymentInfo.expiryDate}
                         on:input={formatExpiryDate}
+                        on:blur={() => touchPaymentField('expiryDate')}
                         placeholder="MM/YY"
                         maxlength="5"
                       />
-                      {#if validationErrors.payment.expiryDate}
+                      {#if paymentTouched.expiryDate && validationErrors.payment.expiryDate}
                         <p class="text-red-500 text-sm mt-1">Please enter a valid expiration date</p>
                       {/if}
                     </div>
@@ -1141,12 +1340,14 @@
                         class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
                         class:error={validationErrors.payment.cvv}
                         bind:value={paymentInfo.cvv}
+                        on:input={resetFieldError}
+                        on:blur={() => touchPaymentField('cvv')}
                         placeholder="123"
                         maxlength="4"
                         pattern="\d*"
                         inputmode="numeric"
                       />
-                      {#if validationErrors.payment.cvv}
+                      {#if paymentTouched.cvv && validationErrors.payment.cvv}
                         <p class="text-red-500 text-sm mt-1">Please enter a valid CVV/CVC code</p>
                       {/if}
                     </div>
