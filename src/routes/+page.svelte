@@ -16,6 +16,7 @@
   let heroTitle: HTMLElement;
   let heroSubtitle: HTMLElement;
   let heroBtns: HTMLElement;
+  let isMobile = false;
 
   const handleQuickView = (event) => {
     quickViewProduct = event.detail.product;
@@ -30,6 +31,16 @@
     document.body.style.overflow = '';
   };
 
+  // Enhanced intersection observer for lazy loading and animations
+  function createIntersectionObserver(callback) {
+    const options = {
+      rootMargin: isMobile ? '50px' : '100px',
+      threshold: isMobile ? 0.1 : 0.01
+    };
+
+    return new IntersectionObserver(callback, options);
+  }
+
   // Function to check if element is in viewport
   function isInViewport(element) {
     const rect = element.getBoundingClientRect();
@@ -41,7 +52,7 @@
     );
   }
 
-  // Function to handle scroll animations
+  // Function to handle scroll animations with performance optimizations
   function handleScrollAnimations() {
     // Featured section animations
     if (featuredSection && isInViewport(featuredSection)) {
@@ -51,9 +62,9 @@
       if (title && !title.classList.contains('animated')) {
         title.classList.add('animated');
         gsap.from(title, {
-          duration: 0.8,
+          duration: isMobile ? 0.6 : 0.8,  // Faster on mobile
           opacity: 0,
-          y: 30,
+          y: isMobile ? 20 : 30,  // Smaller movement on mobile
           ease: "power2.out"
         });
       }
@@ -61,10 +72,10 @@
       if (subtitle && !subtitle.classList.contains('animated')) {
         subtitle.classList.add('animated');
         gsap.from(subtitle, {
-          duration: 0.8,
+          duration: isMobile ? 0.6 : 0.8,
           opacity: 0,
-          y: 20,
-          delay: 0.2,
+          y: isMobile ? 15 : 20,
+          delay: isMobile ? 0.1 : 0.2,  // Faster delay on mobile
           ease: "power2.out"
         });
       }
@@ -74,10 +85,10 @@
         if (!card.classList.contains('animated') && isInViewport(card)) {
           card.classList.add('animated');
           gsap.from(card, {
-            duration: 0.8,
+            duration: isMobile ? 0.6 : 0.8,
             opacity: 0,
-            y: 40,
-            delay: 0.1 * index,
+            y: isMobile ? 30 : 40,
+            delay: isMobile ? 0.05 * index : 0.1 * index,  // Stagger faster on mobile
             ease: "power2.out"
           });
         }
@@ -91,10 +102,10 @@
         if (!el.classList.contains('animated')) {
           el.classList.add('animated');
           gsap.from(el, {
-            duration: 0.8,
+            duration: isMobile ? 0.6 : 0.8,
             opacity: 0,
-            y: 30,
-            delay: 0.1 * index,
+            y: isMobile ? 20 : 30,
+            delay: isMobile ? 0.05 * index : 0.1 * index,
             ease: "power2.out"
           });
         }
@@ -104,10 +115,10 @@
       if (image && !image.classList.contains('animated')) {
         image.classList.add('animated');
         gsap.from(image, {
-          duration: 1,
+          duration: isMobile ? 0.8 : 1,
           opacity: 0,
           scale: 0.95,
-          delay: 0.3,
+          delay: isMobile ? 0.2 : 0.3,
           ease: "power2.out"
         });
       }
@@ -116,58 +127,149 @@
       if (accent && !accent.classList.contains('animated')) {
         accent.classList.add('animated');
         gsap.from(accent, {
-          duration: 1,
+          duration: isMobile ? 0.8 : 1,
           opacity: 0,
           scale: 0.8,
-          delay: 0.5,
+          delay: isMobile ? 0.3 : 0.5,
           ease: "power2.out"
         });
       }
     }
   }
 
+  // Add touch interaction
+  function initTouchInteractions() {
+    const heroImage = heroSection.querySelector('.hero');
+    if (!heroImage) return;
+
+    // Add parallax effect on touch move
+    let startY = 0;
+
+    heroSection.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    heroSection.addEventListener('touchmove', (e) => {
+      const moveY = e.touches[0].clientY - startY;
+      const parallaxAmount = moveY * 0.05; // Less movement for subtle effect
+
+      // Apply subtle parallax effect to hero elements
+      if (heroTitle) {
+        gsap.to(heroTitle, {
+          y: parallaxAmount * 0.5,
+          duration: 0.2,
+          ease: "power1.out"
+        });
+      }
+
+      if (heroSubtitle) {
+        gsap.to(heroSubtitle, {
+          y: parallaxAmount * 0.3,
+          duration: 0.2,
+          ease: "power1.out"
+        });
+      }
+    }, { passive: true });
+
+    heroSection.addEventListener('touchend', () => {
+      // Reset positions
+      gsap.to([heroTitle, heroSubtitle], {
+        y: 0,
+        duration: 0.5,
+        ease: "power2.out"
+      });
+    }, { passive: true });
+  }
+
   onMount(() => {
-    // Simple hero animation
+    // Check if mobile/touch device
+    isMobile = 'ontouchstart' in window ||
+               navigator.maxTouchPoints > 0 ||
+               (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+    // Simple hero animation - faster and simpler on mobile
     const heroTl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
-    // Animate hero elements with sequential transitions
+    // Animate hero elements with sequential transitions - optimized for mobile
     heroTl.from(heroTitle, {
-      duration: 1.2,
-      y: 50,
+      duration: isMobile ? 0.8 : 1.2,
+      y: isMobile ? 30 : 50,
       opacity: 0,
-      delay: 0.3
+      delay: isMobile ? 0.2 : 0.3
     })
     .from(heroSubtitle, {
-      duration: 1,
-      y: 30,
+      duration: isMobile ? 0.7 : 1,
+      y: isMobile ? 20 : 30,
       opacity: 0
-    }, "-=0.7")
+    }, isMobile ? "-=0.5" : "-=0.7")
     .from(heroBtns, {
-      duration: 0.8,
-      y: 20,
+      duration: isMobile ? 0.6 : 0.8,
+      y: isMobile ? 15 : 20,
       opacity: 0
-    }, "-=0.5");
+    }, isMobile ? "-=0.4" : "-=0.5");
 
-    // Add subtle continuous animation
-    gsap.to(heroTitle, {
-      scale: 1.02,
-      duration: 2.5,
-      repeat: -1,
-      yoyo: true,
-      ease: "sine.inOut"
-    });
+    // Add subtle continuous animation - simplified for mobile
+    if (!isMobile) {
+      // Only use this effect on desktop for better performance
+      gsap.to(heroTitle, {
+        scale: 1.02,
+        duration: 2.5,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      });
+    }
 
-    // Add more subtle animations
+    // Add more subtle animations - simplified for mobile
     gsap.from('.luxury-divider', {
-      duration: 1,
+      duration: isMobile ? 0.7 : 1,
       opacity: 0,
-      y: 20,
+      y: isMobile ? 15 : 20,
       ease: "power2.out",
-      delay: 0.5
+      delay: isMobile ? 0.3 : 0.5
     });
 
-    // Set up scroll listener for animations
-    window.addEventListener('scroll', handleScrollAnimations);
+    // Initialize touch-specific interactions for mobile
+    if (isMobile) {
+      initTouchInteractions();
+    }
+
+    // Use intersection observer for scroll animations on mobile for better performance
+    if ('IntersectionObserver' in window) {
+      const animateOnScrollObserver = createIntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            // Apply will-change before animation
+            if (entry.target instanceof HTMLElement) {
+              entry.target.style.willChange = 'opacity, transform';
+            }
+
+            // Trigger animation based on the target element
+            if (entry.target === featuredSection) {
+              handleScrollAnimations();
+            } else if (entry.target === experienceSection) {
+              handleScrollAnimations();
+            }
+
+            // Remove will-change after animation completes
+            setTimeout(() => {
+              if (entry.target instanceof HTMLElement) {
+                entry.target.style.willChange = 'auto';
+              }
+            }, 1000);
+
+            // Stop observing after animation
+            animateOnScrollObserver.unobserve(entry.target);
+          }
+        });
+      });
+
+      if (featuredSection) animateOnScrollObserver.observe(featuredSection);
+      if (experienceSection) animateOnScrollObserver.observe(experienceSection);
+    } else {
+      // Fallback to scroll listener for older browsers
+      window.addEventListener('scroll', handleScrollAnimations, { passive: true });
+    }
 
     // Run once to check for elements already in view
     handleScrollAnimations();
@@ -240,7 +342,7 @@
         <a href="/about" class="btn btn-primary">Learn More</a>
       </div>
       <div class="experience-image-container">
-        <img src="/images/products/saree.jpg" alt="Luxury Experience" class="experience-image">
+        <img src="/images/products/saree.jpg" alt="Luxury Experience" class="experience-image" loading="lazy">
         <div class="experience-image-accent"></div>
       </div>
     </div>
@@ -429,6 +531,71 @@
   @media (min-width: 1024px) {
     .hero-title {
       font-size: 5.5rem;
+    }
+  }
+
+  /* Mobile optimization styles */
+  @media (max-width: 767px) {
+    .hero {
+      height: 85vh; /* Slightly shorter on mobile */
+    }
+
+    .hero-title {
+      font-size: 2.8rem; /* Smaller text on mobile */
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-btns {
+      flex-direction: column;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+    }
+
+    .hero-btns .btn {
+      width: 100%;
+      margin-bottom: 0.75rem;
+      padding: 1rem; /* Larger touch target */
+    }
+
+    .experience-image-container {
+      margin-top: 2rem;
+    }
+
+    /* Improved featured products grid for mobile */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(1, 1fr); /* Single column on small mobile */
+      gap: 1.5rem;
+      margin: 1rem 0;
+    }
+
+    /* Target section title spacing */
+    .section-title {
+      margin-bottom: 0.5rem;
+    }
+
+    .section-subtitle {
+      font-size: 0.95rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Container padding adjustments */
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  /* Medium mobile devices (480px and up) */
+  @media (min-width: 480px) and (max-width: 767px) {
+    .product-grid {
+      grid-template-columns: repeat(2, 1fr); /* 2 columns on larger mobile */
+      gap: 1rem;
     }
   }
 </style>

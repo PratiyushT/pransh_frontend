@@ -5,8 +5,17 @@
   let customCursor: HTMLElement;
   let isHovering = false;
   let isActive = false;
+  let isMobile = false;
 
   onMount(() => {
+    // Check if mobile/touch device
+    isMobile = 'ontouchstart' in window ||
+               navigator.maxTouchPoints > 0 ||
+               (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+    // Don't initialize custom cursor on mobile devices
+    if (isMobile) return;
+
     // Initialize cursor position at center
     if (customCursor && typeof window !== 'undefined') {
       customCursor.style.opacity = '0';
@@ -85,12 +94,14 @@
   });
 </script>
 
+{#if !isMobile}
 <div
   class="custom-cursor"
   class:hover={isHovering}
   class:active={isActive}
   bind:this={customCursor}
 ></div>
+{/if}
 
 <style>
   .custom-cursor {
@@ -104,6 +115,7 @@
     z-index: 50;
     transform: translate(-50%, -50%);
     transition: width 0.3s, height 0.3s;
+    will-change: transform;
   }
 
   .custom-cursor.hover {

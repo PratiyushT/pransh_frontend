@@ -73,15 +73,30 @@ a:hover {
 /* Layout */
 .container {
   width: 100%;
-  max-width: 1320px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 1.5rem; /* Default padding */
+}
+
+/* Make sure each section has adequate spacing */
+.section {
+  padding: 4rem 0;
+  position: relative;
 }
 
 /* Mobile adjustments */
 @media (max-width: 767px) {
   .container {
-    padding-left: 0.75rem; /* Reduced padding on left side for mobile */
+    padding: 0 1rem; /* Less padding on small mobile */
+  }
+
+  .section {
+    padding: 2.5rem 0; /* Less padding on small mobile */
+  }
+
+  .product-grid {
+    gap: 1rem;
+    margin: 1.5rem 0;
   }
 }
 
@@ -215,7 +230,8 @@ a:hover {
 
 /* Sections */
 .section {
-  padding: 5rem 0;
+  padding: 4rem 0;
+  position: relative;
 }
 
 .section-sm {
@@ -401,6 +417,7 @@ a:hover {
 @media (min-width: 640px) {
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
   }
 }
 

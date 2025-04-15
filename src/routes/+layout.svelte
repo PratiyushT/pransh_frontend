@@ -14,8 +14,14 @@
   let pageWrapper: HTMLElement;
   let currentPath: string;
   let timeline: gsap.core.Timeline;
+  let isMobile = false;
 
   onMount(() => {
+    // Check if mobile/touch device
+    isMobile = 'ontouchstart' in window ||
+               navigator.maxTouchPoints > 0 ||
+               (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
     // Initialize smooth page transitions
     timeline = gsap.timeline({ paused: true });
 
@@ -27,11 +33,11 @@
         y: 0
       });
 
-      // Reveal animation when page first loads
+      // Reveal animation when page first loads - faster on mobile
       gsap.from(pageWrapper, {
-        duration: 1,
+        duration: isMobile ? 0.7 : 1,
         opacity: 0,
-        y: 10,
+        y: isMobile ? 5 : 10, // Smaller movement on mobile for smoother experience
         ease: "power2.out",
         clearProps: "all",
         onComplete: () => {
@@ -43,23 +49,46 @@
       // If pageWrapper isn't available yet, just mark page as loaded
       setTimeout(() => {
         $isLoading = false;
-      }, 800);
+      }, isMobile ? 500 : 800); // Faster timeout on mobile
     }
 
     // Store current path for detecting route changes
     currentPath = page.url.pathname;
+
+    // Add passive touch listeners for better scrolling performance on mobile
+    if (isMobile) {
+      addPassiveTouchListeners();
+    }
   });
+
+  function addPassiveTouchListeners() {
+    // This improves scrolling performance on mobile devices
+    document.addEventListener('touchstart', () => {}, { passive: true });
+    document.addEventListener('touchmove', () => {}, { passive: true });
+
+    // Apply will-change to improve scroll performance on critical elements
+    const criticalElements = document.querySelectorAll('.hero, .product-grid, .section');
+    criticalElements.forEach(el => {
+      if (el instanceof HTMLElement) {
+        el.style.willChange = 'transform';
+        // Remove will-change after animation completes to free up resources
+        setTimeout(() => {
+          el.style.willChange = 'auto';
+        }, 1000);
+      }
+    });
+  }
 
   // Handle page transitions when routes change
   $: if ($navigating && pageWrapper && !$isLoading) {
     // Set loading state
     $isLoading = true;
 
-    // Fade out current page
+    // Fade out current page - faster on mobile
     gsap.to(pageWrapper, {
-      duration: 0.4,
+      duration: isMobile ? 0.3 : 0.4,
       opacity: 0,
-      y: -15,
+      y: isMobile ? -10 : -15, // Smaller movement on mobile
       ease: "power2.in"
     });
   }
@@ -73,17 +102,22 @@
       window.scrollTo(0, 0);
     }, 0);
 
-    // Fade in new page
+    // Fade in new page - faster animations on mobile
     gsap.fromTo(pageWrapper,
-      { opacity: 0, y: 15 },
+      { opacity: 0, y: isMobile ? 10 : 15 },
       {
-        duration: 0.6,
+        duration: isMobile ? 0.4 : 0.6,
         opacity: 1,
         y: 0,
         ease: "power3.out",
         clearProps: "all",
         onComplete: () => {
           $isLoading = false;
+
+          // Re-apply passive touch listeners after navigation
+          if (isMobile) {
+            addPassiveTouchListeners();
+          }
         }
       }
     );
@@ -94,7 +128,7 @@
   <PageLoader />
 {/if}
 
-<div class="site-wrapper" class:page-loading={$isLoading}>
+<div class="site-wrapper" class:page-loading={$isLoading} class:mobile={isMobile}>
   <Header />
   <Menu />
 
@@ -134,5 +168,17 @@
   .site-wrapper.page-loading {
     pointer-events: none;
   }
-</style>
 
+  /* Mobile optimizations */
+  .site-wrapper.mobile .main-content {
+    /* Improve mobile scrolling feel */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 768px) {
+    /* Add specific mobile styles if needed */
+    .page-wrapper {
+      overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+    }
+  }
+</style>

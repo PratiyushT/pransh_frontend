@@ -41,6 +41,46 @@
     event.currentTarget.src = '/images/product-placeholder.jpg';
   }
 
+  // Create intersection observer for lazy loading
+  let primaryImageRef: HTMLImageElement;
+  let secondaryImageRef: HTMLImageElement;
+
+  function setupLazyLoading() {
+    // Create intersection observer for lazy loading images
+    if (typeof IntersectionObserver !== 'undefined') {
+      const options = {
+        rootMargin: '200px 0px',  // Start loading when image is 200px from viewport
+        threshold: 0.01
+      };
+
+      const loadImage = (img: HTMLImageElement) => {
+        const src = img.dataset.src;
+        if (src) {
+          img.src = src;
+          img.removeAttribute('data-src');
+          // Apply fade-in effect
+          gsap.fromTo(img,
+            { opacity: 0 },
+            { duration: 0.3, opacity: 1, ease: "power2.out" }
+          );
+        }
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            loadImage(entry.target as HTMLImageElement);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, options);
+
+      // Observe images once they're mounted
+      if (primaryImageRef) observer.observe(primaryImageRef);
+      if (secondaryImageRef) observer.observe(secondaryImageRef);
+    }
+  }
+
   // Add to wishlist handler
   const handleToggleWishlist = (e) => {
     e.preventDefault();
@@ -91,7 +131,11 @@
     if (!cardElement || !imageContainer) return;
 
     // Check if device supports touch
-    isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 ||
+                   (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+    // Set up lazy loading for images
+    setupLazyLoading();
 
     // Initialize GSAP timeline
     timeline = gsap.timeline({ paused: true });
@@ -215,14 +259,30 @@
     }
   };
 
-  const handleTouchStart = () => {
+  // Mobile-specific touch handling
+  const handleTouchStart = (e) => {
     if (isTouchDevice && timeline) {
+      // On mobile, toggle the hover state on tap
       isHovered = !isHovered;
       if (isHovered) {
         timeline.play();
+        // Add event listener for touch outside to close
+        setTimeout(() => {
+          document.addEventListener('touchstart', handleTouchOutside);
+        }, 10);
       } else {
         timeline.reverse();
       }
+      e.preventDefault(); // Prevent immediate navigation on first tap
+    }
+  };
+
+  const handleTouchOutside = (e) => {
+    // If user taps outside the card, close it
+    if (cardElement && !cardElement.contains(e.target)) {
+      isHovered = false;
+      timeline?.reverse();
+      document.removeEventListener('touchstart', handleTouchOutside);
     }
   };
 
@@ -256,16 +316,20 @@
   <div class="product-card {isLoaded ? 'loaded' : ''} {isHovered ? 'hovered' : ''}">
     <div class="product-card-image-container" bind:this={imageContainer}>
       <img
-        src={primaryImage}
+        src="/images/product-placeholder.jpg"
+        data-src={primaryImage}
         alt={product.name}
         class="product-card-image primary-image"
+        bind:this={primaryImageRef}
         on:error={handleImageError}
       >
       {#if secondaryImage && secondaryImage !== primaryImage}
         <img
-          src={secondaryImage}
+          src="/images/product-placeholder.jpg"
+          data-src={secondaryImage}
           alt={`${product.name} - Alternate view`}
           class="product-card-image secondary-image"
+          bind:this={secondaryImageRef}
           on:error={handleImageError}
         >
       {/if}
@@ -456,6 +520,7 @@
     opacity: 0;
     will-change: transform, opacity;
     transition: transform 0.25s ease, opacity 0.25s ease; /* Added transition for fallback */
+    z-index: 4; /* Ensure buttons are clickable */
   }
 
   .product-card-action {
@@ -508,6 +573,10 @@
     will-change: transform, opacity;
     box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
     transition: transform 0.25s ease, opacity 0.25s ease; /* Added for fallback */
+    z-index: 4; /* Ensure view details is clickable */
+    position: relative; /* Needed for z-index */
+    width: fit-content; /* Don't span full width */
+    margin: 0 auto; /* Center horizontally */
   }
 
   .product-card-cta svg {
@@ -529,7 +598,7 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     padding: 0.3rem 0.6rem;
-    z-index: 5;
+    z-index: 5; /* Above other elements */
     border-radius: 2px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
@@ -659,15 +728,73 @@
     .product-card-cta {
       opacity: 1;
       transform: translateY(0);
+      padding: 0.7rem 1rem; /* Slightly smaller on mobile for better fit */
+      font-size: 0.8rem; /* Smaller font on mobile */
     }
 
     .product-card-title {
       font-size: 1.25rem;
+      /* Ensure proper text handling */
+      -webkit-line-clamp: 1; /* Show only 1 line on mobile */
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .product-card-price {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .product-card-category {
+      font-size: 0.7rem;
     }
 
     .add-to-cart-button {
       transform: translateY(0);
       opacity: 1;
+      padding: 0.6rem; /* Smaller padding on mobile */
+    }
+
+    .product-card-image-container {
+      padding-bottom: 120%; /* Slightly shorter image container */
+    }
+
+    .product-card-info {
+      padding: 1rem; /* Less padding on mobile */
+    }
+
+    .product-card-actions {
+      /* Adjusted position for better visibility on mobile */
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .product-card-action {
+      width: 2.2rem; /* Smaller but still touchable */
+      height: 2.2rem;
+    }
+
+    .product-card-badge {
+      top: 0.75rem;
+      left: 0.75rem;
+      font-size: 0.65rem;
+      padding: 0.25rem 0.5rem;
+    }
+  }
+
+  /* Ensure the product-card-wrapper has proper padding on mobile */
+  @media (max-width: 480px) {
+    .product-card-wrapper {
+      margin-bottom: 1rem;
+    }
+
+    .product-card-overlay {
+      padding: 1rem; /* Smaller padding on small mobile */
+    }
+
+    .product-card-title {
+      font-size: 1.1rem; /* Even smaller on tiny screens */
     }
   }
 
