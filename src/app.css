@@ -438,6 +438,13 @@ a:hover {
   .footer-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+
+  /* Fix for shop page filter */
+  .filter-container {
+    display: block !important;
+    height: auto !important;
+    opacity: 1 !important;
+  }
 }
 
 /* Hamburger Menu */
@@ -622,5 +629,14 @@ a:hover {
 
   .md\:grid-cols-3 {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Fix for shop page filter on large screens */
+@media (min-width: 1024px) {
+  .filter-container {
+    display: block !important;
+    height: auto !important;
+    opacity: 1 !important;
   }
 }

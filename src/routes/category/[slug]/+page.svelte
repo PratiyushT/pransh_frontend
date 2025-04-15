@@ -248,20 +248,23 @@
   const toggleFilter = () => {
     isFilterOpen = !isFilterOpen;
 
-    // Animate filter opening/closing
+    // Animate filter opening/closing only on mobile
     if (filterSection) {
-      if (isFilterOpen) {
-        gsap.fromTo(filterSection,
-          { height: 0, opacity: 0 },
-          { height: 'auto', opacity: 1, duration: 0.3, ease: "power2.out" }
-        );
-      } else {
-        gsap.to(filterSection, {
-          height: 0,
-          opacity: 0,
-          duration: 0.3,
-          ease: "power2.in"
-        });
+      // Only perform animations on mobile screens
+      if (window.innerWidth < 1024) {
+        if (isFilterOpen) {
+          gsap.fromTo(filterSection,
+            { height: 0, opacity: 0 },
+            { height: 'auto', opacity: 1, duration: 0.3, ease: "power2.out" }
+          );
+        } else {
+          gsap.to(filterSection, {
+            height: 0,
+            opacity: 0,
+            duration: 0.3,
+            ease: "power2.in"
+          });
+        }
       }
     }
   };
@@ -309,7 +312,7 @@
     <!-- Filters and Products -->
     <div class="flex flex-col lg:flex-row gap-8">
       <!-- Mobile Filter Toggle -->
-      <div class="lg:hidden mb-6">
+      <div class="lg:hidden mb-6 w-full">
         <button
           class="luxury-filter-toggle"
           on:click={toggleFilter}
@@ -334,7 +337,7 @@
         </button>
       </div>
 
-      <!-- Filters -->
+      <!-- Filters Section - Now comes first in the DOM -->
       <div class="lg:w-1/4 filter-container {isFilterOpen ? 'block' : 'hidden lg:block'}" bind:this={filterSection}>
         <div class="filter-wrapper">
           <div class="flex justify-between items-center mb-8">
@@ -465,7 +468,7 @@
         </div>
       </div>
 
-      <!-- Products -->
+      <!-- Products Section - Comes after filters -->
       <div class="lg:w-3/4 products-container">
         <!-- Sort and Result Count -->
         <div class="sort-container mb-8">
