@@ -14,6 +14,94 @@
   let errorMessage = '';
   let formSubmitted = false;
 
+  // Field interaction tracking
+  let firstNameTouched = false;
+  let lastNameTouched = false;
+  let emailTouched = false;
+  let passwordTouched = false;
+  let confirmPasswordTouched = false;
+  let termsTouched = false;
+
+  // Password strength
+  let passwordStrength = 0; // 0: none, 1: weak, 2: medium, 3: strong
+
+  // Debounce timeout
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Validate email with a more thorough regex
+  function validateEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  // Check password strength
+  function checkPasswordStrength(password: string): number {
+    if (!password) return 0;
+
+    let strength = 0;
+    // Length check
+    if (password.length >= 8) strength += 1;
+    // Complexity checks
+    if (/[A-Z]/.test(password)) strength += 0.5;
+    if (/[a-z]/.test(password)) strength += 0.5;
+    if (/[0-9]/.test(password)) strength += 0.5;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 0.5;
+
+    // Cap at 3
+    return Math.min(Math.floor(strength), 3);
+  }
+
+  // Debounced validation to prevent excessive validation
+  function debouncedValidation() {
+    if (debounceTimeout) clearTimeout(debounceTimeout);
+
+    debounceTimeout = setTimeout(() => {
+      // Validate fields if touched
+      if (emailTouched) {
+        isEmailValid = validateEmail(email);
+      }
+
+      if (passwordTouched) {
+        passwordStrength = checkPasswordStrength(password);
+        isPasswordValid = password.length >= 6;
+      }
+
+      if (confirmPasswordTouched && password) {
+        isConfirmPasswordValid = confirmPassword === password;
+      }
+
+      // Reset error message if all valid
+      if (formSubmitted && isFormValid) {
+        errorMessage = '';
+      }
+    }, 300);
+  }
+
+  // Mark fields as touched
+  const touchField = (field: string) => {
+    switch(field) {
+      case 'firstName':
+        firstNameTouched = true;
+        break;
+      case 'lastName':
+        lastNameTouched = true;
+        break;
+      case 'email':
+        emailTouched = true;
+        break;
+      case 'password':
+        passwordTouched = true;
+        break;
+      case 'confirmPassword':
+        confirmPasswordTouched = true;
+        break;
+      case 'terms':
+        termsTouched = true;
+        break;
+    }
+    debouncedValidation();
+  };
+
   // Address data
   let showAddressFields = false;
   let streetAddress = '';
@@ -21,6 +109,13 @@
   let state = '';
   let zipCode = '';
   let country = '';
+
+  // Address fields interaction tracking
+  let streetAddressTouched = false;
+  let cityTouched = false;
+  let stateTouched = false;
+  let zipCodeTouched = false;
+  let countryTouched = false;
 
   // Country options
   const countries = [
@@ -30,19 +125,20 @@
   ];
 
   // Form validation
-  $: isFirstNameValid = !formSubmitted || firstName.length > 1;
-  $: isLastNameValid = !formSubmitted || lastName.length > 1;
-  $: isEmailValid = !formSubmitted || (email.includes('@') && email.includes('.'));
-  $: isPasswordValid = !formSubmitted || password.length >= 6;
-  $: isConfirmPasswordValid = !formSubmitted || password === confirmPassword;
-  $: isTermsAccepted = !formSubmitted || acceptTerms;
+  $: isFirstNameValid = !firstNameTouched || firstName.length > 1;
+  $: isLastNameValid = !lastNameTouched || lastName.length > 1;
+  $: isEmailValid = !emailTouched || validateEmail(email);
+  $: isPasswordValid = !passwordTouched || password.length >= 6;
+  $: isConfirmPasswordValid = !confirmPasswordTouched || password === confirmPassword;
+  $: isTermsAccepted = !termsTouched || acceptTerms;
+  $: passwordStrength = checkPasswordStrength(password);
 
   // Address validation
-  $: isStreetAddressValid = !formSubmitted || !showAddressFields || streetAddress.length > 3;
-  $: isCityValid = !formSubmitted || !showAddressFields || city.length > 2;
-  $: isStateValid = !formSubmitted || !showAddressFields || state.length > 1;
-  $: isZipCodeValid = !formSubmitted || !showAddressFields || zipCode.length > 3;
-  $: isCountryValid = !formSubmitted || !showAddressFields || country.length > 0;
+  $: isStreetAddressValid = !streetAddressTouched || !showAddressFields || streetAddress.length > 3;
+  $: isCityValid = !cityTouched || !showAddressFields || city.length > 2;
+  $: isStateValid = !stateTouched || !showAddressFields || state.length > 1;
+  $: isZipCodeValid = !zipCodeTouched || !showAddressFields || zipCode.length > 3;
+  $: isCountryValid = !countryTouched || !showAddressFields || country.length > 0;
 
   $: isFormValid = firstName && lastName && email && password && confirmPassword &&
                 password === confirmPassword && acceptTerms &&
@@ -62,6 +158,20 @@
   // Handle registration form submission
   const handleSubmit = async () => {
     formSubmitted = true;
+    firstNameTouched = true;
+    lastNameTouched = true;
+    emailTouched = true;
+    passwordTouched = true;
+    confirmPasswordTouched = true;
+    termsTouched = true;
+
+    if (showAddressFields) {
+      streetAddressTouched = true;
+      cityTouched = true;
+      stateTouched = true;
+      zipCodeTouched = true;
+      countryTouched = true;
+    }
 
     if (!isFormValid) {
       errorMessage = 'Please fix the errors in the form';
@@ -110,6 +220,7 @@
     if (formSubmitted) {
       errorMessage = '';
     }
+    debouncedValidation();
   };
 
   // Page animation
@@ -137,6 +248,11 @@
       duration: 0.4,
       ease: 'power2.out'
     }, '-=0.2');
+
+    // Cleanup function to clear any pending timeouts
+    return () => {
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+    };
   });
 </script>
 
@@ -172,11 +288,12 @@
             id="firstName"
             bind:value={firstName}
             on:input={resetFieldError}
-            class="w-full px-3 py-2 border {!isFirstNameValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+            on:blur={() => touchField('firstName')}
+            class="w-full px-3 py-2 border {firstNameTouched && !isFirstNameValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
             placeholder="John"
             required
           >
-          {#if !isFirstNameValid}
+          {#if firstNameTouched && !isFirstNameValid}
             <p class="mt-1 text-sm text-red-600">First name is required</p>
           {/if}
         </div>
@@ -189,11 +306,12 @@
             id="lastName"
             bind:value={lastName}
             on:input={resetFieldError}
-            class="w-full px-3 py-2 border {!isLastNameValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+            on:blur={() => touchField('lastName')}
+            class="w-full px-3 py-2 border {lastNameTouched && !isLastNameValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
             placeholder="Doe"
             required
           >
-          {#if !isLastNameValid}
+          {#if lastNameTouched && !isLastNameValid}
             <p class="mt-1 text-sm text-red-600">Last name is required</p>
           {/if}
         </div>
@@ -207,11 +325,12 @@
           id="email"
           bind:value={email}
           on:input={resetFieldError}
-          class="w-full px-3 py-2 border {!isEmailValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          on:blur={() => touchField('email')}
+          class="w-full px-3 py-2 border {emailTouched && !isEmailValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
           placeholder="your@email.com"
           required
         >
-        {#if !isEmailValid}
+        {#if emailTouched && !isEmailValid}
           <p class="mt-1 text-sm text-red-600">Please enter a valid email address</p>
         {/if}
       </div>
@@ -224,11 +343,39 @@
           id="password"
           bind:value={password}
           on:input={resetFieldError}
-          class="w-full px-3 py-2 border {!isPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          on:blur={() => touchField('password')}
+          class="w-full px-3 py-2 border {passwordTouched && !isPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
           placeholder="••••••••"
           required
         >
-        {#if !isPasswordValid}
+        {#if passwordTouched && password}
+          <!-- Password strength indicator -->
+          <div class="mt-1 h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+            <div
+              class="{passwordStrength === 1 ? 'bg-red-500' : passwordStrength === 2 ? 'bg-yellow-500' : passwordStrength === 3 ? 'bg-green-500' : ''}"
+              style="width: {passwordStrength * 33.33}%;"
+              transition:slide
+            ></div>
+          </div>
+          <p class="mt-1 text-xs {passwordStrength === 1 ? 'text-red-600' : passwordStrength === 2 ? 'text-yellow-600' : passwordStrength === 3 ? 'text-green-600' : 'text-gray-500'}">
+            {#if passwordStrength === 0}
+              Enter a password
+            {:else if passwordStrength === 1}
+              Weak password
+            {:else if passwordStrength === 2}
+              Medium strength
+            {:else}
+              Strong password
+            {/if}
+          </p>
+          <ul class="mt-1 text-xs text-gray-500 list-disc pl-4">
+            <li class="{password.length >= 8 ? 'text-green-600' : ''}">At least 8 characters</li>
+            <li class="{/[A-Z]/.test(password) ? 'text-green-600' : ''}">At least one uppercase letter</li>
+            <li class="{/[0-9]/.test(password) ? 'text-green-600' : ''}">At least one number</li>
+            <li class="{/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : ''}">At least one special character</li>
+          </ul>
+        {/if}
+        {#if passwordTouched && !isPasswordValid}
           <p class="mt-1 text-sm text-red-600">Password must be at least 6 characters</p>
         {/if}
       </div>
@@ -241,12 +388,16 @@
           id="confirmPassword"
           bind:value={confirmPassword}
           on:input={resetFieldError}
-          class="w-full px-3 py-2 border {!isConfirmPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          on:blur={() => touchField('confirmPassword')}
+          class="w-full px-3 py-2 border {confirmPasswordTouched && !isConfirmPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
           placeholder="••••••••"
           required
         >
-        {#if !isConfirmPasswordValid}
+        {#if confirmPasswordTouched && !isConfirmPasswordValid}
           <p class="mt-1 text-sm text-red-600">Passwords do not match</p>
+        {/if}
+        {#if confirmPasswordTouched && confirmPassword && confirmPassword === password}
+          <p class="mt-1 text-sm text-green-600">Passwords match</p>
         {/if}
       </div>
 
@@ -274,11 +425,12 @@
               id="streetAddress"
               bind:value={streetAddress}
               on:input={resetFieldError}
-              class="w-full px-3 py-2 border {!isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+              on:blur={() => streetAddressTouched = true}
+              class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
               placeholder="123 Main St, Apt 4B"
               required={showAddressFields}
             >
-            {#if !isStreetAddressValid}
+            {#if streetAddressTouched && !isStreetAddressValid}
               <p class="mt-1 text-sm text-red-600">Please enter a valid street address</p>
             {/if}
           </div>
@@ -292,11 +444,12 @@
                 id="city"
                 bind:value={city}
                 on:input={resetFieldError}
-                class="w-full px-3 py-2 border {!isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                on:blur={() => cityTouched = true}
+                class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
                 placeholder="New York"
                 required={showAddressFields}
               >
-              {#if !isCityValid}
+              {#if cityTouched && !isCityValid}
                 <p class="mt-1 text-sm text-red-600">City is required</p>
               {/if}
             </div>
@@ -308,11 +461,12 @@
                 id="state"
                 bind:value={state}
                 on:input={resetFieldError}
-                class="w-full px-3 py-2 border {!isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                on:blur={() => stateTouched = true}
+                class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
                 placeholder="NY"
                 required={showAddressFields}
               >
-              {#if !isStateValid}
+              {#if stateTouched && !isStateValid}
                 <p class="mt-1 text-sm text-red-600">State/Province is required</p>
               {/if}
             </div>
@@ -327,11 +481,12 @@
                 id="zipCode"
                 bind:value={zipCode}
                 on:input={resetFieldError}
-                class="w-full px-3 py-2 border {!isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                on:blur={() => zipCodeTouched = true}
+                class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
                 placeholder="10001"
                 required={showAddressFields}
               >
-              {#if !isZipCodeValid}
+              {#if zipCodeTouched && !isZipCodeValid}
                 <p class="mt-1 text-sm text-red-600">Zip/Postal code is required</p>
               {/if}
             </div>
@@ -342,7 +497,8 @@
                 id="country"
                 bind:value={country}
                 on:change={resetFieldError}
-                class="w-full px-3 py-2 border {!isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white"
+                on:blur={() => countryTouched = true}
+                class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white"
                 required={showAddressFields}
               >
                 <option value="">Select Country</option>
@@ -350,7 +506,7 @@
                   <option value={countryOption}>{countryOption}</option>
                 {/each}
               </select>
-              {#if !isCountryValid}
+              {#if countryTouched && !isCountryValid}
                 <p class="mt-1 text-sm text-red-600">Country is required</p>
               {/if}
             </div>
@@ -366,15 +522,16 @@
               id="terms"
               type="checkbox"
               bind:checked={acceptTerms}
+              on:change={() => touchField('terms')}
               class="h-4 w-4 text-gold focus:ring-gold border-gray-300 rounded"
               required
             >
           </div>
           <div class="ml-3 text-sm">
-            <label for="terms" class="{!isTermsAccepted ? 'text-red-600' : 'text-gray-600'}">
+            <label for="terms" class="{termsTouched && !isTermsAccepted ? 'text-red-600' : 'text-gray-600'}">
               I agree to the <a href="/terms" class="text-gold hover:text-gold-dark underline">Terms of Service</a> and <a href="/privacy" class="text-gold hover:text-gold-dark underline">Privacy Policy</a>
             </label>
-            {#if !isTermsAccepted}
+            {#if termsTouched && !isTermsAccepted}
               <p class="mt-1 text-sm text-red-600">You must accept the terms and conditions</p>
             {/if}
           </div>
@@ -477,5 +634,10 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* Add transition for password strength indicator */
+  [transition\:slide] {
+    transition: width 0.3s ease-in-out;
   }
 </style>

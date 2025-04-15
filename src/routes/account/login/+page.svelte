@@ -11,14 +11,84 @@
   let errorMessage = '';
   let formSubmitted = false;
 
+  // Field interaction tracking
+  let emailTouched = false;
+  let passwordTouched = false;
+
+  // Password strength
+  let passwordStrength = 0; // 0: none, 1: weak, 2: medium, 3: strong
+
+  // Debounce timeout
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Validate email with a more thorough regex
+  function validateEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  // Check password strength
+  function checkPasswordStrength(password: string): number {
+    if (!password) return 0;
+
+    let strength = 0;
+    // Length check
+    if (password.length >= 8) strength += 1;
+    // Complexity checks
+    if (/[A-Z]/.test(password)) strength += 0.5;
+    if (/[a-z]/.test(password)) strength += 0.5;
+    if (/[0-9]/.test(password)) strength += 0.5;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 0.5;
+
+    // Cap at 3
+    return Math.min(Math.floor(strength), 3);
+  }
+
+  // Debounced validation to prevent excessive validation
+  function debouncedValidation() {
+    if (debounceTimeout) clearTimeout(debounceTimeout);
+
+    debounceTimeout = setTimeout(() => {
+      // Validate email if touched
+      if (emailTouched) {
+        isEmailValid = validateEmail(email);
+      }
+
+      // Check password strength if touched
+      if (passwordTouched) {
+        passwordStrength = checkPasswordStrength(password);
+        isPasswordValid = password.length >= 6;
+      }
+
+      // Reset error message if all valid
+      if (formSubmitted && isFormValid) {
+        errorMessage = '';
+      }
+    }, 300);
+  }
+
+  // Mark fields as touched
+  const touchEmail = () => {
+    emailTouched = true;
+    debouncedValidation();
+  };
+
+  const touchPassword = () => {
+    passwordTouched = true;
+    debouncedValidation();
+  };
+
   // Form validation
-  $: isEmailValid = !formSubmitted || (email.includes('@') && email.includes('.'));
-  $: isPasswordValid = !formSubmitted || password.length >= 6;
+  $: isEmailValid = !emailTouched || validateEmail(email);
+  $: isPasswordValid = !passwordTouched || password.length >= 6;
+  $: passwordStrength = checkPasswordStrength(password);
   $: isFormValid = email && password && isEmailValid && isPasswordValid;
 
   // Handle login form submission
   const handleSubmit = async () => {
     formSubmitted = true;
+    emailTouched = true;
+    passwordTouched = true;
 
     if (!isFormValid) {
       errorMessage = 'Please fix the errors in the form';
@@ -55,6 +125,7 @@
     if (formSubmitted) {
       errorMessage = '';
     }
+    debouncedValidation();
   };
 
   // Page animation
@@ -82,6 +153,11 @@
       duration: 0.4,
       ease: 'power2.out'
     }, '-=0.2');
+
+    // Cleanup function to clear any pending timeouts
+    return () => {
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+    };
   });
 </script>
 
@@ -115,11 +191,12 @@
           id="email"
           bind:value={email}
           on:input={resetFieldError}
-          class="w-full px-3 py-2 border {!isEmailValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          on:blur={touchEmail}
+          class="w-full px-3 py-2 border {emailTouched && !isEmailValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
           placeholder="your@email.com"
           required
         >
-        {#if !isEmailValid}
+        {#if emailTouched && !isEmailValid}
           <p class="mt-1 text-sm text-red-600">Please enter a valid email address</p>
         {/if}
       </div>
@@ -137,11 +214,33 @@
           id="password"
           bind:value={password}
           on:input={resetFieldError}
-          class="w-full px-3 py-2 border {!isPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          on:blur={touchPassword}
+          class="w-full px-3 py-2 border {passwordTouched && !isPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
           placeholder="••••••••"
           required
         >
-        {#if !isPasswordValid}
+        {#if passwordTouched && password}
+          <!-- Password strength indicator -->
+          <div class="mt-1 h-1 w-full bg-gray-200 rounded-full overflow-hidden">
+            <div
+              class="{passwordStrength === 1 ? 'bg-red-500' : passwordStrength === 2 ? 'bg-yellow-500' : passwordStrength === 3 ? 'bg-green-500' : ''}"
+              style="width: {passwordStrength * 33.33}%;"
+              transition:slide
+            ></div>
+          </div>
+          <p class="mt-1 text-xs {passwordStrength === 1 ? 'text-red-600' : passwordStrength === 2 ? 'text-yellow-600' : passwordStrength === 3 ? 'text-green-600' : 'text-gray-500'}">
+            {#if passwordStrength === 0}
+              Enter a password
+            {:else if passwordStrength === 1}
+              Weak password
+            {:else if passwordStrength === 2}
+              Medium strength
+            {:else}
+              Strong password
+            {/if}
+          </p>
+        {/if}
+        {#if passwordTouched && !isPasswordValid}
           <p class="mt-1 text-sm text-red-600">Password must be at least 6 characters</p>
         {/if}
       </div>
@@ -240,5 +339,10 @@
 
   .animate-spin {
     animation: spin 1s linear infinite;
+  }
+
+  /* Add transition for password strength indicator */
+  [transition\:slide] {
+    transition: width 0.3s ease-in-out;
   }
 </style>
