@@ -5,7 +5,6 @@
 @import "tailwindcss";
 @tailwind utilities;
 
-
 :root {
   --color-gold: #D4AF37;
   --color-gold-light: #E6C869;
@@ -77,6 +76,13 @@ a:hover {
   max-width: 1320px;
   margin: 0 auto;
   padding: 0 1.5rem;
+}
+
+/* Mobile adjustments */
+@media (max-width: 767px) {
+  .container {
+    padding-left: 0.75rem; /* Reduced padding on left side for mobile */
+  }
 }
 
 /* Header */

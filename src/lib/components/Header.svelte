@@ -4,62 +4,38 @@
   import gsap from 'gsap';
 
   let prevScrollY = 0;
-  let headerSticky: HTMLElement;
-  let isVisible = false;
+  let mainHeader: HTMLElement;
   let isScrolled = false;
   let scrollY: number;
   let cartIconHeader: HTMLElement;
-  let cartIconSticky: HTMLElement;
   let wishlistIconHeader: HTMLElement;
-  let wishlistIconSticky: HTMLElement;
-  let headerAnimation: gsap.core.Timeline;
-  let scrollDirection = "up";
   let throttleTimeout: ReturnType<typeof setTimeout> | null = null;
-  let mainHeader: HTMLElement;
 
   onMount(() => {
-    // Initialize GSAP timeline for smoother animation control
-    headerAnimation = gsap.timeline({ paused: true });
-    headerAnimation.fromTo(headerSticky,
-      { y: -100, opacity: 0, pointerEvents: "none" },
-      { y: 0, opacity: 1, duration: 0.4, ease: "power2.out", pointerEvents: "auto" }
-    );
-
-    // Throttled scroll handler for better performance
+    // Throttled scroll handler for basic sticky functionality
     const handleScroll = () => {
       if (throttleTimeout) return;
 
       throttleTimeout = setTimeout(() => {
         scrollY = window.scrollY;
-        scrollDirection = scrollY > prevScrollY ? "down" : "up";
 
-        // Show sticky header when scrolling down past 80px (slightly faster appearance)
+        // Simple toggle for sticky header
         if (scrollY > 80) {
           isScrolled = true;
-          isVisible = true; // Show sticky header only when we're not at the very top
         } else {
           isScrolled = false;
-          // When scrolling up to the very top, complete the animation before hiding
-          if (scrollY < 10 && scrollDirection === "up") {
-            // Ensure we hide the sticky header when we reach the top
-            isVisible = false;
-          }
         }
 
         prevScrollY = scrollY;
         throttleTimeout = null;
-      }, 10); // Small throttle for smoother transitions
+      }, 10);
     };
 
     window.addEventListener('scroll', handleScroll);
 
-    // Store references to cart icons for the add-to-cart animation
+    // Store references to cart and wishlist icons
     cartIconHeader = document.querySelector('.header .header-action-icon.cart-icon[aria-label="Cart"]');
-    cartIconSticky = document.querySelector('.header-sticky .header-action-icon.cart-icon[aria-label="Cart"]');
-
-    // Store references to wishlist icons
     wishlistIconHeader = document.querySelector('.header .header-action-icon[aria-label="Wishlist"]');
-    wishlistIconSticky = document.querySelector('.header-sticky .header-action-icon[aria-label="Wishlist"]');
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -68,32 +44,6 @@
       }
     };
   });
-
-  // Watch isVisible to trigger the animation with smoother transitions
-  $: if (isVisible && headerAnimation) {
-    // When the sticky header becomes visible, slightly adjust the main header
-    headerAnimation.play();
-
-    if (mainHeader) {
-      // Adjust main header visibility when sticky header is active
-      gsap.to(mainHeader, {
-        opacity: scrollY < 50 ? 1 : 0,
-        duration: 0.3,
-        ease: "power2.inOut"
-      });
-    }
-  } else if (headerAnimation) {
-    headerAnimation.reverse();
-
-    if (mainHeader) {
-      // Make sure main header is fully visible when sticky header is hidden
-      gsap.to(mainHeader, {
-        opacity: 1,
-        duration: 0.3,
-        ease: "power2.out"
-      });
-    }
-  }
 
   const toggleMenu = () => {
     $isMenuOpen = !$isMenuOpen;
@@ -105,11 +55,11 @@
   };
 </script>
 
-<header class="header" bind:this={mainHeader}>
+<header class="header" bind:this={mainHeader} class:scrolled={isScrolled}>
   <div class="container">
     <div class="header-inner">
       <a href="/" class="brand-logo">
-        <img src="/images/pransh-logo.svg" alt="Pransh Logo" height="30">
+        <img src="/images/pransh-logo.svg" alt="Pransh Logo" height="30" class="logo-image">
       </a>
 
       <nav class="hidden md:block">
@@ -170,66 +120,6 @@
     </div>
   </div>
 </header>
-
-<!-- Sticky Header that appears when scrolling -->
-<div class="header-sticky" class:visible={isVisible} bind:this={headerSticky}>
-  <div class="container">
-    <div class="header-inner">
-      <a href="/" class="brand-logo text-lg">
-        <img src="/images/pransh-logo.svg" alt="Pransh Logo" height="24">
-      </a>
-
-      <nav class="hidden md:block">
-        <ul class="nav-links">
-          <li><a href="/" class="nav-link text-sm">Home</a></li>
-          <li><a href="/category/all" class="nav-link text-sm">Shop</a></li>
-          <li><a href="/about" class="nav-link text-sm">About & Contact</a></li>
-        </ul>
-      </nav>
-
-      <div class="header-actions">
-        <a href="/search" class="header-action-icon" aria-label="Search">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </a>
-
-        <a href="/wishlist" class="header-action-icon relative" aria-label="Wishlist" bind:this={wishlistIconSticky}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-          </svg>
-          {#if $wishlistCount > 0}
-            <span class="wishlist-count absolute -top-2 -right-2 w-4 h-4 rounded-full text-white text-xs flex items-center justify-center">
-              {$wishlistCount}
-            </span>
-          {/if}
-        </a>
-
-        <a href="/cart" class="header-action-icon cart-icon relative" aria-label="Cart" bind:this={cartIconSticky}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="21" r="1"></circle>
-            <circle cx="20" cy="21" r="1"></circle>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-          </svg>
-          {#if $cartCount > 0}
-            <span class="cart-count absolute -top-2 -right-2 w-4 h-4 rounded-full text-white text-xs flex items-center justify-center">
-              {$cartCount}
-            </span>
-          {/if}
-        </a>
-
-        <button class="hamburger-menu md:hidden" class:open={$isMenuOpen} on:click={toggleMenu} aria-label="Toggle menu">
-          <div class="hamburger-lines">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <style>
   .hamburger-menu {
@@ -318,37 +208,26 @@
     z-index: 20;
     background-color: var(--color-white);
     width: 100%;
-    transition: opacity 0.3s ease;
-    will-change: opacity;
+    padding: 1.5rem 0;
   }
 
-  .header-sticky {
+  .header.scrolled {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    background-color: rgba(250, 249, 246, 0.95);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 25; /* Adjust z-index to be between header and menu */
+    padding: 1rem 0;
+    background-color: rgba(250, 249, 246, 0.98);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    will-change: transform, opacity;
-    transform: translateY(-100%);
-    pointer-events: none; /* Prevent interaction when hidden */
-    transition: box-shadow 0.3s ease, transform 0.3s ease; /* Smooth all transitions */
-  }
-
-  .header-sticky.visible {
-    transform: translateY(0);
-    pointer-events: all; /* Enable interaction when visible */
-    z-index: 25; /* Keep consistent z-index */
+    z-index: 25;
   }
 
   .header-action-icon {
     position: relative;
     transition: transform 0.3s ease, color 0.3s ease;
     transform-origin: center;
-    will-change: transform;
   }
 
   .header-action-icon:hover {
@@ -356,18 +235,8 @@
     transform: translateY(-2px);
   }
 
-  .cart-count {
+  .cart-count, .wishlist-count {
     background-color: var(--color-gold);
-    transition: all 0.3s ease;
-    will-change: transform;
-    transform-origin: center;
-  }
-
-  .wishlist-count {
-    background-color: var(--color-gold);
-    transition: all 0.3s ease;
-    will-change: transform;
-    transform-origin: center;
   }
 
   .nav-link {
@@ -388,5 +257,21 @@
 
   .nav-link:hover:after {
     width: 100%;
+  }
+
+  @media (max-width: 768px) {
+    .header-inner {
+      justify-content: space-between; /* Ensure space between logo and actions */
+    }
+
+    .brand-logo {
+      margin-right: auto; /* Push logo to the left */
+      flex: 0 0 auto; /* Prevent logo from stretching */
+      margin-left: -10px; /* Reduce left margin to bring logo closer to edge */
+    }
+
+    .container {
+      padding-left: 10px; /* Reduce container padding on left side for mobile */
+    }
   }
 </style>

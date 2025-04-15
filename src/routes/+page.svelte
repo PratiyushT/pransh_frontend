@@ -13,6 +13,9 @@
   let heroContent: HTMLElement;
   let featuredSection: HTMLElement;
   let experienceSection: HTMLElement;
+  let heroTitle: HTMLElement;
+  let heroSubtitle: HTMLElement;
+  let heroBtns: HTMLElement;
 
   const handleQuickView = (event) => {
     quickViewProduct = event.detail.product;
@@ -124,25 +127,35 @@
   }
 
   onMount(() => {
-    // Hero section animation
+    // Simple hero animation
     const heroTl = gsap.timeline({ defaults: { ease: "power3.out" } });
-    heroTl
-      .from(heroContent.querySelector('.hero-title'), {
-        duration: 1.2,
-        opacity: 0,
-        y: 50,
-        delay: 0.5
-      })
-      .from(heroContent.querySelector('.hero-subtitle'), {
-        duration: 1,
-        opacity: 0,
-        y: 30
-      }, "-=0.7")
-      .from(heroContent.querySelector('.hero-btns'), {
-        duration: 0.8,
-        opacity: 0,
-        y: 20
-      }, "-=0.5");
+
+    // Animate hero elements with sequential transitions
+    heroTl.from(heroTitle, {
+      duration: 1.2,
+      y: 50,
+      opacity: 0,
+      delay: 0.3
+    })
+    .from(heroSubtitle, {
+      duration: 1,
+      y: 30,
+      opacity: 0
+    }, "-=0.7")
+    .from(heroBtns, {
+      duration: 0.8,
+      y: 20,
+      opacity: 0
+    }, "-=0.5");
+
+    // Add subtle continuous animation
+    gsap.to(heroTitle, {
+      scale: 1.02,
+      duration: 2.5,
+      repeat: -1,
+      yoyo: true,
+      ease: "sine.inOut"
+    });
 
     // Add more subtle animations
     gsap.from('.luxury-divider', {
@@ -175,11 +188,11 @@
 <section class="hero" bind:this={heroSection}>
   <div class="hero-overlay"></div>
   <div class="hero-content" bind:this={heroContent}>
-    <h1 class="hero-title">Timeless Elegance<br>Exceptional Quality</h1>
-    <p class="hero-subtitle">
+    <h1 class="hero-title" bind:this={heroTitle}>Timeless Elegance<br>Exceptional Quality</h1>
+    <p class="hero-subtitle" bind:this={heroSubtitle}>
       Discover our exquisite collection of luxury garments crafted with the finest materials and meticulous attention to detail.
     </p>
-    <div class="hero-btns">
+    <div class="hero-btns" bind:this={heroBtns}>
       <a href="/category/all" class="btn btn-primary">Shop Collection</a>
       <a href="/about" class="btn btn-secondary">About & Contact</a>
     </div>
@@ -264,7 +277,7 @@
   .hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.6) 100%);
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 100%);
     z-index: 1;
   }
 
@@ -288,6 +301,7 @@
     margin-bottom: 2rem;
     font-weight: 300;
     text-shadow: 0 1px 5px rgba(0,0,0,0.3);
+    letter-spacing: 0.03em;
   }
 
   .hero-btns {
@@ -295,6 +309,19 @@
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .hero-btns .btn {
+    transform-origin: center;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                background-color 0.3s ease,
+                color 0.3s ease,
+                box-shadow 0.3s ease;
+  }
+
+  .hero-btns .btn:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   }
 
   .luxury-divider {
