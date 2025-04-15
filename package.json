@@ -28,9 +28,11 @@
 		"@fontsource/cormorant-garamond": "^5.2.6",
 		"@fontsource/montserrat": "^5.2.5",
 		"@fontsource/poppins": "^5.2.5",
+		"@mapbox/mapbox-gl-geocoder": "^5.0.3",
 		"@sveltejs/adapter-netlify": "^5.0.0",
 		"@tailwindcss/vite": "^4.1.4",
 		"gsap": "^3.12.7",
+		"mapbox-gl": "^3.11.0",
 		"tailwindcss": "^4.1.4"
 	}
 }

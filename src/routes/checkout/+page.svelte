@@ -4,6 +4,7 @@
   import { formatPrice } from '$lib/utils/data';
   import gsap from 'gsap';
   import type { CartItem } from '$lib/types';
+  import AddressSearch from '$lib/components/AddressSearch.svelte';
 
   // Shipping cost and calculations
   let shippingCost = 15.0;
@@ -27,6 +28,10 @@
     country: 'United States',
     saveInfo: false
   };
+
+  // Address form display state
+  let showManualAddressForm = false;
+  let addressSelected = false;
 
   let billingInfo = {
     sameAsShipping: true,
@@ -586,6 +591,38 @@
     }
   }
 
+  // Address search handlers
+  const handleAddressSelected = (event: CustomEvent) => {
+    const address = event.detail;
+
+    // Populate shipping address fields
+    shippingInfo.addressLine1 = address.addressLine1;
+    shippingInfo.city = address.city;
+    shippingInfo.state = address.state;
+    shippingInfo.postalCode = address.postalCode;
+    shippingInfo.country = address.country;
+
+    // Mark fields as touched for validation
+    shippingTouched.addressLine1 = true;
+    shippingTouched.city = true;
+    shippingTouched.state = true;
+    shippingTouched.postalCode = true;
+
+    // Update validation
+    debouncedValidation();
+
+    // Set address as selected
+    addressSelected = true;
+  };
+
+  const handleAddressCleared = () => {
+    addressSelected = false;
+  };
+
+  const handleShowManualEntry = () => {
+    showManualAddressForm = true;
+  };
+
   // Format card number with spaces
   const formatCardNumber = (event: Event) => {
     const input = event.target as HTMLInputElement;
@@ -752,254 +789,267 @@
             <div class="step-content" class:active={currentStep === 1}>
               <h3 class="text-2xl font-serif mb-8 text-gold">Shipping Information</h3>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- First Name -->
-                <div class="form-group">
-                  <label for="shipping-first-name" class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    id="shipping-first-name"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.firstName}
-                    bind:value={shippingInfo.firstName}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('firstName')}
-                    placeholder="Enter your first name"
-                  />
-                  {#if shippingTouched.firstName && validationErrors.shipping.firstName}
-                    <p class="text-red-500 text-sm mt-1">First name is required</p>
-                  {/if}
+              <AddressSearch
+                on:addressSelected={handleAddressSelected}
+                on:addressCleared={handleAddressCleared}
+                on:showManualEntry={handleShowManualEntry}
+                bind:showManualEntryForm={showManualAddressForm}
+              />
+
+              {#if !addressSelected && !showManualAddressForm}
+                <!-- This button is already in the AddressSearch component, so we can remove this -->
+              {/if}
+
+              {#if showManualAddressForm}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <!-- First Name -->
+                  <div class="form-group">
+                    <label for="shipping-first-name" class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      id="shipping-first-name"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.firstName}
+                      bind:value={shippingInfo.firstName}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('firstName')}
+                      placeholder="Enter your first name"
+                    />
+                    {#if shippingTouched.firstName && validationErrors.shipping.firstName}
+                      <p class="text-red-500 text-sm mt-1">First name is required</p>
+                    {/if}
+                  </div>
+
+                  <!-- Last Name -->
+                  <div class="form-group">
+                    <label for="shipping-last-name" class="block text-sm font-medium text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      id="shipping-last-name"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.lastName}
+                      bind:value={shippingInfo.lastName}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('lastName')}
+                      placeholder="Enter your last name"
+                    />
+                    {#if shippingTouched.lastName && validationErrors.shipping.lastName}
+                      <p class="text-red-500 text-sm mt-1">Last name is required</p>
+                    {/if}
+                  </div>
+
+                  <!-- Email -->
+                  <div class="form-group">
+                    <label for="shipping-email" class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
+                    <input
+                      type="email"
+                      id="shipping-email"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.email}
+                      bind:value={shippingInfo.email}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('email')}
+                      placeholder="Enter your email address"
+                    />
+                    {#if shippingTouched.email && validationErrors.shipping.email}
+                      <p class="text-red-500 text-sm mt-1">Please enter a valid email address</p>
+                    {/if}
+                  </div>
+
+                  <!-- Phone -->
+                  <div class="form-group">
+                    <label for="shipping-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
+                    <input
+                      type="tel"
+                      id="shipping-phone"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.phoneNumber}
+                      bind:value={shippingInfo.phoneNumber}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('phoneNumber')}
+                      placeholder="Enter your phone number"
+                    />
+                    {#if shippingTouched.phoneNumber && validationErrors.shipping.phoneNumber}
+                      <p class="text-red-500 text-sm mt-1">Please enter a valid phone number</p>
+                    {/if}
+                  </div>
                 </div>
 
-                <!-- Last Name -->
-                <div class="form-group">
-                  <label for="shipping-last-name" class="block text-sm font-medium text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    id="shipping-last-name"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.lastName}
-                    bind:value={shippingInfo.lastName}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('lastName')}
-                    placeholder="Enter your last name"
-                  />
-                  {#if shippingTouched.lastName && validationErrors.shipping.lastName}
-                    <p class="text-red-500 text-sm mt-1">Last name is required</p>
-                  {/if}
+                <div class="mt-6">
+                  <!-- Address Line 1 -->
+                  <div class="form-group mb-6">
+                    <label for="shipping-address-1" class="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span class="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      id="shipping-address-1"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.addressLine1}
+                      bind:value={shippingInfo.addressLine1}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('addressLine1')}
+                      placeholder="Street address, P.O. box, company name, etc."
+                    />
+                    {#if shippingTouched.addressLine1 && validationErrors.shipping.addressLine1}
+                      <p class="text-red-500 text-sm mt-1">Address is required</p>
+                    {/if}
+                  </div>
+
+                  <!-- Address Line 2 -->
+                  <div class="form-group mb-6">
+                    <label for="shipping-address-2" class="block text-sm font-medium text-gray-700 mb-1">Address Line 2 <span class="text-gray-400">(optional)</span></label>
+                    <input
+                      type="text"
+                      id="shipping-address-2"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      bind:value={shippingInfo.addressLine2}
+                      placeholder="Apartment, suite, unit, building, floor, etc."
+                    />
+                  </div>
                 </div>
 
-                <!-- Email -->
-                <div class="form-group">
-                  <label for="shipping-email" class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
-                  <input
-                    type="email"
-                    id="shipping-email"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.email}
-                    bind:value={shippingInfo.email}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('email')}
-                    placeholder="Enter your email address"
-                  />
-                  {#if shippingTouched.email && validationErrors.shipping.email}
-                    <p class="text-red-500 text-sm mt-1">Please enter a valid email address</p>
-                  {/if}
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
+                  <!-- City -->
+                  <div class="form-group md:col-span-2">
+                    <label for="shipping-city" class="block text-sm font-medium text-gray-700 mb-1">City <span class="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      id="shipping-city"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.city}
+                      bind:value={shippingInfo.city}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('city')}
+                      placeholder="Enter your city"
+                    />
+                    {#if shippingTouched.city && validationErrors.shipping.city}
+                      <p class="text-red-500 text-sm mt-1">City is required</p>
+                    {/if}
+                  </div>
+
+                  <!-- State/Province -->
+                  <div class="form-group md:col-span-2">
+                    <label for="shipping-state" class="block text-sm font-medium text-gray-700 mb-1">State/Province <span class="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      id="shipping-state"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.state}
+                      bind:value={shippingInfo.state}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('state')}
+                      placeholder="Enter your state/province"
+                    />
+                    {#if shippingTouched.state && validationErrors.shipping.state}
+                      <p class="text-red-500 text-sm mt-1">State/Province is required</p>
+                    {/if}
+                  </div>
+
+                  <!-- ZIP/Postal Code -->
+                  <div class="form-group md:col-span-2">
+                    <label for="shipping-zip" class="block text-sm font-medium text-gray-700 mb-1">ZIP/Postal Code <span class="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      id="shipping-zip"
+                      class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
+                      class:error={validationErrors.shipping.postalCode}
+                      bind:value={shippingInfo.postalCode}
+                      on:input={resetFieldError}
+                      on:blur={() => touchShippingField('postalCode')}
+                      placeholder="Enter your ZIP/postal code"
+                    />
+                    {#if shippingTouched.postalCode && validationErrors.shipping.postalCode}
+                      <p class="text-red-500 text-sm mt-1">Please enter a valid postal code</p>
+                    {/if}
+                  </div>
                 </div>
 
-                <!-- Phone -->
-                <div class="form-group">
-                  <label for="shipping-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
-                  <input
-                    type="tel"
-                    id="shipping-phone"
+                <!-- Country -->
+                <div class="form-group mt-6">
+                  <label for="shipping-country" class="block text-sm font-medium text-gray-700 mb-1">Country <span class="text-red-500">*</span></label>
+                  <select
+                    id="shipping-country"
                     class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.phoneNumber}
-                    bind:value={shippingInfo.phoneNumber}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('phoneNumber')}
-                    placeholder="Enter your phone number"
-                  />
-                  {#if shippingTouched.phoneNumber && validationErrors.shipping.phoneNumber}
-                    <p class="text-red-500 text-sm mt-1">Please enter a valid phone number</p>
-                  {/if}
-                </div>
-              </div>
-
-              <div class="mt-6">
-                <!-- Address Line 1 -->
-                <div class="form-group mb-6">
-                  <label for="shipping-address-1" class="block text-sm font-medium text-gray-700 mb-1">Address Line 1 <span class="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    id="shipping-address-1"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.addressLine1}
-                    bind:value={shippingInfo.addressLine1}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('addressLine1')}
-                    placeholder="Street address, P.O. box, company name, etc."
-                  />
-                  {#if shippingTouched.addressLine1 && validationErrors.shipping.addressLine1}
-                    <p class="text-red-500 text-sm mt-1">Address is required</p>
-                  {/if}
+                    bind:value={shippingInfo.country}
+                  >
+                    <option value="United States">United States</option>
+                    <option value="Canada">Canada</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Australia">Australia</option>
+                    <option value="New Zealand">New Zealand</option>
+                    <option value="Germany">Germany</option>
+                    <option value="France">France</option>
+                    <option value="Italy">Italy</option>
+                    <option value="Spain">Spain</option>
+                    <option value="Japan">Japan</option>
+                  </select>
                 </div>
 
-                <!-- Address Line 2 -->
-                <div class="form-group mb-6">
-                  <label for="shipping-address-2" class="block text-sm font-medium text-gray-700 mb-1">Address Line 2 <span class="text-gray-400">(optional)</span></label>
-                  <input
-                    type="text"
-                    id="shipping-address-2"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    bind:value={shippingInfo.addressLine2}
-                    placeholder="Apartment, suite, unit, building, floor, etc."
-                  />
-                </div>
-              </div>
+                <!-- Shipping Method -->
+                <div class="mt-10">
+                  <h4 class="text-xl font-serif mb-6 text-gray-700">Shipping Method</h4>
 
-              <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
-                <!-- City -->
-                <div class="form-group md:col-span-2">
-                  <label for="shipping-city" class="block text-sm font-medium text-gray-700 mb-1">City <span class="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    id="shipping-city"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.city}
-                    bind:value={shippingInfo.city}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('city')}
-                    placeholder="Enter your city"
-                  />
-                  {#if shippingTouched.city && validationErrors.shipping.city}
-                    <p class="text-red-500 text-sm mt-1">City is required</p>
-                  {/if}
-                </div>
-
-                <!-- State/Province -->
-                <div class="form-group md:col-span-2">
-                  <label for="shipping-state" class="block text-sm font-medium text-gray-700 mb-1">State/Province <span class="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    id="shipping-state"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.state}
-                    bind:value={shippingInfo.state}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('state')}
-                    placeholder="Enter your state/province"
-                  />
-                  {#if shippingTouched.state && validationErrors.shipping.state}
-                    <p class="text-red-500 text-sm mt-1">State/Province is required</p>
-                  {/if}
-                </div>
-
-                <!-- ZIP/Postal Code -->
-                <div class="form-group md:col-span-2">
-                  <label for="shipping-zip" class="block text-sm font-medium text-gray-700 mb-1">ZIP/Postal Code <span class="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    id="shipping-zip"
-                    class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                    class:error={validationErrors.shipping.postalCode}
-                    bind:value={shippingInfo.postalCode}
-                    on:input={resetFieldError}
-                    on:blur={() => touchShippingField('postalCode')}
-                    placeholder="Enter your ZIP/postal code"
-                  />
-                  {#if shippingTouched.postalCode && validationErrors.shipping.postalCode}
-                    <p class="text-red-500 text-sm mt-1">Please enter a valid postal code</p>
-                  {/if}
-                </div>
-              </div>
-
-              <!-- Country -->
-              <div class="form-group mt-6">
-                <label for="shipping-country" class="block text-sm font-medium text-gray-700 mb-1">Country <span class="text-red-500">*</span></label>
-                <select
-                  id="shipping-country"
-                  class="w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all duration-300"
-                  bind:value={shippingInfo.country}
-                >
-                  <option value="United States">United States</option>
-                  <option value="Canada">Canada</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Australia">Australia</option>
-                  <option value="New Zealand">New Zealand</option>
-                  <option value="Germany">Germany</option>
-                  <option value="France">France</option>
-                  <option value="Italy">Italy</option>
-                  <option value="Spain">Spain</option>
-                  <option value="Japan">Japan</option>
-                </select>
-              </div>
-
-              <!-- Shipping Method -->
-              <div class="mt-10">
-                <h4 class="text-xl font-serif mb-6 text-gray-700">Shipping Method</h4>
-
-                <div class="shipping-methods space-y-4">
-                  {#each shippingMethods as method}
-                    <label
-                      class="shipping-method-option block p-4 border rounded-md cursor-pointer transition-all duration-300 hover:border-gold"
-                      class:selected={selectedShippingMethod === method.id}
-                    >
-                      <div class="flex items-start">
-                        <input
-                          type="radio"
-                          name="shipping-method"
-                          value={method.id}
-                          bind:group={selectedShippingMethod}
-                          class="mt-1 mr-3"
-                        />
-                        <div class="flex-1">
-                          <div class="flex justify-between">
-                            <span class="font-medium text-gray-700">{method.name}</span>
-                            <span class="font-medium text-gold">{formatPrice(method.price)}</span>
+                  <div class="shipping-methods space-y-4">
+                    {#each shippingMethods as method}
+                      <label
+                        class="shipping-method-option block p-4 border rounded-md cursor-pointer transition-all duration-300 hover:border-gold"
+                        class:selected={selectedShippingMethod === method.id}
+                      >
+                        <div class="flex items-start">
+                          <input
+                            type="radio"
+                            name="shipping-method"
+                            value={method.id}
+                            bind:group={selectedShippingMethod}
+                            class="mt-1 mr-3"
+                          />
+                          <div class="flex-1">
+                            <div class="flex justify-between">
+                              <span class="font-medium text-gray-700">{method.name}</span>
+                              <span class="font-medium text-gold">{formatPrice(method.price)}</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">{method.days}</p>
                           </div>
-                          <p class="text-sm text-gray-500 mt-1">{method.days}</p>
                         </div>
-                      </div>
-                    </label>
-                  {/each}
+                      </label>
+                    {/each}
+                  </div>
                 </div>
-              </div>
 
-              <!-- Save Information Checkbox -->
-              <div class="mt-8">
-                <label class="inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    bind:checked={shippingInfo.saveInfo}
-                    class="h-5 w-5 text-gold rounded focus:ring-gold/50 cursor-pointer"
-                  />
-                  <span class="ml-2 text-gray-600">Save this information for next time</span>
-                </label>
-              </div>
+                <!-- Save Information Checkbox -->
+                <div class="mt-8">
+                  <label class="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      bind:checked={shippingInfo.saveInfo}
+                      class="h-5 w-5 text-gold rounded focus:ring-gold/50 cursor-pointer"
+                    />
+                    <span class="ml-2 text-gray-600">Save this information for next time</span>
+                  </label>
+                </div>
 
-              <!-- Navigation Buttons -->
-              <div class="mt-10 pt-8 border-t flex justify-between">
-                <button
-                  class="btn btn-secondary flex items-center group"
-                  on:click={() => window.history.back()}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Return to Cart
-                </button>
+                <!-- Navigation Buttons -->
+                <div class="mt-10 pt-8 border-t flex justify-between">
+                  <button
+                    class="btn btn-secondary flex items-center group"
+                    on:click={() => window.history.back()}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Return to Cart
+                  </button>
 
-                <button
-                  class="btn btn-primary flex items-center group"
-                  on:click={nextStep}
-                >
-                  Continue to Billing
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-3 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </button>
-              </div>
+                  <button
+                    class="btn btn-primary flex items-center group"
+                    on:click={nextStep}
+                  >
+                    Continue to Billing
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-3 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </button>
+                </div>
+              {/if}
             </div>
 
             <!-- Step 2: Billing information -->
