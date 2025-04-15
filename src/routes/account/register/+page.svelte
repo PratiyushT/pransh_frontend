@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
+  import AddressSearch from '$lib/components/AddressSearch.svelte';
 
   // Form data
   let firstName = '';
@@ -118,11 +119,13 @@
 
   // Address data
   let showAddressFields = false;
+  let showManualAddressForm = false;
   let streetAddress = '';
   let city = '';
   let state = '';
   let zipCode = '';
-  let country = '';
+  let country = 'United States';
+  let addressSelected = false;
 
   // Address fields interaction tracking
   let streetAddressTouched = false;
@@ -158,6 +161,39 @@
                 password === confirmPassword && acceptTerms &&
                 isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
                 (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid && isZipCodeValid && isCountryValid));
+
+  // Handle address selected from Mapbox
+  const handleAddressSelected = (event: CustomEvent) => {
+    const address = event.detail;
+    console.log('Address selected from Mapbox:', address);
+
+    // Populate address fields
+    streetAddress = address.addressLine1;
+    city = address.city;
+    state = address.state;
+    zipCode = address.postalCode;
+    country = address.country;
+
+    // Mark fields as touched for validation
+    streetAddressTouched = true;
+    cityTouched = true;
+    stateTouched = true;
+    zipCodeTouched = true;
+    countryTouched = true;
+
+    addressSelected = true;
+
+    // Reset form errors
+    resetFieldError();
+  };
+
+  const handleAddressCleared = () => {
+    addressSelected = false;
+  };
+
+  const handleShowManualEntry = () => {
+    showManualAddressForm = true;
+  };
 
   // Toggle address fields visibility
   const toggleAddressFields = () => {
@@ -209,13 +245,18 @@
 
       // Store address if provided
       if (showAddressFields) {
-        localStorage.setItem('userAddress', JSON.stringify({
+        const addressData = {
           street: streetAddress,
           city,
           state,
           zipCode,
-          country
-        }));
+          country,
+          // Store whether the address was selected via Mapbox
+          selectedViaMapbox: addressSelected
+        };
+
+        localStorage.setItem('userAddress', JSON.stringify(addressData));
+        console.log('Saved address data:', addressData);
       }
 
       // Navigate to account page after registration
@@ -472,100 +513,111 @@
 
       {#if showAddressFields}
         <div class="address-fields space-y-6 border-t border-b border-gray-200 py-6 mt-4 animate-fade-in">
-          <!-- Street Address -->
+          <!-- Mapbox Address Search Component -->
           <div class="form-field">
-            <label for="streetAddress" class="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
-            <input
-              type="text"
-              id="streetAddress"
-              bind:value={streetAddress}
-              on:input={resetFieldError}
-              on:blur={() => streetAddressTouched = true}
-              class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-              placeholder="123 Main St, Apt 4B"
-              required={showAddressFields}
-            >
-            {#if streetAddressTouched && !isStreetAddressValid}
-              <p class="mt-1 text-sm text-red-600">Please enter a valid street address</p>
-            {/if}
+            <AddressSearch
+              on:addressSelected={handleAddressSelected}
+              on:addressCleared={handleAddressCleared}
+              on:showManualEntry={handleShowManualEntry}
+            />
           </div>
 
-          <!-- City and State -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-field">
-              <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
+          {#if showManualAddressForm || addressSelected}
+            <!-- Address fields (can be edited after selection) -->
+            <div class="form-field animate-fade-in">
+              <label for="streetAddress" class="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
               <input
                 type="text"
-                id="city"
-                bind:value={city}
+                id="streetAddress"
+                bind:value={streetAddress}
                 on:input={resetFieldError}
-                on:blur={() => cityTouched = true}
-                class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-                placeholder="New York"
+                on:blur={() => streetAddressTouched = true}
+                class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                placeholder="123 Main St, Apt 4B"
                 required={showAddressFields}
               >
-              {#if cityTouched && !isCityValid}
-                <p class="mt-1 text-sm text-red-600">City is required</p>
+              {#if streetAddressTouched && !isStreetAddressValid}
+                <p class="mt-1 text-sm text-red-600">Please enter a valid street address</p>
               {/if}
             </div>
 
-            <div class="form-field">
-              <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State/Province</label>
-              <input
-                type="text"
-                id="state"
-                bind:value={state}
-                on:input={resetFieldError}
-                on:blur={() => stateTouched = true}
-                class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-                placeholder="NY"
-                required={showAddressFields}
-              >
-              {#if stateTouched && !isStateValid}
-                <p class="mt-1 text-sm text-red-600">State/Province is required</p>
-              {/if}
-            </div>
-          </div>
+            <!-- City and State -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+              <div class="form-field">
+                <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
+                <input
+                  type="text"
+                  id="city"
+                  bind:value={city}
+                  on:input={resetFieldError}
+                  on:blur={() => cityTouched = true}
+                  class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                  placeholder="New York"
+                  required={showAddressFields}
+                >
+                {#if cityTouched && !isCityValid}
+                  <p class="mt-1 text-sm text-red-600">City is required</p>
+                {/if}
+              </div>
 
-          <!-- Zip and Country -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-field">
-              <label for="zipCode" class="block text-sm font-medium text-gray-700 mb-1">Zip/Postal Code</label>
-              <input
-                type="text"
-                id="zipCode"
-                bind:value={zipCode}
-                on:input={resetFieldError}
-                on:blur={() => zipCodeTouched = true}
-                class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-                placeholder="10001"
-                required={showAddressFields}
-              >
-              {#if zipCodeTouched && !isZipCodeValid}
-                <p class="mt-1 text-sm text-red-600">Zip/Postal code is required</p>
-              {/if}
+              <div class="form-field">
+                <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State/Province</label>
+                <input
+                  type="text"
+                  id="state"
+                  bind:value={state}
+                  on:input={resetFieldError}
+                  on:blur={() => stateTouched = true}
+                  class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                  placeholder="NY"
+                  required={showAddressFields}
+                >
+                {#if stateTouched && !isStateValid}
+                  <p class="mt-1 text-sm text-red-600">State/Province is required</p>
+                {/if}
+              </div>
             </div>
 
-            <div class="form-field">
-              <label for="country" class="block text-sm font-medium text-gray-700 mb-1">Country</label>
-              <select
-                id="country"
-                bind:value={country}
-                on:change={resetFieldError}
-                on:blur={() => countryTouched = true}
-                class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white"
-                required={showAddressFields}
-              >
-                <option value="">Select Country</option>
-                {#each countries as countryOption}
-                  <option value={countryOption}>{countryOption}</option>
-                {/each}
-              </select>
-              {#if countryTouched && !isCountryValid}
-                <p class="mt-1 text-sm text-red-600">Country is required</p>
-              {/if}
+            <!-- Zip and Country -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+              <div class="form-field">
+                <label for="zipCode" class="block text-sm font-medium text-gray-700 mb-1">Zip/Postal Code</label>
+                <input
+                  type="text"
+                  id="zipCode"
+                  bind:value={zipCode}
+                  on:input={resetFieldError}
+                  on:blur={() => zipCodeTouched = true}
+                  class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                  placeholder="10001"
+                  required={showAddressFields}
+                >
+                {#if zipCodeTouched && !isZipCodeValid}
+                  <p class="mt-1 text-sm text-red-600">Zip/Postal code is required</p>
+                {/if}
+              </div>
+
+              <div class="form-field">
+                <label for="country" class="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                <select
+                  id="country"
+                  bind:value={country}
+                  on:change={resetFieldError}
+                  on:blur={() => countryTouched = true}
+                  class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white"
+                  required={showAddressFields}
+                >
+                  <option value="">Select Country</option>
+                  {#each countries as countryOption}
+                    <option value={countryOption}>{countryOption}</option>
+                  {/each}
+                </select>
+                {#if countryTouched && !isCountryValid}
+                  <p class="mt-1 text-sm text-red-600">Country is required</p>
+                {/if}
+              </div>
             </div>
-          </div>
+          {/if}
         </div>
       {/if}
 

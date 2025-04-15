@@ -3,7 +3,6 @@
     import {browser} from '$app/environment';
     import {PUBLIC_MAPBOX_API_KEY} from '$env/static/public';
 
-
     const dispatch = createEventDispatcher();
 
     export let showManualEntryForm = false;
@@ -11,6 +10,7 @@
     let geocoder: any;
     let mapboxgl: any;
     let MapboxGeocoder: any;
+    let selectedResult = '';
 
     onMount(async () => {
         if (browser) {
@@ -40,13 +40,22 @@
             // Listen for results
             geocoder.on('result', (e: any) => {
                 const result = e.result;
+                console.log('Mapbox result:', result); // Log the result for debugging
                 const address = parseMapboxAddress(result);
+                console.log('Parsed address:', address); // Log the parsed address
                 dispatch('addressSelected', address);
+                // Set the selected result text for display
+                selectedResult = result.place_name || '';
+                // Add visual indicator when an address is selected
+                document.querySelector('.address-search-container').classList.add('address-selected');
             });
 
             // Listen for clear
             geocoder.on('clear', () => {
                 dispatch('addressCleared');
+                // Remove visual indicator when cleared
+                selectedResult = '';
+                document.querySelector('.address-search-container').classList.remove('address-selected');
             });
 
             return () => {
@@ -60,6 +69,11 @@
 
     // Parse Mapbox result into address components
     function parseMapboxAddress(result: any) {
+        console.log('Parsing Mapbox result:', result);
+
+        // Set the selected result text for display
+        selectedResult = result.place_name || '';
+
         const address = {
             addressLine1: '',
             city: '',
@@ -76,7 +90,14 @@
             }
         }
 
-        // Extract address components
+        // Extract address components from result properties
+        if (result.properties) {
+            if (result.properties.address) {
+                address.addressLine1 = result.properties.address;
+            }
+        }
+
+        // Extract address components from context
         if (result.context) {
             result.context.forEach((context: any) => {
                 if (context.id.startsWith('postcode')) {
@@ -104,28 +125,53 @@
         }
 
         // If we have address_line1 but not specific components, try splitting address
-        if (address.addressLine1 && (!address.city || !address.state)) {
+        if (address.addressLine1 && (!address.city || !address.state || !address.postalCode)) {
             const parts = result.place_name?.split(',');
             if (parts && parts.length >= 3) {
-                // First part is street address
+                // First part is street address (already set)
+
                 // Second part often city
                 if (!address.city && parts[1]) {
                     address.city = parts[1].trim();
                 }
-                // Third part often state+zip
-                if (!address.state && parts[2]) {
+
+                // Third part often contains state and zip
+                if (parts[2]) {
                     const stateZipPart = parts[2].trim();
-                    const stateZipMatch = stateZipPart.match(/([A-Z]{2})\s+(\d{5})/);
+                    // Try to extract state and zip code
+                    const stateZipMatch = stateZipPart.match(/([A-Z]{2})\s+(\d{5}(-\d{4})?)/);
                     if (stateZipMatch) {
-                        address.state = stateZipMatch[1];
+                        if (!address.state) {
+                            address.state = stateZipMatch[1];
+                        }
                         if (!address.postalCode) {
                             address.postalCode = stateZipMatch[2];
                         }
+                    } else {
+                        // If no match, use the whole part as state
+                        if (!address.state) {
+                            address.state = stateZipPart;
+                        }
+                    }
+                }
+
+                // If there's a fourth part, it might contain the zip code
+                if (!address.postalCode && parts.length > 3 && parts[3]) {
+                    const zipPart = parts[3].trim();
+                    const zipMatch = zipPart.match(/\d{5}(-\d{4})?/);
+                    if (zipMatch) {
+                        address.postalCode = zipMatch[0];
                     }
                 }
             }
         }
 
+        // Ensure we have something in each field
+        if (!address.city) address.city = 'N/A';
+        if (!address.state) address.state = 'N/A';
+        if (!address.postalCode) address.postalCode = 'N/A';
+
+        console.log('Final parsed address:', address);
         return address;
     }
 
@@ -141,6 +187,20 @@
     </label>
 
     <div class="mapbox-geocoder-container mb-4" bind:this={geocoderContainer}></div>
+
+    {#if selectedResult}
+        <div class="selected-result p-2 bg-green-50 border border-green-200 rounded-md mb-4 text-sm">
+            <div class="flex items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <div>
+                    <p class="font-medium text-green-800">Address selected:</p>
+                    <p class="text-gray-700">{selectedResult}</p>
+                </div>
+            </div>
+        </div>
+    {/if}
 
     <button
             type="button"
@@ -185,5 +245,9 @@
 
     :global(.mapboxgl-ctrl-geocoder--suggestion-address) {
         color: #6b7280;
+    }
+
+    .address-selected {
+        border: 2px solid #f59e0b; /* Gold border to indicate selection */
     }
 </style>

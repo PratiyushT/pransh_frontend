@@ -293,7 +293,8 @@
 
         <!-- Order Summary -->
         <div class="w-full mt-0 xl:mt-0 relative z-10">
-          <div class="order-summary bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300 sticky top-24">
+          <div class="order-summary bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300 sticky top-24 w-full sm:w-auto">
+
             <h2 class="font-serif text-2xl sm:text-3xl mb-10 text-gold text-center">Order Summary</h2>
 
             <div class="space-y-8 mb-10">
