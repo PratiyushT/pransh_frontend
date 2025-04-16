@@ -187,47 +187,70 @@
                navigator.maxTouchPoints > 0 ||
                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 
-    // Simple hero animation - faster and simpler on mobile
-    const heroTl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    // New exact animation sequence as specified - but faster
+    const heroTl = gsap.timeline({ defaults: { ease: "power2.out" } });
 
-    // Animate hero elements with sequential transitions - optimized for mobile
-    heroTl.from(heroTitle, {
-      duration: isMobile ? 0.8 : 1.2,
-      y: isMobile ? 30 : 50,
+    // First prepare the elements - ensure they're invisible
+    gsap.set('.hero-line', { opacity: 0, x: 100 });
+    gsap.set('.hero-button', { opacity: 0, y: 20 });
+    gsap.set('.hero-subtitle', { opacity: 0, y: 20 });
+
+    // 1. "First Line" slides in from the right with soft ease-out - FASTER
+    heroTl.to('.hero-line-1', {
+      x: 0,
+      y: 0,
+      opacity: 1,
+      duration: 0.5, // Reduced from 0.8
+    });
+
+    // 2. "Second Line" slides in from the right with shorter delay
+    heroTl.to('.hero-line-2', {
+      x: 0,
+      y: 0,
+      opacity: 1,
+      duration: 0.5, // Reduced from 0.8
+    }, "+=0.15"); // Reduced from 0.3
+
+    // 3. "Third Line" - larger, bolder, slides from right with shorter delay
+    heroTl.to('.hero-line-3', {
+      x: 0,
+      y: 0,
+      opacity: 1,
+      duration: 0.5, // Reduced from 0.8
+    }, "+=0.15"); // Reduced from 0.3
+
+    // Animate subtitle - faster
+    heroTl.to('.hero-subtitle', {
+      y: 0,
+      opacity: 1,
+      duration: 0.4, // Reduced from 0.6
+    }, "+=0.1"); // Reduced from 0.2
+
+    // 4. Call-to-Action Button fades in faster - single button now, no stagger needed
+    heroTl.to('.hero-button', {
+      y: 0,
+      opacity: 1,
+      duration: 0.4,
+      // stagger removed since we only have one button now
+    }, "+=0.1");
+
+    // 5. Animate the accent element with a slight delay - faster
+    heroTl.from('.hero-accent', {
       opacity: 0,
-      delay: isMobile ? 0.2 : 0.3
-    })
-    .from(heroSubtitle, {
-      duration: isMobile ? 0.7 : 1,
-      y: isMobile ? 20 : 30,
-      opacity: 0
-    }, isMobile ? "-=0.5" : "-=0.7")
-    .from(heroBtns, {
-      duration: isMobile ? 0.6 : 0.8,
-      y: isMobile ? 15 : 20,
-      opacity: 0
-    }, isMobile ? "-=0.4" : "-=0.5");
+      scale: 0.9,
+      duration: 0.5, // Reduced from 0.8
+    }, "-=0.3"); // Slightly more overlap
 
-    // Add subtle continuous animation - simplified for mobile
+    // Add subtle continuous animation for accent on desktop only
     if (!isMobile) {
-      // Only use this effect on desktop for better performance
-      gsap.to(heroTitle, {
-        scale: 1.02,
-        duration: 2.5,
+      gsap.to('.hero-accent', {
+        y: -20,
+        duration: 4, // Reduced from 5 for faster movement
         repeat: -1,
         yoyo: true,
         ease: "sine.inOut"
       });
     }
-
-    // Add more subtle animations - simplified for mobile
-    gsap.from('.luxury-divider', {
-      duration: isMobile ? 0.7 : 1,
-      opacity: 0,
-      y: isMobile ? 15 : 20,
-      ease: "power2.out",
-      delay: isMobile ? 0.3 : 0.5
-    });
 
     // Initialize touch-specific interactions for mobile
     if (isMobile) {
@@ -286,17 +309,36 @@
   <meta name="description" content="Discover Pransh, a luxury clothing brand offering timeless elegance and exceptional quality.">
 </svelte:head>
 
-<!-- Hero Section -->
-<section class="hero" bind:this={heroSection}>
-  <div class="hero-overlay"></div>
-  <div class="hero-content" bind:this={heroContent}>
-    <h1 class="hero-title" bind:this={heroTitle}>Timeless Elegance<br>Exceptional Quality</h1>
-    <p class="hero-subtitle" bind:this={heroSubtitle}>
-      Discover our exquisite collection of luxury garments crafted with the finest materials and meticulous attention to detail.
-    </p>
-    <div class="hero-btns" bind:this={heroBtns}>
-      <a href="/shop" class="btn btn-primary">Shop Collection</a>
-      <a href="/about" class="btn btn-secondary">About & Contact</a>
+<!-- New Hero Section with exact animation sequence -->
+<section class="hero-container" bind:this={heroSection}>
+  <div class="hero milano-hero">
+    <div class="hero-overlay"></div>
+
+    <div class="container mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 items-center">
+        <!-- Left column with text content -->
+        <div class="hero-content-left" bind:this={heroContent}>
+          <h1 class="hero-title" bind:this={heroTitle}>
+            <div class="hero-line hero-line-1">Timeless</div>
+            <div class="hero-line hero-line-2">Elegance</div>
+            <div class="hero-line hero-line-3">Redefined</div>
+          </h1>
+
+          <p class="hero-subtitle" bind:this={heroSubtitle}>
+            Discover our exquisite collection of luxury garments crafted with the finest materials and meticulous attention to detail.
+          </p>
+
+          <div class="hero-btns" bind:this={heroBtns}>
+            <a href="/shop" class="btn btn-primary hero-button">Shop Now</a>
+          </div>
+        </div>
+
+        <!-- Right column with image -->
+        <div class="hero-image-container">
+          <img src="/images/products/saree.jpg" alt="Luxury Fashion" class="hero-image">
+          <div class="hero-accent"></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -362,6 +404,197 @@
     will-change: transform, opacity;
   }
 
+  /* Milano-style hero styles */
+  .milano-hero {
+    position: relative;
+    height: auto;
+    min-height: 90vh;
+    display: flex;
+    align-items: center;
+    background-color: #e1dbda; /* Updated to match Az-Milano's background color */
+    overflow: hidden;
+    padding: 6rem 0;
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(33,33,33,0.03) 0%, rgba(33,33,33,0.01) 100%);
+    z-index: 1;
+  }
+
+  .hero-content-left {
+    position: relative;
+    z-index: 2;
+    padding-right: 2rem;
+    max-width: 600px;
+  }
+
+  .hero-title {
+    font-size: 3.5rem;
+    margin-bottom: 2rem;
+    line-height: 1.1;
+    font-weight: 700;
+    overflow: visible;
+  }
+
+  .hero-line {
+    display: block;
+    color: var(--color-charcoal);
+    margin-bottom: 0.5rem;
+    transform: translateX(100px);
+    opacity: 0;
+  }
+
+  .hero-line-3 {
+    font-size: 1.25em; /* Larger than other lines */
+    font-weight: 800; /* Bolder than other lines */
+    color: var(--color-white);
+  }
+
+  .hero-subtitle {
+    font-size: 1.25rem;
+    margin-bottom: 2.5rem;
+    font-weight: 300;
+    max-width: 500px;
+    color: var(--color-white);
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  .hero-button {
+    opacity: 0;
+    transform: translateY(20px);
+    font-size: 1.1rem;
+    padding: 0.9rem 2.5rem;
+    letter-spacing: 0.15em;
+    font-weight: 600; /* Make it bolder */
+    border-radius: 2px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    background-color: var(--color-gold-dark); /* Darker gold background */
+    color: var(--color-white); /* White text for contrast */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Add slight text shadow for better readability */
+  }
+
+  .hero-button:hover {
+    transform: translateY(-7px) !important;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25) !important;
+    background-color: var(--color-gold); /* Lighter on hover */
+  }
+
+  /* Override the btn-primary styles specifically for the hero button */
+  .hero-btns .btn-primary {
+    background-color: var(--color-gold-dark);
+    color: var(--color-white);
+    border: none;
+  }
+
+  .hero-btns .btn-primary:hover {
+    background-color: var(--color-gold);
+  }
+
+  .hero-btns {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .hero-image-container {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+  }
+
+  .hero-image {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    border-radius: 2px;
+    position: relative;
+    z-index: 3;
+  }
+
+  .hero-accent {
+    position: absolute;
+    bottom: -40px;
+    right: -40px;
+    width: 180px;
+    height: 180px;
+    background-color: var(--color-gold);
+    opacity: 0.2;
+    z-index: 1;
+  }
+
+  @media (min-width: 768px) {
+    .hero-title {
+      font-size: 4.5rem;
+    }
+
+    .hero-subtitle {
+      font-size: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .hero-title {
+      font-size: 5.5rem;
+    }
+  }
+
+  /* Mobile optimization styles */
+  @media (max-width: 767px) {
+    .milano-hero {
+      padding: 4rem 0;
+      min-height: 80vh;
+      text-align: center; /* Center text on mobile */
+    }
+
+    .hero-title {
+      font-size: 2.8rem;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      margin-bottom: 1.5rem;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+
+    .hero-image-container {
+      margin-top: 2rem;
+      order: -1;
+    }
+
+    .hero-accent {
+      bottom: -20px;
+      right: -20px;
+      width: 100px;
+      height: 100px;
+    }
+
+    .hero-content-left {
+      padding-right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero-btns {
+      flex-direction: column;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .hero-btns .btn {
+      width: 100%;
+      margin-bottom: 0.75rem;
+      padding: 1rem; /* Larger touch target */
+    }
+  }
+
+  /* Existing styles */
   .hero {
     position: relative;
     height: 90vh;
@@ -369,61 +602,11 @@
     align-items: center;
     justify-content: center;
     background-color: var(--color-cream-dark);
-    background-image: url('/images/products/dress.jpg');
+    background-image: url('/images/products/saree.jpg');
     background-size: cover;
     background-position: center;
     color: var(--color-white);
     overflow: hidden;
-  }
-
-  .hero-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 100%);
-    z-index: 1;
-  }
-
-  .hero-content {
-    position: relative;
-    z-index: 2;
-    text-align: center;
-    max-width: 800px;
-    padding: 0 1.5rem;
-  }
-
-  .hero-title {
-    font-size: 3.5rem;
-    margin-bottom: 1.5rem;
-    line-height: 1.1;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  }
-
-  .hero-subtitle {
-    font-size: 1.25rem;
-    margin-bottom: 2rem;
-    font-weight: 300;
-    text-shadow: 0 1px 5px rgba(0,0,0,0.3);
-    letter-spacing: 0.03em;
-  }
-
-  .hero-btns {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .hero-btns .btn {
-    transform-origin: center;
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-                background-color 0.3s ease,
-                color 0.3s ease,
-                box-shadow 0.3s ease;
-  }
-
-  .hero-btns .btn:hover {
-    transform: translateY(-5px) scale(1.05);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   }
 
   .luxury-divider {
@@ -511,14 +694,6 @@
   }
 
   @media (min-width: 768px) {
-    .hero-title {
-      font-size: 4.5rem;
-    }
-
-    .hero-subtitle {
-      font-size: 1.5rem;
-    }
-
     .luxury-divider-line {
       width: 150px;
     }
@@ -528,44 +703,7 @@
     }
   }
 
-  @media (min-width: 1024px) {
-    .hero-title {
-      font-size: 5.5rem;
-    }
-  }
-
-  /* Mobile optimization styles */
   @media (max-width: 767px) {
-    .hero {
-      height: 85vh; /* Slightly shorter on mobile */
-    }
-
-    .hero-title {
-      font-size: 2.8rem; /* Smaller text on mobile */
-    }
-
-    .hero-subtitle {
-      font-size: 1.1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .hero-btns {
-      flex-direction: column;
-      width: 100%;
-      max-width: 300px;
-      margin: 0 auto;
-    }
-
-    .hero-btns .btn {
-      width: 100%;
-      margin-bottom: 0.75rem;
-      padding: 1rem; /* Larger touch target */
-    }
-
-    .experience-image-container {
-      margin-top: 2rem;
-    }
-
     /* Improved featured products grid for mobile */
     .product-grid {
       display: grid;
