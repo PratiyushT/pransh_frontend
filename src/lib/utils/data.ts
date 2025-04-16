@@ -252,6 +252,7 @@ export const getColors = (): Color[] => {
 
 // Get all products
 export const getProducts = (): Product[] => {
+  console.log(`getProducts called, returning ${products.length} products`);
   return products;
 };
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { isMenuOpen, cartCount, wishlistCount } from '$lib/stores/index';
+  import { isMenuOpen, cartCount, wishlistCount, openSearch } from '$lib/stores/index';
   import { getCategories } from '$lib/utils/data';
   import gsap from 'gsap';
 
@@ -205,12 +205,19 @@
         <a href="/" class="menu-brand-logo" on:click={closeMenu}>Pransh</a>
 
         <div class="menu-actions">
-          <a href="/search" class="menu-action-icon" aria-label="Search" on:click={closeMenu}>
+          <button
+            class="menu-action-icon"
+            aria-label="Search"
+            on:click={() => {
+              closeMenu();
+              openSearch();
+            }}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-          </a>
+          </button>
 
           <a href="/account" class="menu-action-icon hidden sm:flex" aria-label="Account" on:click={closeMenu}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

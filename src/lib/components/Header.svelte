@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { isMenuOpen, cartCount, wishlistCount } from '$lib/stores/index';
+  import { isMenuOpen, cartCount, wishlistCount, openSearch } from '$lib/stores/index';
   import gsap from 'gsap';
+  import SearchModal from './SearchModal.svelte';
 
   let prevScrollY = 0;
   let mainHeader: HTMLElement;
@@ -71,12 +72,16 @@
       </nav>
 
       <div class="header-actions">
-        <a href="/search" class="header-action-icon" aria-label="Search">
+        <button
+          class="header-action-icon"
+          aria-label="Search"
+          on:click={() => openSearch()}
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-        </a>
+        </button>
 
         <a href="/account" class="header-action-icon hidden md:block" aria-label="Account">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -120,6 +125,9 @@
     </div>
   </div>
 </header>
+
+<!-- Include the SearchModal component -->
+<SearchModal />
 
 <style>
   .hamburger-menu {
@@ -228,6 +236,14 @@
     position: relative;
     transition: transform 0.3s ease, color 0.3s ease;
     transform-origin: center;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .header-action-icon:hover {

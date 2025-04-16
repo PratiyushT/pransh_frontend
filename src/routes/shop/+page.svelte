@@ -5,6 +5,11 @@
   import QuickViewModal from '$lib/components/QuickViewModal.svelte';
   import type { Product } from '$lib/types';
   import gsap from 'gsap';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+
+  // Access the page data from the load function
+  export let data;
 
   // Initialize with all products by default
   let products: Product[] = getProducts();
@@ -15,10 +20,11 @@
   let productGrid: HTMLElement;
   let filterSection: HTMLElement;
   let isInitialLoad = true;
+  let searchQuery = '';
 
   // Current applied filters
   let selectedCategory = '';
-  let selectedCategories: string[] = [];  // New array for multiple category selection
+  let selectedCategories: string[] = [];  // For multiple category selection
   let selectedSizes: string[] = [];
   let selectedColors: string[] = [];
   let minPrice = 0;
@@ -27,7 +33,7 @@
 
   // Pending filter changes (not applied until user clicks Apply button)
   let pendingCategory = selectedCategory;
-  let pendingCategories: string[] = [];  // New array for pending category selections
+  let pendingCategories: string[] = [];  // For pending category selections
   let pendingSizes: string[] = [];
   let pendingColors: string[] = [];
   let pendingMinPrice = 0;
@@ -66,8 +72,122 @@
   let startX = 0;
   let startLeft = 0;
 
+  // Function to update the URL based on current filters
+  const updateURL = () => {
+    try {
+      // Build URL params
+      const params = new URLSearchParams();
+
+      // Add search query if exists
+      if (searchQuery) {
+        params.set('search', searchQuery);
+      }
+
+      // Add categories if selected
+      if (selectedCategories.length > 0) {
+        params.set('category', selectedCategories.join(','));
+      }
+
+      // Add sizes if selected
+      if (selectedSizes.length > 0) {
+        params.set('size', selectedSizes.join(','));
+      }
+
+      // Add colors if selected
+      if (selectedColors.length > 0) {
+        params.set('color', selectedColors.join(','));
+      }
+
+      // Add price range if not at defaults
+      if (minPrice !== globalMinPrice) {
+        params.set('minPrice', minPrice.toString());
+      }
+
+      if (maxPrice !== globalMaxPrice) {
+        params.set('maxPrice', maxPrice.toString());
+      }
+
+      // Add sort if not default
+      if (sortBy !== 'featured') {
+        params.set('sort', sortBy);
+      }
+
+      // Update the URL without refreshing the page
+      const url = `/shop${params.toString() ? '?' + params.toString() : ''}`;
+      console.log('Updating URL to:', url);
+
+      // Use history API directly instead of goto to avoid potential issues
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', url);
+      }
+    } catch (error) {
+      console.error('Error updating URL:', error);
+    }
+  };
+
+  // Apply URL parameters to filters
+  const applyURLFilters = () => {
+    console.log('Applying URL filters from data:', data.filters);
+
+    if (data.filters) {
+      // Set search query
+      if (data.filters.searchQuery) {
+        searchQuery = data.filters.searchQuery.replace(/"/g, ''); // Remove quotes if present
+        console.log('Applied search query:', searchQuery);
+      }
+
+      // Set categories
+      if (data.filters.categories && data.filters.categories.length > 0) {
+        // Convert to lowercase for consistent comparison
+        selectedCategories = [...data.filters.categories.map(cat => cat.toLowerCase())];
+        pendingCategories = [...selectedCategories];
+        console.log('Applied categories:', selectedCategories);
+      }
+
+      // Set colors
+      if (data.filters.colors && data.filters.colors.length > 0) {
+        // Convert to lowercase for consistent comparison
+        selectedColors = [...data.filters.colors.map(color => color.toLowerCase())];
+        pendingColors = [...selectedColors];
+        console.log('Applied colors:', selectedColors);
+      }
+
+      // Set sizes
+      if (data.filters.sizes && data.filters.sizes.length > 0) {
+        // Keep original case for sizes (since sizes like 'S', 'M', 'L' are case-sensitive)
+        selectedSizes = [...data.filters.sizes];
+        pendingSizes = [...selectedSizes];
+        console.log('Applied sizes:', selectedSizes);
+      }
+
+      // Set price range
+      if (data.filters.minPrice !== null) {
+        minPrice = data.filters.minPrice;
+        pendingMinPrice = minPrice;
+        console.log('Applied minPrice:', minPrice);
+      }
+
+      if (data.filters.maxPrice !== null) {
+        maxPrice = data.filters.maxPrice;
+        pendingMaxPrice = maxPrice;
+        console.log('Applied maxPrice:', maxPrice);
+      }
+
+      // Set sort order
+      if (data.filters.sort) {
+        sortBy = data.filters.sort;
+        pendingSortBy = sortBy;
+        selectedSort = sortBy;
+        console.log('Applied sort:', sortBy);
+      }
+    }
+  };
+
   // Initialize products
   onMount(() => {
+    // Apply URL filters first
+    applyURLFilters();
+
     // Initialize the price slider functionality
     initPriceSlider();
 
@@ -337,18 +457,38 @@
 
   // Function to update products based on filters
   const updateProducts = () => {
-    console.log("Updating products with filters:", { selectedCategories, selectedSizes, selectedColors, minPrice, maxPrice, sortBy });
+    console.log("Updating products with filters:", {
+      searchQuery,
+      selectedCategories,
+      selectedSizes,
+      selectedColors,
+      minPrice,
+      maxPrice,
+      sortBy
+    });
 
-    // Get base products by category or all products
-    let filteredProducts = selectedCategories.length > 0
-      ? getProducts().filter(product =>
-          selectedCategories.some(cat =>
-            product.category.toLowerCase() === cat.toLowerCase()
-          )
-        )
-      : getProducts();
+    // Start with all products
+    let filteredProducts = getProducts();
+    console.log(`Starting with ${filteredProducts.length} products`);
 
-    console.log(`After category filter: ${filteredProducts.length} products`);
+    // Filter by search query if provided
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredProducts = filteredProducts.filter(product =>
+        product.name.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query)
+      );
+      console.log(`After search query filter: ${filteredProducts.length} products`);
+    }
+
+    // Filter by categories if selected
+    if (selectedCategories.length > 0) {
+      filteredProducts = filteredProducts.filter(product => {
+        const productCategory = product.category.toLowerCase();
+        return selectedCategories.some(cat => productCategory === cat.toLowerCase());
+      });
+      console.log(`After category filter: ${filteredProducts.length} products`);
+    }
 
     // Filter by size
     if (selectedSizes.length > 0) {
@@ -361,7 +501,11 @@
     // Filter by color
     if (selectedColors.length > 0) {
       filteredProducts = filteredProducts.filter(product =>
-        product.variants.some(variant => selectedColors.includes(variant.color.name))
+        product.variants.some(variant =>
+          selectedColors.some(color =>
+            variant.color.name.toLowerCase() === color.toLowerCase()
+          )
+        )
       );
       console.log(`After color filter: ${filteredProducts.length} products`);
     }
@@ -404,34 +548,12 @@
     }
     console.log(`After sorting: ${filteredProducts.length} products`);
 
-    // Animate product changes if not initial load
-    if (!isInitialLoad && productGrid) {
-      // Animate out the current products
-      gsap.to(productGrid, {
-        opacity: 0,
-        y: 15,
-        duration: 0.3,
-        ease: "power2.in",
-        onComplete: () => {
-          // Update products
-          products = filteredProducts;
-          console.log(`Setting products array to ${products.length} products`);
+    // Update URL with current filters
+    updateURL();
 
-          // Wait for DOM update then animate in
-          setTimeout(() => {
-            gsap.to(productGrid, {
-              opacity: 1,
-              y: 0,
-              duration: 0.5,
-              ease: "power2.out"
-            });
-          }, 50);
-        }
-      });
-    } else {
-      products = filteredProducts;
-      console.log(`Setting products array to ${products.length} products (initial load)`);
-    }
+    // Update products without animations for now to simplify
+    products = filteredProducts;
+    console.log(`Set products array to ${products.length} products`);
   };
 
   // Initialize pending filters with current values
@@ -454,6 +576,13 @@
     minPrice = pendingMinPrice;
     maxPrice = pendingMaxPrice;
     sortBy = pendingSortBy;
+    updateProducts();
+  };
+
+  // Handle search submit
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    searchQuery = searchQuery; // Keep the search logic intact
     updateProducts();
   };
 
@@ -507,6 +636,7 @@
     minPrice = globalMinPrice;
     maxPrice = globalMaxPrice;
     sortBy = 'featured';
+    searchQuery = '';
 
     // Reset pending filters
     initPendingFilters();
@@ -563,7 +693,9 @@
   // Category name for display
   $: categoryName = selectedCategory
     ? categories.find(c => c.name.toLowerCase() === selectedCategory.toLowerCase())?.name || selectedCategory
-    : 'All Products';
+    : selectedCategories.length > 0
+      ? `${selectedCategories.length} Categories Selected`
+      : 'All Products';
 </script>
 
 <svelte:head>

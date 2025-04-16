@@ -161,3 +161,45 @@ export const toggleWishlist = (productId: string) => {
     addToWishlist(productId);
   }
 };
+
+//
+// SEARCH STORE
+//
+
+// isSearchOpen controls whether the search modal is open
+export const isSearchOpen = writable(false);
+
+// searchQuery stores the current search term
+export const searchQuery = writable('');
+
+// Function to open search modal
+export const openSearch = () => {
+  isSearchOpen.set(true);
+  // Prevent scrolling when modal is open
+  if (browser) {
+    document.body.style.overflow = 'hidden';
+  }
+};
+
+// Function to close search modal
+export const closeSearch = () => {
+  isSearchOpen.set(false);
+  // Re-enable scrolling when modal closes
+  if (browser) {
+    document.body.style.overflow = '';
+  }
+};
+
+// Function to perform search and navigate to shop page
+export const performSearch = (query: string) => {
+  searchQuery.set(query);
+
+  // Navigate to shop page with search query
+  if (browser) {
+    const url = `/shop${query ? `?search=${encodeURIComponent(query)}` : ''}`;
+    window.location.href = url;
+  }
+
+  // Close the search modal
+  closeSearch();
+};
