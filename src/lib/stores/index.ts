@@ -191,12 +191,54 @@ export const closeSearch = () => {
 };
 
 // Function to perform search and navigate to shop page
-export const performSearch = (query: string) => {
+export const performSearch = (query: string, filters?: {
+  categories?: string[],
+  colors?: string[],
+  sizes?: string[],
+  minPrice?: number,
+  maxPrice?: number,
+  sort?: string
+}) => {
   searchQuery.set(query);
 
-  // Navigate to shop page with search query
+  // Navigate to shop page with search query and optional filters
   if (browser) {
-    const url = `/shop${query ? `?search=${encodeURIComponent(query)}` : ''}`;
+    const params = new URLSearchParams();
+
+    // Add search query if exists
+    if (query) {
+      params.set('search', query);
+    }
+
+    // Add any additional filters if provided
+    if (filters) {
+      if (filters.categories && filters.categories.length > 0) {
+        params.set('category', filters.categories.join(','));
+      }
+
+      if (filters.colors && filters.colors.length > 0) {
+        params.set('color', filters.colors.join(','));
+      }
+
+      if (filters.sizes && filters.sizes.length > 0) {
+        params.set('size', filters.sizes.join(','));
+      }
+
+      if (filters.minPrice !== undefined) {
+        params.set('minPrice', filters.minPrice.toString());
+      }
+
+      if (filters.maxPrice !== undefined) {
+        params.set('maxPrice', filters.maxPrice.toString());
+      }
+
+      if (filters.sort) {
+        params.set('sort', filters.sort);
+      }
+    }
+
+    // Build the URL with all parameters
+    const url = `/shop${params.toString() ? `?${params.toString()}` : ''}`;
     window.location.href = url;
   }
 
