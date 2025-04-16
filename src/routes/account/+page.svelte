@@ -300,7 +300,7 @@
               {:else}
                 <div class="text-center py-8">
                   <p class="text-gray-500 mb-4">You haven't placed any orders yet.</p>
-                  <a href="/category/all" class="bg-gold hover:bg-gold-dark text-white px-4 py-2 rounded-sm inline-block transition-colors">
+                  <a href="/shop" class="bg-gold hover:bg-gold-dark text-white px-4 py-2 rounded-sm inline-block transition-colors">
                     Start Shopping
                   </a>
                 </div>
@@ -364,7 +364,7 @@
               {:else}
                 <div class="text-center py-8">
                   <p class="text-gray-500 mb-4">You haven't placed any orders yet.</p>
-                  <a href="/category/all" class="bg-gold hover:bg-gold-dark text-white px-4 py-2 rounded-sm inline-block transition-colors">
+                  <a href="/shop" class="bg-gold hover:bg-gold-dark text-white px-4 py-2 rounded-sm inline-block transition-colors">
                     Start Shopping
                   </a>
                 </div>

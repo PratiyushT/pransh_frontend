@@ -295,7 +295,7 @@
       Discover our exquisite collection of luxury garments crafted with the finest materials and meticulous attention to detail.
     </p>
     <div class="hero-btns" bind:this={heroBtns}>
-      <a href="/category/all" class="btn btn-primary">Shop Collection</a>
+      <a href="/shop" class="btn btn-primary">Shop Collection</a>
       <a href="/about" class="btn btn-secondary">About & Contact</a>
     </div>
   </div>
@@ -325,7 +325,7 @@
     </div>
 
     <div class="text-center mt-12">
-      <a href="/category/all" class="btn btn-secondary">View All Products</a>
+      <a href="/shop" class="btn btn-secondary">View All Products</a>
     </div>
   </div>
 </section>

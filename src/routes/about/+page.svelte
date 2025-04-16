@@ -183,7 +183,7 @@
           Discover our collection of meticulously crafted garments that
           embody timeless elegance and exceptional quality.
         </p>
-        <a href="/category/all" class="btn btn-primary">Shop Now</a>
+        <a href="/shop" class="btn btn-primary">Shop Now</a>
       </div>
     </div>
   </section>

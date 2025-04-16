@@ -88,15 +88,15 @@
           <h3 class="footer-heading">Shop</h3>
           <ul class="footer-links">
             <li>
-              <a href="/category/all" class="footer-link">All Collections</a>
+              <a href="/shop" class="footer-link">All Collections</a>
             </li>
             {#each categories as category}
               <li>
-                <a href={`/category/${category.name.toLowerCase()}`} class="footer-link">{category.name}</a>
+                <a href="/shop" class="footer-link">{category.name}</a>
               </li>
             {/each}
             <li>
-              <a href="/category/new" class="footer-link">New Arrivals</a>
+              <a href="/shop" class="footer-link">New Arrivals</a>
             </li>
           </ul>
         </div>

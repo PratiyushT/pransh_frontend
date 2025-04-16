@@ -346,7 +346,7 @@
           </div>
           <h2 class="font-serif text-3xl sm:text-4xl mb-8 text-gold">Your cart is empty</h2>
           <p class="mb-16 text-gray-600 max-w-md mx-auto text-lg">Looks like you haven't added any items to your cart yet. Discover our collection of luxury products.</p>
-          <a href="/category/all" class="btn btn-primary transform transition-transform hover:translate-y-[-2px] inline-flex items-center shadow-md text-lg py-5 px-10">
+          <a href="/shop" class="btn btn-primary transform transition-transform hover:translate-y-[-2px] inline-flex items-center shadow-md text-lg py-5 px-10">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>

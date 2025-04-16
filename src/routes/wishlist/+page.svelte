@@ -404,7 +404,7 @@
 
     <div class="mt-12 flex justify-center">
       <a
-        href="/category/all"
+        href="/shop"
         class="group flex items-center text-gold hover:text-gold-dark transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -433,8 +433,8 @@
       {/if}
 
       <div>
-        <a href="/category/all" class="btn bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-all duration-300 hover:shadow-md transform hover:-translate-y-1">
-          Start Exploring
+        <a href="/shop" class="btn bg-gold text-white px-6 py-3 inline-block font-medium hover:bg-gold-dark transition-all duration-300 hover:shadow-md transform hover:-translate-y-1">
+          Explore Products
         </a>
       </div>
     </div>

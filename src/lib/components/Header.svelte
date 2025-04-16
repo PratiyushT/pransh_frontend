@@ -65,7 +65,7 @@
       <nav class="hidden md:block">
         <ul class="nav-links">
           <li><a href="/" class="nav-link">Home</a></li>
-          <li><a href="/category/all" class="nav-link">Shop</a></li>
+          <li><a href="/shop" class="nav-link">Shop</a></li>
           <li><a href="/about" class="nav-link">About & Contact</a></li>
         </ul>
       </nav>

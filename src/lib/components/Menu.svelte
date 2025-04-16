@@ -271,7 +271,7 @@
         </li>
 
         <li>
-          <a href="/category/all" class="menu-link" on:click={closeMenu}>Shop</a>
+          <a href="/shop" class="menu-link" on:click={closeMenu}>Shop</a>
         </li>
 
         <li>

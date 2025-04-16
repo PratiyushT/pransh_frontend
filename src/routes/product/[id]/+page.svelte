@@ -222,7 +222,7 @@
           <div class="breadcrumbs">
             <a href="/" class="breadcrumb-link">Home</a>
             <span class="breadcrumb-separator">/</span>
-            <a href="/category/{product.category.toLowerCase()}" class="breadcrumb-link">{product.category}</a>
+            <a href="/shop" class="breadcrumb-link">{product.category}</a>
             <span class="breadcrumb-separator">/</span>
             <span class="breadcrumb-current">{product.name}</span>
           </div>
@@ -390,7 +390,7 @@
       <div class="not-found">
         <h1>Product Not Found</h1>
         <p>The product you're looking for could not be found.</p>
-        <a href="/category/all" class="btn btn-primary">Back to Shop</a>
+        <a href="/shop" class="btn btn-primary">Back to Shop</a>
       </div>
     {/if}
   </div>
