@@ -3,6 +3,7 @@
   import { isSearchOpen, closeSearch, performSearch, searchQuery } from '$lib/stores/index';
   import { getCategories, getColors, getSizes } from '$lib/utils/data';
   import gsap from 'gsap';
+  import { page } from '$app/stores';
 
   let searchInput: HTMLInputElement;
   let searchModalContent: HTMLElement;
@@ -22,7 +23,96 @@
   const colors = getColors();
   const sizes = getSizes();
 
+  // Get global price range
+  const allPrices = getColors().flatMap(c => [0, 1000]); // Simplified for demo
+  const globalMinPrice = Math.floor(Math.min(...allPrices));
+  const globalMaxPrice = Math.ceil(Math.max(...allPrices));
+
+  // Initialize filters from URL parameters
+  const loadFiltersFromURL = () => {
+    // Current URL parameters
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+
+    // Get search query
+    if (params.has('search')) {
+      searchValue = params.get('search') || '';
+    }
+
+    // Get category filter
+    if (params.has('category')) {
+      const categoryParam = params.get('category') || '';
+      selectedCategories = categoryParam.split(',').map(c => c.toLowerCase());
+      // Show filters if categories are present
+      if (selectedCategories.length > 0) {
+        showFilters = true;
+      }
+    }
+
+    // Get color filter
+    if (params.has('color')) {
+      const colorParam = params.get('color') || '';
+      selectedColors = colorParam.split(',').map(c => c.toLowerCase());
+      // Show filters if colors are present
+      if (selectedColors.length > 0) {
+        showFilters = true;
+      }
+    }
+
+    // Get size filter
+    if (params.has('size')) {
+      const sizeParam = params.get('size') || '';
+      selectedSizes = sizeParam.split(',');
+      // Show filters if sizes are present
+      if (selectedSizes.length > 0) {
+        showFilters = true;
+      }
+    }
+
+    // Get price range
+    if (params.has('minPrice')) {
+      minPrice = parseInt(params.get('minPrice') || '0');
+      // Show filters if min price is set
+      if (minPrice > 0) {
+        showFilters = true;
+      }
+    }
+
+    if (params.has('maxPrice')) {
+      maxPrice = parseInt(params.get('maxPrice') || '1000');
+      // Show filters if max price is not default
+      if (maxPrice < globalMaxPrice) {
+        showFilters = true;
+      }
+    }
+
+    // Get sort order
+    if (params.has('sort')) {
+      sortBy = params.get('sort') || 'featured';
+      // Show filters if sort is not default
+      if (sortBy !== 'featured') {
+        showFilters = true;
+      }
+    }
+
+    // Ensure the searchValue is updated in the store
+    searchQuery.set(searchValue);
+
+    console.log('Loaded filters from URL:', {
+      searchValue,
+      selectedCategories,
+      selectedColors,
+      selectedSizes,
+      minPrice,
+      maxPrice,
+      sortBy
+    });
+  };
+
   onMount(() => {
+    // Load filters from URL when component mounts
+    loadFiltersFromURL();
+
     // Focus input when search modal opens
     const unsubscribe = isSearchOpen.subscribe(value => {
       if (value && searchInput) {
@@ -66,6 +156,9 @@
 
   // Animation effects when modal opens/closes
   $: if ($isSearchOpen && searchModalContent) {
+    // Reload filters from URL each time the modal opens
+    loadFiltersFromURL();
+
     gsap.fromTo(searchModalContent,
       { opacity: 0, y: -20 },
       { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }
@@ -224,6 +317,118 @@
           </button>
           <button type="submit" class="search-button">Search</button>
         </div>
+
+        <!-- Always display currently applied filters summary if any filters are active -->
+        {#if (selectedCategories.length > 0 || selectedColors.length > 0 || selectedSizes.length > 0 || minPrice > 0 || maxPrice < 1000 || sortBy !== 'featured')}
+          <div class="current-filters-container">
+            <h3 class="filter-title">Currently Applied Filters:</h3>
+            <div class="current-filters-list">
+              <!-- Categories -->
+              {#if selectedCategories.length > 0}
+                <div class="current-filter-group">
+                  <span class="filter-label">Categories:</span>
+                  <div class="filter-chips">
+                    {#each selectedCategories as category}
+                      <div class="filter-chip">
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                        <button
+                          type="button"
+                          class="remove-filter"
+                          on:click={() => toggleCategory(category)}
+                          aria-label="Remove {category} filter"
+                        >×</button>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Colors -->
+              {#if selectedColors.length > 0}
+                <div class="current-filter-group">
+                  <span class="filter-label">Colors:</span>
+                  <div class="filter-chips">
+                    {#each selectedColors as color}
+                      <div class="filter-chip">
+                        {color.charAt(0).toUpperCase() + color.slice(1)}
+                        <button
+                          type="button"
+                          class="remove-filter"
+                          on:click={() => toggleColor(color)}
+                          aria-label="Remove {color} filter"
+                        >×</button>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Sizes -->
+              {#if selectedSizes.length > 0}
+                <div class="current-filter-group">
+                  <span class="filter-label">Sizes:</span>
+                  <div class="filter-chips">
+                    {#each selectedSizes as size}
+                      <div class="filter-chip">
+                        {size}
+                        <button
+                          type="button"
+                          class="remove-filter"
+                          on:click={() => toggleSize(size)}
+                          aria-label="Remove size {size} filter"
+                        >×</button>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Price Range -->
+              {#if minPrice > 0 || maxPrice < 1000}
+                <div class="current-filter-group">
+                  <span class="filter-label">Price:</span>
+                  <div class="filter-chips">
+                    <div class="filter-chip">
+                      ${minPrice} - ${maxPrice}
+                      <button
+                        type="button"
+                        class="remove-filter"
+                        on:click={() => {
+                          minPrice = 0;
+                          maxPrice = 1000;
+                        }}
+                        aria-label="Reset price range"
+                      >×</button>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Sort -->
+              {#if sortBy !== 'featured'}
+                <div class="current-filter-group">
+                  <span class="filter-label">Sort:</span>
+                  <div class="filter-chips">
+                    <div class="filter-chip">
+                      {sortBy === 'price-asc' ? 'Price: Low to High' :
+                       sortBy === 'price-desc' ? 'Price: High to Low' :
+                       sortBy === 'rating' ? 'Customer Rating' :
+                       sortBy === 'newest' ? 'Newest Arrivals' : sortBy}
+                      <button
+                        type="button"
+                        class="remove-filter"
+                        on:click={() => {
+                          sortBy = 'featured';
+                        }}
+                        aria-label="Reset sort order"
+                      >×</button>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
 
         {#if showFilters}
           <div class="search-filters">
@@ -391,6 +596,7 @@
     position: relative;
     max-height: 80vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
   }
 
   .search-modal-header {
@@ -420,6 +626,9 @@
     cursor: pointer;
     transition: all 0.3s ease;
     color: var(--color-charcoal);
+    /* Improved tap target */
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .search-close-button:hover {
@@ -454,6 +663,11 @@
     border-radius: 4px;
     font-size: 1rem;
     transition: all 0.3s ease;
+    /* Improved for touch */
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 48px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
 
   .search-input:focus {
@@ -465,11 +679,13 @@
   .search-actions {
     display: flex;
     gap: 0.5rem;
+    flex-direction: column; /* Stack buttons by default for mobile */
   }
 
   .filter-toggle-button {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
     border: 1px solid var(--color-light-gray);
@@ -481,6 +697,8 @@
     cursor: pointer;
     transition: all 0.3s ease;
     flex: 1;
+    /* Improved touch target */
+    min-height: 48px;
   }
 
   .filter-toggle-button:hover {
@@ -498,6 +716,8 @@
     cursor: pointer;
     transition: background-color 0.3s ease;
     min-width: 100px;
+    /* Improved touch target */
+    min-height: 48px;
   }
 
   .search-button:hover {
@@ -545,6 +765,73 @@
     gap: 0.5rem;
   }
 
+  /* Currently Applied Filters */
+  .current-filters-container {
+    margin-top: 1rem;
+    background-color: #f8f8f8;
+    padding: 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-light-gray);
+  }
+
+  .current-filters-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .current-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .filter-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #666;
+  }
+
+  .filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--color-gold);
+    color: white;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+  }
+
+  .remove-filter {
+    margin-left: 0.5rem;
+    font-size: 1.2rem;
+    line-height: 0.8;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    padding: 0;
+    color: white;
+    /* Improved touch target */
+    min-width: 30px;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .remove-filter:hover {
+    opacity: 1;
+  }
+
   /* Category Chips */
   .category-chip {
     padding: 0.5rem 1rem;
@@ -555,6 +842,9 @@
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.3s ease;
+    /* Improved touch target */
+    min-height: 40px;
+    min-width: 44px;
   }
 
   .category-chip:hover {
@@ -580,6 +870,9 @@
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.3s ease;
+    /* Improved touch target */
+    min-height: 40px;
+    min-width: 44px;
   }
 
   .color-chip:hover {
@@ -611,6 +904,9 @@
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.3s ease;
+    /* Improved touch target */
+    min-height: 44px;
+    min-width: 44px;
   }
 
   .size-chip:hover {
@@ -628,10 +924,12 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-wrap: wrap; /* Allow wrapping on very small screens */
   }
 
   .price-input-group {
     flex: 1;
+    min-width: 120px; /* Ensure they don't get too narrow on small screens */
   }
 
   .price-input-group label {
@@ -659,6 +957,11 @@
     border: 1px solid var(--color-light-gray);
     border-radius: 4px;
     font-size: 0.875rem;
+    /* Improved for touch */
+    min-height: 44px;
+    -webkit-appearance: none;
+    appearance: none;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
 
   .price-input-wrapper input:focus {
@@ -685,6 +988,9 @@
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     background-size: 1rem;
+    /* Improved for touch */
+    min-height: 44px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
 
   .sort-select:focus {
@@ -703,6 +1009,8 @@
     cursor: pointer;
     transition: all 0.3s ease;
     border-radius: 4px;
+    /* Improved touch target */
+    min-height: 44px;
   }
 
   .reset-filters-button:hover {
@@ -710,9 +1018,26 @@
     border-color: var(--color-gold);
   }
 
-  @media (min-width: 768px) {
+  /* Mobile-first Media Queries */
+  @media (min-width: 480px) {
+    .search-modal-content {
+      padding: 1.75rem;
+    }
+  }
+
+  @media (min-width: 640px) {
     .search-actions {
-      flex-direction: row;
+      flex-direction: row; /* Horizontal layout for larger screens */
+    }
+
+    .search-modal-overlay {
+      padding-top: 15vh; /* More space at the top on larger screens */
+    }
+  }
+
+  @media (min-width: 768px) {
+    .search-modal-content {
+      padding: 2rem;
     }
 
     .search-filters {
@@ -721,6 +1046,17 @@
 
     .filter-group.price-range {
       grid-column: span 2;
+    }
+  }
+
+  /* For very small devices, ensure the overlay works properly */
+  @media (max-height: 600px) {
+    .search-modal-overlay {
+      padding-top: 5vh;
+    }
+
+    .search-modal-content {
+      max-height: 90vh; /* Allow more space on small height screens */
     }
   }
 </style>

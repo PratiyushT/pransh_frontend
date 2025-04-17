@@ -140,7 +140,7 @@
       if (data.filters.categories && data.filters.categories.length > 0) {
         // Convert to lowercase for consistent comparison
         selectedCategories = [...data.filters.categories.map(cat => cat.toLowerCase())];
-        pendingCategories = [...selectedCategories];
+        pendingCategories = [...selectedCategories]; // Ensure pending matches selected
         console.log('Applied categories:', selectedCategories);
       }
 
@@ -148,7 +148,7 @@
       if (data.filters.colors && data.filters.colors.length > 0) {
         // Convert to lowercase for consistent comparison
         selectedColors = [...data.filters.colors.map(color => color.toLowerCase())];
-        pendingColors = [...selectedColors];
+        pendingColors = [...selectedColors]; // Ensure pending matches selected
         console.log('Applied colors:', selectedColors);
       }
 
@@ -156,7 +156,7 @@
       if (data.filters.sizes && data.filters.sizes.length > 0) {
         // Keep original case for sizes (since sizes like 'S', 'M', 'L' are case-sensitive)
         selectedSizes = [...data.filters.sizes];
-        pendingSizes = [...selectedSizes];
+        pendingSizes = [...selectedSizes]; // Ensure pending matches selected
         console.log('Applied sizes:', selectedSizes);
       }
 
@@ -187,6 +187,9 @@
   onMount(() => {
     // Apply URL filters first
     applyURLFilters();
+
+    // Initialize pending filters with current values
+    initPendingFilters();
 
     // Initialize the price slider functionality
     initPriceSlider();
@@ -226,9 +229,6 @@
 
       isInitialLoad = false;
     }
-
-    // Initialize pending filters
-    initPendingFilters();
   });
 
   // Handle keyboard navigation for accessibility
@@ -293,9 +293,13 @@
     const containerWidth = priceSliderContainer.clientWidth;
     const range = globalMaxPrice - globalMinPrice;
 
+    // Ensure price values are within bounds
+    const safeMinPrice = Math.max(globalMinPrice, Math.min(pendingMinPrice, pendingMaxPrice));
+    const safeMaxPrice = Math.min(globalMaxPrice, Math.max(pendingMaxPrice, pendingMinPrice));
+
     // Calculate percentage positions for min and max thumbs
-    const minPercent = ((pendingMinPrice - globalMinPrice) / range) * 100;
-    const maxPercent = ((pendingMaxPrice - globalMinPrice) / range) * 100;
+    const minPercent = ((safeMinPrice - globalMinPrice) / range) * 100;
+    const maxPercent = ((safeMaxPrice - globalMinPrice) / range) * 100;
 
     // Apply positions to thumbs
     minPriceThumb.style.left = `${minPercent}%`;
@@ -304,6 +308,10 @@
     // Update track width and position to show selected range
     priceTrack.style.left = `${minPercent}%`;
     priceTrack.style.width = `${maxPercent - minPercent}%`;
+
+    // Update ARIA values for accessibility
+    minPriceThumb.setAttribute('aria-valuenow', safeMinPrice.toString());
+    maxPriceThumb.setAttribute('aria-valuenow', safeMaxPrice.toString());
   }
 
   // Handle mouse down on min thumb
@@ -311,6 +319,10 @@
     isDraggingMin = true;
     startX = e.clientX;
     startLeft = parseInt(minPriceThumb.style.left, 10) || 0;
+
+    // Add dragging class
+    if (minPriceThumb) minPriceThumb.classList.add('dragging');
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     e.preventDefault();
@@ -321,28 +333,12 @@
     isDraggingMax = true;
     startX = e.clientX;
     startLeft = parseInt(maxPriceThumb.style.left, 10) || 100;
+
+    // Add dragging class
+    if (maxPriceThumb) maxPriceThumb.classList.add('dragging');
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    e.preventDefault();
-  }
-
-  // Handle touch start on min thumb
-  function handleMinThumbTouchStart(e) {
-    isDraggingMin = true;
-    startX = e.touches[0].clientX;
-    startLeft = parseInt(minPriceThumb.style.left, 10) || 0;
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-    e.preventDefault();
-  }
-
-  // Handle touch start on max thumb
-  function handleMaxThumbTouchStart(e) {
-    isDraggingMax = true;
-    startX = e.touches[0].clientX;
-    startLeft = parseInt(maxPriceThumb.style.left, 10) || 100;
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
     e.preventDefault();
   }
 
@@ -360,9 +356,9 @@
     newLeft = Math.max(0, Math.min(100, newLeft));
 
     if (isDraggingMin) {
-      // Ensure min thumb doesn't go beyond max thumb
+      // Ensure min thumb doesn't go beyond max thumb (with min gap)
       const maxLeft = parseInt(maxPriceThumb.style.left, 10) || 100;
-      newLeft = Math.min(newLeft, maxLeft);
+      newLeft = Math.min(newLeft, maxLeft - 5); // Keep minimum gap of 5%
 
       // Update min thumb position
       minPriceThumb.style.left = `${newLeft}%`;
@@ -374,9 +370,9 @@
       priceTrack.style.left = `${newLeft}%`;
       priceTrack.style.width = `${maxLeft - newLeft}%`;
     } else if (isDraggingMax) {
-      // Ensure max thumb doesn't go behind min thumb
+      // Ensure max thumb doesn't go behind min thumb (with min gap)
       const minLeft = parseInt(minPriceThumb.style.left, 10) || 0;
-      newLeft = Math.max(newLeft, minLeft);
+      newLeft = Math.max(newLeft, minLeft + 5); // Keep minimum gap of 5%
 
       // Update max thumb position
       maxPriceThumb.style.left = `${newLeft}%`;
@@ -387,6 +383,54 @@
       // Update track
       priceTrack.style.width = `${newLeft - minLeft}%`;
     }
+  }
+
+  // Handle mouse up to end dragging
+  function handleMouseUp() {
+    // Remove dragging class
+    if (minPriceThumb) minPriceThumb.classList.remove('dragging');
+    if (maxPriceThumb) maxPriceThumb.classList.remove('dragging');
+
+    isDraggingMin = false;
+    isDraggingMax = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }
+
+  // Handle touch start on min thumb
+  function handleMinThumbTouchStart(e) {
+    isDraggingMin = true;
+    startX = e.touches[0].clientX;
+    startLeft = parseInt(minPriceThumb.style.left, 10) || 0;
+
+    // Add touch-specific class
+    if (minPriceThumb) minPriceThumb.classList.add('dragging');
+
+    // Use passive: false for touchmove to allow preventing default behavior
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchcancel', handleTouchEnd);
+
+    // Prevent page scrolling during dragging
+    e.preventDefault();
+  }
+
+  // Handle touch start on max thumb
+  function handleMaxThumbTouchStart(e) {
+    isDraggingMax = true;
+    startX = e.touches[0].clientX;
+    startLeft = parseInt(maxPriceThumb.style.left, 10) || 100;
+
+    // Add touch-specific class
+    if (maxPriceThumb) maxPriceThumb.classList.add('dragging');
+
+    // Use passive: false for touchmove to allow preventing default behavior
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchcancel', handleTouchEnd);
+
+    // Prevent page scrolling during dragging
+    e.preventDefault();
   }
 
   // Handle touch move during drag
@@ -405,7 +449,7 @@
     if (isDraggingMin) {
       // Ensure min thumb doesn't go beyond max thumb
       const maxLeft = parseInt(maxPriceThumb.style.left, 10) || 100;
-      newLeft = Math.min(newLeft, maxLeft);
+      newLeft = Math.min(newLeft, maxLeft - 5); // Keep minimum gap of 5%
 
       // Update min thumb position
       minPriceThumb.style.left = `${newLeft}%`;
@@ -419,7 +463,7 @@
     } else if (isDraggingMax) {
       // Ensure max thumb doesn't go behind min thumb
       const minLeft = parseInt(minPriceThumb.style.left, 10) || 0;
-      newLeft = Math.max(newLeft, minLeft);
+      newLeft = Math.max(newLeft, minLeft + 5); // Keep minimum gap of 5%
 
       // Update max thumb position
       maxPriceThumb.style.left = `${newLeft}%`;
@@ -431,23 +475,22 @@
       priceTrack.style.width = `${newLeft - minLeft}%`;
     }
 
-    e.preventDefault(); // Prevent scrolling while dragging
-  }
-
-  // Handle mouse up to end dragging
-  function handleMouseUp() {
-    isDraggingMin = false;
-    isDraggingMax = false;
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
+    // Prevent page from scrolling while dragging the slider
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   // Handle touch end to stop dragging
   function handleTouchEnd() {
+    // Remove dragging class from thumbs
+    if (minPriceThumb) minPriceThumb.classList.remove('dragging');
+    if (maxPriceThumb) maxPriceThumb.classList.remove('dragging');
+
     isDraggingMin = false;
     isDraggingMax = false;
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
+    document.removeEventListener('touchcancel', handleTouchEnd);
   }
 
   // Update slider when min or max price changes
@@ -457,7 +500,7 @@
 
   // Function to update products based on filters
   const updateProducts = () => {
-    console.log("Updating products with filters:", {
+    console.log("Updating products with current filter state:", {
       searchQuery,
       selectedCategories,
       selectedSizes,
@@ -554,11 +597,9 @@
     // Update products without animations for now to simplify
     products = filteredProducts;
     console.log(`Set products array to ${products.length} products`);
-  };
 
-  // Initialize pending filters with current values
-  const initPendingFilters = () => {
-    pendingCategory = selectedCategory;
+    // Make sure pending filter values match current active filters
+    // This ensures consistency between the UI state and actual filters
     pendingCategories = [...selectedCategories];
     pendingSizes = [...selectedSizes];
     pendingColors = [...selectedColors];
@@ -567,8 +608,47 @@
     pendingSortBy = sortBy;
   };
 
+  // Initialize pending filters with current values
+  const initPendingFilters = () => {
+    console.log("Initializing pending filters with current values:", {
+      selectedCategory,
+      selectedCategories,
+      selectedSizes,
+      selectedColors,
+      minPrice,
+      maxPrice,
+      sortBy
+    });
+
+    pendingCategory = selectedCategory;
+    pendingCategories = [...selectedCategories];
+    pendingSizes = [...selectedSizes];
+    pendingColors = [...selectedColors];
+    pendingMinPrice = minPrice;
+    pendingMaxPrice = maxPrice;
+    pendingSortBy = sortBy;
+
+    // Also update the displayed sort value
+    selectedSort = sortBy;
+
+    // Update the price slider UI if it exists
+    if (priceSliderContainer) {
+      updateSliderPositions();
+    }
+  };
+
   // Apply pending filters
   const applyFilters = () => {
+    console.log("Applying filters with pending values:", {
+      pendingCategories,
+      pendingSizes,
+      pendingColors,
+      pendingMinPrice,
+      pendingMaxPrice,
+      pendingSortBy
+    });
+
+    // Apply all pending filter values
     selectedCategory = pendingCategory;
     selectedCategories = [...pendingCategories];
     selectedSizes = [...pendingSizes];
@@ -576,7 +656,14 @@
     minPrice = pendingMinPrice;
     maxPrice = pendingMaxPrice;
     sortBy = pendingSortBy;
+
+    // Update the products list with the new filters
     updateProducts();
+
+    // If on mobile, close the filter menu after applying
+    if (window.innerWidth < 1024 && isFilterOpen) {
+      toggleFilter();
+    }
   };
 
   // Handle search submit
@@ -722,6 +809,8 @@
         <button
           class="luxury-filter-toggle"
           on:click={toggleFilter}
+          aria-expanded={isFilterOpen}
+          aria-controls="shop-filters"
         >
           <div class="filter-toggle-content">
             <span class="filter-toggle-text">Filters & Sorting</span>
@@ -744,7 +833,11 @@
       </div>
 
       <!-- Filters Section - Now comes first in the DOM -->
-      <div class="lg:w-1/4 filter-container {isFilterOpen ? 'block' : 'hidden lg:block'}" bind:this={filterSection}>
+      <div
+        id="shop-filters"
+        class="lg:w-1/4 filter-container {isFilterOpen ? 'block' : 'hidden lg:block'}"
+        bind:this={filterSection}
+      >
         <div class="filter-wrapper">
           <div class="flex justify-between items-center mb-8">
             <h2 class="filter-heading">Filters</h2>
@@ -755,6 +848,119 @@
               Reset All
             </button>
           </div>
+
+          <!-- Currently Applied Filters -->
+          {#if selectedCategories.length > 0 || selectedSizes.length > 0 || selectedColors.length > 0 || minPrice !== globalMinPrice || maxPrice !== globalMaxPrice}
+            <div class="active-filters-container mb-6">
+              <h3 class="filter-title mb-3">Currently Applied:</h3>
+              <div class="active-filters-list">
+                <!-- Show active category filters -->
+                {#if selectedCategories.length > 0}
+                  <div class="active-filter-group mb-2">
+                    <span class="filter-type">Category:</span>
+                    <div class="active-filter-chips">
+                      {#each selectedCategories as category}
+                        <div class="active-filter-chip">
+                          <span>
+                            {category.charAt(0).toUpperCase() + category.slice(1)}
+                          </span>
+                          <button
+                            class="remove-filter"
+                            on:click={() => {
+                              selectedCategories = selectedCategories.filter(c => c !== category);
+                              pendingCategories = [...selectedCategories];
+                              updateProducts();
+                            }}
+                            aria-label="Remove {category} filter"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Show active size filters -->
+                {#if selectedSizes.length > 0}
+                  <div class="active-filter-group mb-2">
+                    <span class="filter-type">Size:</span>
+                    <div class="active-filter-chips">
+                      {#each selectedSizes as size}
+                        <div class="active-filter-chip">
+                          <span>{size}</span>
+                          <button
+                            class="remove-filter"
+                            on:click={() => {
+                              selectedSizes = selectedSizes.filter(s => s !== size);
+                              pendingSizes = [...selectedSizes];
+                              updateProducts();
+                            }}
+                            aria-label="Remove size {size} filter"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Show active color filters -->
+                {#if selectedColors.length > 0}
+                  <div class="active-filter-group mb-2">
+                    <span class="filter-type">Color:</span>
+                    <div class="active-filter-chips">
+                      {#each selectedColors as color}
+                        <div class="active-filter-chip">
+                          <span>
+                            {color.charAt(0).toUpperCase() + color.slice(1)}
+                          </span>
+                          <button
+                            class="remove-filter"
+                            on:click={() => {
+                              selectedColors = selectedColors.filter(c => c !== color);
+                              pendingColors = [...selectedColors];
+                              updateProducts();
+                            }}
+                            aria-label="Remove color {color} filter"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Show active price range filter -->
+                {#if minPrice !== globalMinPrice || maxPrice !== globalMaxPrice}
+                  <div class="active-filter-group mb-2">
+                    <span class="filter-type">Price:</span>
+                    <div class="active-filter-chips">
+                      <div class="active-filter-chip">
+                        <span>${formatPrice(minPrice)} - ${formatPrice(maxPrice)}</span>
+                        <button
+                          class="remove-filter"
+                          on:click={() => {
+                            minPrice = globalMinPrice;
+                            maxPrice = globalMaxPrice;
+                            pendingMinPrice = globalMinPrice;
+                            pendingMaxPrice = globalMaxPrice;
+                            updateSliderPositions();
+                            updateProducts();
+                          }}
+                          aria-label="Reset price range"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/if}
 
           <!-- Categories -->
           <div class="filter-group">
@@ -780,6 +986,15 @@
                 on:click={() => {
                   pendingCategories = [];
                 }}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    pendingCategories = [];
+                    e.preventDefault();
+                  }
+                }}
+                role="button"
+                tabindex="0"
+                aria-pressed={pendingCategories.length === 0}
               >
                 All
               </div>
@@ -788,6 +1003,15 @@
                 <div
                   class={`category-chip ${pendingCategories.includes(category.name.toLowerCase()) ? 'active' : ''}`}
                   on:click={() => handlePendingCategoryToggle(category.name.toLowerCase())}
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handlePendingCategoryToggle(category.name.toLowerCase());
+                      e.preventDefault();
+                    }
+                  }}
+                  role="button"
+                  tabindex="0"
+                  aria-pressed={pendingCategories.includes(category.name.toLowerCase())}
                 >
                   {category.name}
                 </div>
@@ -999,6 +1223,10 @@
     border-radius: 0;
     cursor: pointer;
     transition: all 0.3s ease;
+    min-height: 48px; /* Improved touch target */
+    position: sticky;
+    top: 0;
+    z-index: 5;
   }
 
   .luxury-filter-toggle:hover {
@@ -1018,6 +1246,18 @@
   /* Filter Styles */
   .filter-container {
     overflow: hidden;
+    position: relative;
+  }
+
+  @media (max-width: 1023px) {
+    .filter-container {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      max-height: 80vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+    }
   }
 
   .filter-wrapper {
@@ -1039,6 +1279,8 @@
     border: none;
     cursor: pointer;
     transition: opacity 0.3s ease;
+    padding: 8px 12px; /* Improved touch target */
+    margin: -8px -12px; /* Negative margin to maintain layout */
   }
 
   .reset-button:hover {
@@ -1063,6 +1305,65 @@
     margin-bottom: 0.5rem;
   }
 
+  /* Currently Applied Filters */
+  .active-filters-container {
+    background-color: #f3f3f3;
+    padding: 0.75rem;
+    border: 1px solid var(--color-light-gray);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+
+  .active-filter-group {
+    margin-bottom: 0.5rem;
+  }
+
+  .filter-type {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-right: 0.5rem;
+    color: var(--color-charcoal);
+  }
+
+  .active-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .active-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--color-gold);
+    color: white;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-weight: 400;
+  }
+
+  .remove-filter {
+    margin-left: 0.5rem;
+    font-size: 1.2rem;
+    line-height: 0.8;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    padding: 4px; /* Improved touch target */
+    min-width: 28px; /* Improved touch target */
+    min-height: 28px; /* Improved touch target */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .remove-filter:hover {
+    opacity: 1;
+  }
+
   /* Category Styling */
   .category-options {
     display: flex;
@@ -1084,6 +1385,8 @@
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    min-height: 38px; /* Improved touch target */
+    min-width: 40px; /* Improved touch target */
   }
 
   .category-chip:hover {
@@ -1131,6 +1434,8 @@
     cursor: pointer;
     font-size: 0.875rem;
     transition: all 0.3s ease;
+    min-height: 44px; /* Improved touch target */
+    min-width: 44px; /* Improved touch target */
   }
 
   .luxury-size-selector:hover {
@@ -1155,6 +1460,8 @@
     cursor: pointer;
     border: 1px solid var(--color-light-gray);
     transition: all 0.3s ease;
+    min-height: 36px; /* Improved touch target */
+    min-width: 36px; /* Improved touch target */
   }
 
   .color-dot {
@@ -1214,8 +1521,8 @@
     position: absolute;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 18px;
-    height: 18px;
+    width: 22px; /* Larger for touch */
+    height: 22px; /* Larger for touch */
     background-color: var(--color-gold);
     border: 2px solid white;
     border-radius: 50%;
@@ -1236,6 +1543,25 @@
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
   }
 
+  /* Dragging state for touch devices */
+  .price-slider-thumb.dragging {
+    transform: translate(-50%, -50%) scale(1.3);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    background-color: #c29d2e; /* Darker gold while dragging */
+  }
+
+  /* Mobile-specific styles for price slider */
+  @media (max-width: 640px) {
+    .custom-price-slider {
+      height: 40px; /* Taller touch area on mobile */
+    }
+
+    .price-slider-thumb {
+      width: 24px; /* Even larger on mobile */
+      height: 24px; /* Even larger on mobile */
+    }
+  }
+
   /* Apply Button */
   .apply-filters-button {
     width: 100%;
@@ -1246,6 +1572,7 @@
     font-weight: 500;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    min-height: 48px; /* Improved touch target */
   }
 
   .apply-filters-button:hover {
@@ -1275,6 +1602,24 @@
     background-size: 1rem;
     -webkit-appearance: none;
     appearance: none;
+    min-height: 44px; /* Improved touch target */
+    min-width: 150px;
+  }
+
+  /* Results info for mobile */
+  @media (max-width: 640px) {
+    .results-info {
+      width: 100%;
+      margin-bottom: 0.75rem;
+    }
+
+    .sort-container {
+      width: 100%;
+    }
+
+    .sort-select {
+      flex-grow: 1;
+    }
   }
 
   .fade-in {
