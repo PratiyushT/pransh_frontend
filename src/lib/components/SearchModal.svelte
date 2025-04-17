@@ -206,44 +206,22 @@
   const handleSubmit = (e: Event) => {
     e.preventDefault();
 
-    // Build the query parameters
-    const params = new URLSearchParams();
+    console.log("Submitting search with query:", searchValue);
 
-    if (searchValue.trim()) {
-      params.set('search', searchValue.trim());
-    }
+    // Create filters object with all the current filter values
+    const filters = {
+      categories: selectedCategories,
+      colors: selectedColors,
+      sizes: selectedSizes,
+      minPrice: minPrice > 0 ? minPrice : undefined,
+      maxPrice: maxPrice < 1000 ? maxPrice : undefined,
+      sort: sortBy !== 'featured' ? sortBy : undefined
+    };
 
-    if (selectedCategories.length > 0) {
-      params.set('category', selectedCategories.join(','));
-    }
+    // Use the performSearch function from the store instead of manually building URL
+    performSearch(searchValue, filters);
 
-    if (selectedColors.length > 0) {
-      params.set('color', selectedColors.join(','));
-    }
-
-    if (selectedSizes.length > 0) {
-      params.set('size', selectedSizes.join(','));
-    }
-
-    if (minPrice > 0) {
-      params.set('minPrice', minPrice.toString());
-    }
-
-    if (maxPrice < 1000) {
-      params.set('maxPrice', maxPrice.toString());
-    }
-
-    if (sortBy !== 'featured') {
-      params.set('sort', sortBy);
-    }
-
-    // Navigate to shop page with all parameters
-    if (typeof window !== 'undefined') {
-      window.location.href = `/shop?${params.toString()}`;
-    }
-
-    // Close the search modal
-    closeSearch();
+    // Close the search modal (handled by performSearch already)
   };
 
   // Toggle filter visibility
