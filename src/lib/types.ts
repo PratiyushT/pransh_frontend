@@ -52,8 +52,14 @@ export interface CartItem {
   image: string;
 }
 
-export interface MockDataResult {
-  success: boolean; // Added success field
-  result: Size[] | Color[] | Category[] | Product[];
-  ms?: number; // Retained ms for backward compatibility
+export interface ProductFilterOptions {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  categories?: string[];
+  sizes?: string[];
+  colors?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  featuredOnly?: boolean;
 }

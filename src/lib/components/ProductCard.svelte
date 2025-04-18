@@ -370,7 +370,7 @@
     </div>
 
     <div class="product-card-info">
-      <div class="product-card-category">{product.category}</div>
+      <div class="product-card-category">{typeof product.category === 'object' ? product.category?.name : product.category}</div>
       <h3 class="product-card-title">{product.name}</h3>
       <div class="product-card-price">{priceDisplay}</div>
       {#if product.rating > 0}

@@ -16,8 +16,6 @@
   let timeline: gsap.core.Timeline;
   let isMobile = false;
 
-  export const ssr = true;
-
   onMount(() => {
     // Check if mobile/touch device
     isMobile =
