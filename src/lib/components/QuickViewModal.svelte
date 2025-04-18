@@ -7,6 +7,7 @@
   export let product: Product | null = null;
   export let open = false;
 
+
   const dispatch = createEventDispatcher();
 
   let selectedVariantIndex = 0;

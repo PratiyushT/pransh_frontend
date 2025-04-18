@@ -31,7 +31,7 @@
                 placeholder: 'Search for your address...',
                 marker: false,
                 mapboxgl: mapboxgl,
-                countries: 'us,ca,uk,au,nz,de,fr,it,es,jp', // Limit to countries in your dropdown
+                countries: 'us,ca,uk,jau,nz,de,fr,it,es,jp', // Limit to countries in your dropdown
             });
 
             // Add geocoder to the container

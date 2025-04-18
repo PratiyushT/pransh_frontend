@@ -1,9 +1,9 @@
-import { sanityClient } from './client';
+import { client } from '../client';
 import { 
   allFeaturedProductsQuery, 
   allCategoriesQuery, 
   totalProductCountQuery 
-} from './queries';
+} from '../queries';
 
 /**
  * Fetches all data needed for the homepage
@@ -12,13 +12,13 @@ import {
 export async function fetchHomepageData() {
   try {
     // Fetch featured products
-    const featuredProducts = await sanityClient.fetch(allFeaturedProductsQuery);
+    const featuredProducts = await client.fetch(allFeaturedProductsQuery);
     
     // Fetch categories
-    const categories = await sanityClient.fetch(allCategoriesQuery);
+    const categories = await client.fetch(allCategoriesQuery);
     
     // Fetch total product count
-    const totalProductCount = await sanityClient.fetch(totalProductCountQuery);
+    const totalProductCount = await client.fetch(totalProductCountQuery);
     
     return {
       featuredProducts,

@@ -1,11 +1,11 @@
-import { sanityClient } from '$lib/sanity/client';
+import { client } from '$lib/sanity/client';
 import { 
   allFeaturedProductsQuery, 
   allCategoriesQuery, 
   allColorsQuery,
   allSizesQuery,
   paginatedProductsQuery,
-  singleProductQuery
+  singleProductBySlugQuery
 } from '$lib/sanity/queries';
 import type { Size, Color, Category, Product, Variant, Image } from '$lib/types';
 
@@ -65,7 +65,7 @@ function transformSanityProduct(sanityProduct: any): Product {
 // Fetch all categories
 export async function getCategories(): Promise<Category[]> {
   try {
-    const sanityCategories = await sanityClient.fetch(allCategoriesQuery);
+    const sanityCategories = await client.fetch(allCategoriesQuery);
     return sanityCategories.map((category: any) => ({
       _id: category._id,
       name: category.name,
@@ -80,7 +80,7 @@ export async function getCategories(): Promise<Category[]> {
 // Fetch all sizes
 export async function getSizes(): Promise<Size[]> {
   try {
-    const sanitySizes = await sanityClient.fetch(allSizesQuery);
+    const sanitySizes = await client.fetch(allSizesQuery);
     return sanitySizes.map((size: any) => ({
       _id: size._id,
       name: size.name
@@ -94,7 +94,7 @@ export async function getSizes(): Promise<Size[]> {
 // Fetch all colors
 export async function getColors(): Promise<Color[]> {
   try {
-    const sanityColors = await sanityClient.fetch(allColorsQuery);
+    const sanityColors = await client.fetch(allColorsQuery);
     return sanityColors.map((color: any) => ({
       _id: color._id,
       name: color.name,
@@ -109,7 +109,7 @@ export async function getColors(): Promise<Color[]> {
 // Fetch all products
 export async function getProducts(): Promise<Product[]> {
   try {
-    const result = await sanityClient.fetch(paginatedProductsQuery(0, 100));
+    const result = await client.fetch(paginatedProductsQuery(0, 100));
     return result.products.map(transformSanityProduct);
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -120,7 +120,7 @@ export async function getProducts(): Promise<Product[]> {
 // Fetch featured products
 export async function getFeaturedProducts(): Promise<Product[]> {
   try {
-    const featuredProducts = await sanityClient.fetch(allFeaturedProductsQuery);
+    const featuredProducts = await client.fetch(allFeaturedProductsQuery);
     return featuredProducts.map(transformSanityProduct);
   } catch (error) {
     console.error('Error fetching featured products:', error);
@@ -172,7 +172,7 @@ export async function getProductsByCategory(categoryName: string): Promise<Produ
       }
     `;
     
-    const products = await sanityClient.fetch(query);
+    const products = await client.fetch(query);
     return products.map(transformSanityProduct);
   } catch (error) {
     console.error(`Error fetching products for category ${categoryName}:`, error);
@@ -180,16 +180,6 @@ export async function getProductsByCategory(categoryName: string): Promise<Produ
   }
 }
 
-// Fetch product by ID
-export async function getProductById(id: string): Promise<Product | undefined> {
-  try {
-    const product = await sanityClient.fetch(singleProductQuery(id));
-    return product ? transformSanityProduct(product) : undefined;
-  } catch (error) {
-    console.error(`Error fetching product with ID ${id}:`, error);
-    return undefined;
-  }
-}
 
 // Get random products
 export async function getRandomProducts(count: number): Promise<Product[]> {
@@ -211,3 +201,14 @@ export function formatPrice(price: number): string {
     minimumFractionDigits: 2
   }).format(price);
 } 
+
+
+export async function getProductBySlug(slug: string) {
+  try {
+    const product = await client.fetch(singleProductBySlugQuery(slug));
+    return product;
+  } catch (err) {
+    console.error('Error fetching product by slug:', err);
+    throw err;
+  }
+}

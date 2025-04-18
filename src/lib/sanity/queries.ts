@@ -87,9 +87,9 @@ export const paginatedProductsQuery = (start: number, end: number) => `
   }
 `
 
-// Get single product
-export const singleProductQuery = (id: string) => `
-  *[_type == "product" && _id == "${id}"] {
+// Get single product by its slug. 
+export const singleProductBySlugQuery = (slug: string) => `
+  *[_type == "product" && slug.current == "${slug}"] {
     _id,
     name,
     description,
@@ -109,57 +109,4 @@ export const singleProductQuery = (id: string) => `
       }
     }
   }[0]
-`
-
-// Search products
-export const searchProductsQuery = (start: number, end: number, searchTerm: string) => `
-  *[_type == "product" && (
-    name match "${searchTerm}*" ||
-    description match "${searchTerm}*"
-  )] | order(_createdAt desc) [${start}...${end}] {
-    _id,
-    name,
-    description,
-    price,
-    category->{
-      _id,
-      name
-    },
-    colors[]->{
-      _id,
-      name,
-      hex
-    },
-    images[]{
-      asset->{
-        url
-      }
-    }
-  }
-`
-
-
-
-// Get products by category
-export const categoryProductsQuery = (start: number, end: number, categoryId: string) => `
-  *[_type == "product" && category._ref == "${categoryId}"] | order(_createdAt desc) [${start}...${end}] {
-    _id,
-    name,
-    description,
-    price,
-    category->{
-      _id,
-      name
-    },
-    colors[]->{
-      _id,
-      name,
-      hex
-    },
-    images[]{
-      asset->{
-        url
-      }
-    }
-  }
 `

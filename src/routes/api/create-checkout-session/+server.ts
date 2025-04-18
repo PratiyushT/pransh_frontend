@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit'
 import { stripe } from '$lib/stripe/server'
-import { sanityClient } from '$lib/sanity/client'
+import { client } from '$lib/sanity/client'
 
 export const POST = async ({ request }) => {
   // Extract items from frontend & origin for redirect URLs
@@ -9,7 +9,7 @@ export const POST = async ({ request }) => {
   // Loop through every item in the cart
   for (const item of items) {
     // Fetch product data from Sanity using its _id
-    const product = await sanityClient.fetch(
+    const product = await client.fetch(
       `*[_type == "product" && _id == $id][0]{
         name,
         variants[]{
