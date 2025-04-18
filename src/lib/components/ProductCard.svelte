@@ -263,7 +263,7 @@
   const handleTouchStart = (e) => {
     if (isTouchDevice && timeline) {
       // On mobile, toggle the hover state on tap
-      isHovered = !isHovered;
+      isHovered= !isHovered;
       if (isHovered) {
         timeline.play();
         // Add event listener for touch outside to close
@@ -290,7 +290,8 @@
   const handleQuickView = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    dispatch('quickview', { product });
+    dispatch('quickView',  { product });
+
   };
 
   // Add to cart handler with animation
@@ -300,7 +301,8 @@
 
     // Instead of adding directly to cart, open the QuickView modal
     // so the user can select size
-    dispatch('quickview', { product });
+    dispatch('quickView',  { product });
+
   };
 
 </script>
