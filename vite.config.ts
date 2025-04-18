@@ -25,5 +25,6 @@ export default defineConfig({
 				warn(warning);
 			}
 		}
-	}
+	},
+	envPrefix: 'VITE_'
 });

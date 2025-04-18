@@ -1,14 +1,14 @@
 <script lang="ts">
-  import '../app.css';
-  import { onMount } from 'svelte';
-  import { page } from '$app/state';
-  import { navigating } from '$app/stores';
-  import { isLoading } from '$lib';
-  import gsap from 'gsap';
-  import Header from '$lib/components/Header.svelte';
-  import Footer from '$lib/components/Footer.svelte';
-  import Menu from '$lib/components/Menu.svelte';
-  import PageLoader from '$lib/components/PageLoader.svelte';
+  import "../app.css";
+  import { onMount } from "svelte";
+  import { page } from "$app/state";
+  import { navigating } from "$app/stores";
+  import { isLoading } from "$lib";
+  import gsap from "gsap";
+  import Header from "$lib/components/Header.svelte";
+  import Footer from "$lib/components/Footer.svelte";
+  import Menu from "$lib/components/Menu.svelte";
+  import PageLoader from "$lib/components/PageLoader.svelte";
 
   let mainContent: HTMLElement;
   let pageWrapper: HTMLElement;
@@ -16,11 +16,14 @@
   let timeline: gsap.core.Timeline;
   let isMobile = false;
 
+  export const ssr = true;
+
   onMount(() => {
     // Check if mobile/touch device
-    isMobile = 'ontouchstart' in window ||
-               navigator.maxTouchPoints > 0 ||
-               (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    isMobile =
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0 ||
+      (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
 
     // Initialize smooth page transitions
     timeline = gsap.timeline({ paused: true });
@@ -30,7 +33,7 @@
       // Set initial page state
       gsap.set(pageWrapper, {
         opacity: 1,
-        y: 0
+        y: 0,
       });
 
       // Reveal animation when page first loads - faster on mobile
@@ -43,13 +46,16 @@
         onComplete: () => {
           // Mark page as loaded
           $isLoading = false;
-        }
+        },
       });
     } else {
       // If pageWrapper isn't available yet, just mark page as loaded
-      setTimeout(() => {
-        $isLoading = false;
-      }, isMobile ? 500 : 800); // Faster timeout on mobile
+      setTimeout(
+        () => {
+          $isLoading = false;
+        },
+        isMobile ? 500 : 800
+      ); // Faster timeout on mobile
     }
 
     // Store current path for detecting route changes
@@ -63,17 +69,19 @@
 
   function addPassiveTouchListeners() {
     // This improves scrolling performance on mobile devices
-    document.addEventListener('touchstart', () => {}, { passive: true });
-    document.addEventListener('touchmove', () => {}, { passive: true });
+    document.addEventListener("touchstart", () => {}, { passive: true });
+    document.addEventListener("touchmove", () => {}, { passive: true });
 
     // Apply will-change to improve scroll performance on critical elements
-    const criticalElements = document.querySelectorAll('.hero, .product-grid, .section');
-    criticalElements.forEach(el => {
+    const criticalElements = document.querySelectorAll(
+      ".hero, .product-grid, .section"
+    );
+    criticalElements.forEach((el) => {
       if (el instanceof HTMLElement) {
-        el.style.willChange = 'transform';
+        el.style.willChange = "transform";
         // Remove will-change after animation completes to free up resources
         setTimeout(() => {
-          el.style.willChange = 'auto';
+          el.style.willChange = "auto";
         }, 1000);
       }
     });
@@ -89,7 +97,7 @@
       duration: isMobile ? 0.3 : 0.4,
       opacity: 0,
       y: isMobile ? -10 : -15, // Smaller movement on mobile
-      ease: "power2.in"
+      ease: "power2.in",
     });
   }
 
@@ -103,7 +111,8 @@
     }, 0);
 
     // Fade in new page - faster animations on mobile
-    gsap.fromTo(pageWrapper,
+    gsap.fromTo(
+      pageWrapper,
       { opacity: 0, y: isMobile ? 10 : 15 },
       {
         duration: isMobile ? 0.4 : 0.6,
@@ -118,7 +127,7 @@
           if (isMobile) {
             addPassiveTouchListeners();
           }
-        }
+        },
       }
     );
   }
@@ -128,7 +137,11 @@
   <PageLoader />
 {/if}
 
-<div class="site-wrapper" class:page-loading={$isLoading} class:mobile={isMobile}>
+<div
+  class="site-wrapper"
+  class:page-loading={$isLoading}
+  class:mobile={isMobile}
+>
   <Header />
   <Menu />
 

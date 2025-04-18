@@ -18,7 +18,7 @@
   const maxPrice = Math.max(...prices);
 
   // Get primary image
-  const primaryImage = product.variants[0]?.images?.[0]?.url || '/images/product-placeholder.jpg';
+  const primaryImage = product.image;
   const secondaryImage = product.variants[0]?.images?.[1]?.url || primaryImage;
 
   // Format price range

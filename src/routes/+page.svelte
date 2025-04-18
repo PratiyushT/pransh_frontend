@@ -1,13 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getFeaturedProducts } from '$lib/utils/data';
   import ProductCard from '$lib/components/ProductCard.svelte';
   import QuickViewModal from '$lib/components/QuickViewModal.svelte';
   import gsap from 'gsap';
+  import type { Product } from '$lib/types';
+  import LazyImage from '../components/LazyImage.svelte';
 
-  const featuredProducts = getFeaturedProducts();
+  // SSR‐injected data
+  export let data: {
+    featuredProducts: Product[];
+    categories:       any[];
+    totalProductCount: number;
+  };
 
-  let quickViewProduct = null;
+  // Use the server‑rendered products directly
+  let featuredProducts: Product[] = data.featuredProducts;
+
+
+  let quickViewProduct: Product | null = null;
   let quickViewOpen = false;
   let heroSection: HTMLElement;
   let heroContent: HTMLElement;
@@ -18,21 +28,18 @@
   let heroBtns: HTMLElement;
   let isMobile = false;
 
-  const handleQuickView = (event) => {
+  const handleQuickView = (event: CustomEvent<{product: Product}>) => {
     quickViewProduct = event.detail.product;
     quickViewOpen = true;
-    // Prevent scrolling when modal is open
     document.body.style.overflow = 'hidden';
   };
 
   const handleCloseQuickView = () => {
     quickViewOpen = false;
-    // Re-enable scrolling when modal closes
     document.body.style.overflow = '';
   };
 
-  // Enhanced intersection observer for lazy loading and animations
-  function createIntersectionObserver(callback) {
+  function createIntersectionObserver(callback: IntersectionObserverCallback) {
     const options = {
       rootMargin: isMobile ? '50px' : '100px',
       threshold: isMobile ? 0.1 : 0.01
@@ -41,8 +48,7 @@
     return new IntersectionObserver(callback, options);
   }
 
-  // Function to check if element is in viewport
-  function isInViewport(element) {
+  function isInViewport(element: HTMLElement) {
     const rect = element.getBoundingClientRect();
     return (
       rect.top >= 0 &&
@@ -52,19 +58,18 @@
     );
   }
 
-  // Function to handle scroll animations with performance optimizations
   function handleScrollAnimations() {
     // Featured section animations
     if (featuredSection && isInViewport(featuredSection)) {
-      const title = featuredSection.querySelector('.section-title');
-      const subtitle = featuredSection.querySelector('.section-subtitle');
+      const title = featuredSection.querySelector('.section-title') as HTMLElement;
+      const subtitle = featuredSection.querySelector('.section-subtitle') as HTMLElement;
 
       if (title && !title.classList.contains('animated')) {
         title.classList.add('animated');
         gsap.from(title, {
-          duration: isMobile ? 0.6 : 0.8,  // Faster on mobile
+          duration: isMobile ? 0.6 : 0.8,
           opacity: 0,
-          y: isMobile ? 20 : 30,  // Smaller movement on mobile
+          y: isMobile ? 20 : 30,
           ease: "power2.out"
         });
       }
@@ -75,20 +80,20 @@
           duration: isMobile ? 0.6 : 0.8,
           opacity: 0,
           y: isMobile ? 15 : 20,
-          delay: isMobile ? 0.1 : 0.2,  // Faster delay on mobile
+          delay: isMobile ? 0.1 : 0.2,
           ease: "power2.out"
         });
       }
 
       const productCards = featuredSection.querySelectorAll('.product-card-container');
       productCards.forEach((card, index) => {
-        if (!card.classList.contains('animated') && isInViewport(card)) {
+        if (!card.classList.contains('animated') && isInViewport(card as HTMLElement)) {
           card.classList.add('animated');
           gsap.from(card, {
             duration: isMobile ? 0.6 : 0.8,
             opacity: 0,
             y: isMobile ? 30 : 40,
-            delay: isMobile ? 0.05 * index : 0.1 * index,  // Stagger faster on mobile
+            delay: (isMobile ? 0.05 : 0.1) * index,
             ease: "power2.out"
           });
         }
@@ -105,7 +110,7 @@
             duration: isMobile ? 0.6 : 0.8,
             opacity: 0,
             y: isMobile ? 20 : 30,
-            delay: isMobile ? 0.05 * index : 0.1 * index,
+            delay: (isMobile ? 0.05 : 0.1) * index,
             ease: "power2.out"
           });
         }
@@ -137,12 +142,10 @@
     }
   }
 
-  // Add touch interaction
   function initTouchInteractions() {
     const heroImage = heroSection.querySelector('.hero');
     if (!heroImage) return;
 
-    // Add parallax effect on touch move
     let startY = 0;
 
     heroSection.addEventListener('touchstart', (e) => {
@@ -151,9 +154,8 @@
 
     heroSection.addEventListener('touchmove', (e) => {
       const moveY = e.touches[0].clientY - startY;
-      const parallaxAmount = moveY * 0.05; // Less movement for subtle effect
+      const parallaxAmount = moveY * 0.05;
 
-      // Apply subtle parallax effect to hero elements
       if (heroTitle) {
         gsap.to(heroTitle, {
           y: parallaxAmount * 0.5,
@@ -172,7 +174,6 @@
     }, { passive: true });
 
     heroSection.addEventListener('touchend', () => {
-      // Reset positions
       gsap.to([heroTitle, heroSubtitle], {
         y: 0,
         duration: 0.5,
@@ -182,123 +183,65 @@
   }
 
   onMount(() => {
-    // Check if mobile/touch device
-    isMobile = 'ontouchstart' in window ||
-               navigator.maxTouchPoints > 0 ||
-               (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    isMobile = window.innerWidth < 768;
+    window.addEventListener('resize', () => {
+      isMobile = window.innerWidth < 768;
+    });
 
-    // New exact animation sequence as specified - but faster
     const heroTl = gsap.timeline({ defaults: { ease: "power2.out" } });
 
-    // First prepare the elements - ensure they're invisible
     gsap.set('.hero-line', { opacity: 0, x: 100 });
     gsap.set('.hero-button', { opacity: 0, y: 20 });
     gsap.set('.hero-subtitle', { opacity: 0, y: 20 });
 
-    // 1. "First Line" slides in from the right with soft ease-out - FASTER
-    heroTl.to('.hero-line-1', {
-      x: 0,
-      y: 0,
-      opacity: 1,
-      duration: 0.5, // Reduced from 0.8
-    });
+    heroTl.to('.hero-line-1', { x: 0, y: 0, opacity: 1, duration: 0.5 });
+    heroTl.to('.hero-line-2', { x: 0, y: 0, opacity: 1, duration: 0.5 }, "+=0.15");
+    heroTl.to('.hero-line-3', { x: 0, y: 0, opacity: 1, duration: 0.5 }, "+=0.15");
+    heroTl.to('.hero-subtitle', { y: 0, opacity: 1, duration: 0.4 }, "+=0.1");
+    heroTl.to('.hero-button', { y: 0, opacity: 1, duration: 0.4 }, "+=0.1");
+    heroTl.from('.hero-accent', { opacity: 0, scale: 0.9, duration: 0.5 }, "-=0.3");
 
-    // 2. "Second Line" slides in from the right with shorter delay
-    heroTl.to('.hero-line-2', {
-      x: 0,
-      y: 0,
-      opacity: 1,
-      duration: 0.5, // Reduced from 0.8
-    }, "+=0.15"); // Reduced from 0.3
-
-    // 3. "Third Line" - larger, bolder, slides from right with shorter delay
-    heroTl.to('.hero-line-3', {
-      x: 0,
-      y: 0,
-      opacity: 1,
-      duration: 0.5, // Reduced from 0.8
-    }, "+=0.15"); // Reduced from 0.3
-
-    // Animate subtitle - faster
-    heroTl.to('.hero-subtitle', {
-      y: 0,
-      opacity: 1,
-      duration: 0.4, // Reduced from 0.6
-    }, "+=0.1"); // Reduced from 0.2
-
-    // 4. Call-to-Action Button fades in faster - single button now, no stagger needed
-    heroTl.to('.hero-button', {
-      y: 0,
-      opacity: 1,
-      duration: 0.4,
-      // stagger removed since we only have one button now
-    }, "+=0.1");
-
-    // 5. Animate the accent element with a slight delay - faster
-    heroTl.from('.hero-accent', {
-      opacity: 0,
-      scale: 0.9,
-      duration: 0.5, // Reduced from 0.8
-    }, "-=0.3"); // Slightly more overlap
-
-    // Add subtle continuous animation for accent on desktop only
     if (!isMobile) {
       gsap.to('.hero-accent', {
         y: -20,
-        duration: 4, // Reduced from 5 for faster movement
+        duration: 4,
         repeat: -1,
         yoyo: true,
         ease: "sine.inOut"
       });
     }
 
-    // Initialize touch-specific interactions for mobile
     if (isMobile) {
       initTouchInteractions();
     }
 
-    // Use intersection observer for scroll animations on mobile for better performance
     if ('IntersectionObserver' in window) {
-      const animateOnScrollObserver = createIntersectionObserver((entries) => {
-        entries.forEach(entry => {
+      const observer = createIntersectionObserver((entries) => {
+        entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            // Apply will-change before animation
             if (entry.target instanceof HTMLElement) {
               entry.target.style.willChange = 'opacity, transform';
             }
-
-            // Trigger animation based on the target element
-            if (entry.target === featuredSection) {
-              handleScrollAnimations();
-            } else if (entry.target === experienceSection) {
-              handleScrollAnimations();
-            }
-
-            // Remove will-change after animation completes
+            handleScrollAnimations();
             setTimeout(() => {
               if (entry.target instanceof HTMLElement) {
                 entry.target.style.willChange = 'auto';
               }
             }, 1000);
-
-            // Stop observing after animation
-            animateOnScrollObserver.unobserve(entry.target);
+            observer.unobserve(entry.target);
           }
         });
       });
 
-      if (featuredSection) animateOnScrollObserver.observe(featuredSection);
-      if (experienceSection) animateOnScrollObserver.observe(experienceSection);
+      if (featuredSection) observer.observe(featuredSection);
+      if (experienceSection) observer.observe(experienceSection);
     } else {
-      // Fallback to scroll listener for older browsers
       window.addEventListener('scroll', handleScrollAnimations, { passive: true });
     }
 
-    // Run once to check for elements already in view
     handleScrollAnimations();
 
     return () => {
-      // Clean up on Page unmount
       window.removeEventListener('scroll', handleScrollAnimations);
     };
   });
@@ -309,33 +252,33 @@
   <meta name="description" content="Discover Pransh, a luxury clothing brand offering timeless elegance and exceptional quality.">
 </svelte:head>
 
-<!-- New Hero Section with exact animation sequence -->
+<!-- Hero Section -->
 <section class="hero-container" bind:this={heroSection}>
   <div class="hero milano-hero">
     <div class="hero-overlay"></div>
-
     <div class="container mx-auto">
       <div class="grid grid-cols-1 md:grid-cols-2 items-center">
-        <!-- Left column with text content -->
         <div class="hero-content-left" bind:this={heroContent}>
           <h1 class="hero-title" bind:this={heroTitle}>
             <div class="hero-line hero-line-1">Timeless</div>
             <div class="hero-line hero-line-2">Elegance</div>
             <div class="hero-line hero-line-3">Redefined</div>
           </h1>
-
           <p class="hero-subtitle" bind:this={heroSubtitle}>
             Discover our exquisite collection of luxury garments crafted with the finest materials and meticulous attention to detail.
           </p>
-
           <div class="hero-btns" bind:this={heroBtns}>
             <a href="/shop" class="btn btn-primary hero-button">Shop Now</a>
           </div>
         </div>
-
-        <!-- Right column with image -->
         <div class="hero-image-container">
-          <img src="/images/products/saree.jpg" alt="Luxury Fashion" class="hero-image">
+          <LazyImage
+            src="/images/products/saree.jpg"
+            alt="Luxury Fashion"
+            className="hero-image"
+            height="600px"
+            borderRadius="2px"
+          />
           <div class="hero-accent"></div>
         </div>
       </div>
@@ -351,26 +294,25 @@
 </div>
 
 <!-- Featured Products Section -->
-<section class="section" bind:this={featuredSection}>
-  <div class="container">
-    <div class="section-title">
-      <h2>Featured Collection</h2>
-    </div>
-    <p class="section-subtitle">Explore our curated selection of luxury pieces, each representing the pinnacle of craftsmanship and design.</p>
-
-    <div class="product-grid">
-      {#each featuredProducts as product}
-        <div class="product-card-container">
-          <ProductCard {product} on:quickview={handleQuickView} />
-        </div>
-      {/each}
-    </div>
-
-    <div class="text-center mt-12">
-      <a href="/shop" class="btn btn-secondary">View All Products</a>
-    </div>
+<div class="featured-products" bind:this={featuredSection}>
+  <div class="container mx-auto px-4 py-16">
+    <h2 class="section-title text-3xl md:text-4xl font-serif text-center mb-4">Featured Products</h2>
+    <p class="section-subtitle text-gray-600 text-center mb-12">Discover our most popular luxury items</p>
+    {#if featuredProducts.length === 0}
+      <div class="text-center py-12">
+        <p class="text-gray-600">No featured products available at the moment.</p>
+      </div>
+    {:else}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {#each featuredProducts as product}
+          <div class="product-card-container">
+            <ProductCard {product} on:quickView={handleQuickView} />
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
-</section>
+</div>
 
 <!-- Luxury Experience Section -->
 <section class="section experience-section" bind:this={experienceSection}>
@@ -384,7 +326,13 @@
         <a href="/about" class="btn btn-primary">Learn More</a>
       </div>
       <div class="experience-image-container">
-        <img src="/images/products/saree.jpg" alt="Luxury Experience" class="experience-image" loading="lazy">
+        <LazyImage
+          src="/images/products/saree.jpg"
+          alt="Luxury Experience"
+          className="experience-image"
+          height="500px"
+          borderRadius="2px"
+        />
         <div class="experience-image-accent"></div>
       </div>
     </div>
@@ -403,7 +351,6 @@
   :global(.animated) {
     will-change: transform, opacity;
   }
-
   /* Milano-style hero styles */
   .milano-hero {
     position: relative;
@@ -411,25 +358,22 @@
     min-height: 90vh;
     display: flex;
     align-items: center;
-    background-color: #e1dbda; /* Updated to match Az-Milano's background color */
+    background-color: #e1dbda;
     overflow: hidden;
     padding: 6rem 0;
   }
-
   .hero-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(to right, rgba(33,33,33,0.03) 0%, rgba(33,33,33,0.01) 100%);
     z-index: 1;
   }
-
   .hero-content-left {
     position: relative;
     z-index: 2;
     padding-right: 2rem;
     max-width: 600px;
   }
-
   .hero-title {
     font-size: 3.5rem;
     margin-bottom: 2rem;
@@ -437,7 +381,6 @@
     font-weight: 700;
     overflow: visible;
   }
-
   .hero-line {
     display: block;
     color: var(--color-charcoal);
@@ -445,13 +388,11 @@
     transform: translateX(100px);
     opacity: 0;
   }
-
   .hero-line-3 {
-    font-size: 1.25em; /* Larger than other lines */
-    font-weight: 800; /* Bolder than other lines */
+    font-size: 1.25em;
+    font-weight: 800;
     color: var(--color-white);
   }
-
   .hero-subtitle {
     font-size: 1.25rem;
     margin-bottom: 2.5rem;
@@ -461,60 +402,47 @@
     transform: translateY(20px);
     opacity: 0;
   }
-
   .hero-button {
     opacity: 0;
     transform: translateY(20px);
     font-size: 1.1rem;
     padding: 0.9rem 2.5rem;
     letter-spacing: 0.15em;
-    font-weight: 600; /* Make it bolder */
+    font-weight: 600;
     border-radius: 2px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     transition: all 0.3s ease;
-    background-color: var(--color-gold-dark); /* Darker gold background */
-    color: var(--color-white); /* White text for contrast */
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Add slight text shadow for better readability */
+    background-color: var(--color-gold-dark);
+    color: var(--color-white);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
   }
-
   .hero-button:hover {
     transform: translateY(-7px) !important;
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25) !important;
-    background-color: var(--color-gold); /* Lighter on hover */
+    box-shadow: 0 15px 30px rgba(0,0,0,0.25) !important;
+    background-color: var(--color-gold);
   }
-
-  /* Override the btn-primary styles specifically for the hero button */
   .hero-btns .btn-primary {
     background-color: var(--color-gold-dark);
     color: var(--color-white);
     border: none;
   }
-
   .hero-btns .btn-primary:hover {
     background-color: var(--color-gold);
   }
-
   .hero-btns {
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
   }
-
   .hero-image-container {
     position: relative;
     z-index: 2;
-    height: 100%;
+    height: 600px;
   }
-
   .hero-image {
     width: 100%;
-    height: auto;
-    object-fit: cover;
-    border-radius: 2px;
-    position: relative;
-    z-index: 3;
+    height: 100%;
   }
-
   .hero-accent {
     position: absolute;
     bottom: -40px;
@@ -525,35 +453,28 @@
     opacity: 0.2;
     z-index: 1;
   }
-
   @media (min-width: 768px) {
     .hero-title {
       font-size: 4.5rem;
     }
-
     .hero-subtitle {
       font-size: 1.5rem;
     }
   }
-
   @media (min-width: 1024px) {
     .hero-title {
       font-size: 5.5rem;
     }
   }
-
-  /* Mobile optimization styles */
   @media (max-width: 767px) {
     .milano-hero {
       padding: 4rem 0;
       min-height: 80vh;
-      text-align: center; /* Center text on mobile */
+      text-align: center;
     }
-
     .hero-title {
       font-size: 2.8rem;
     }
-
     .hero-subtitle {
       font-size: 1.1rem;
       margin-bottom: 1.5rem;
@@ -561,40 +482,33 @@
       margin-right: auto;
       text-align: center;
     }
-
     .hero-image-container {
       margin-top: 2rem;
       order: -1;
     }
-
     .hero-accent {
       bottom: -20px;
       right: -20px;
       width: 100px;
       height: 100px;
     }
-
     .hero-content-left {
       padding-right: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
-
     .hero-btns {
       flex-direction: column;
       width: 100%;
       max-width: 300px;
     }
-
     .hero-btns .btn {
       width: 100%;
       margin-bottom: 0.75rem;
-      padding: 1rem; /* Larger touch target */
+      padding: 1rem;
     }
   }
-
-  /* Existing styles */
   .hero {
     position: relative;
     height: 90vh;
@@ -608,7 +522,6 @@
     color: var(--color-white);
     overflow: hidden;
   }
-
   .luxury-divider {
     display: flex;
     align-items: center;
@@ -616,14 +529,12 @@
     padding: 3rem 0;
     background-color: var(--color-cream);
   }
-
   .luxury-divider-line {
     height: 1px;
     width: 100px;
     background-color: var(--color-gold);
     opacity: 0.7;
   }
-
   .luxury-divider-emblem {
     font-family: var(--heading-font);
     font-size: 2rem;
@@ -631,18 +542,15 @@
     margin: 0 1.5rem;
     font-weight: 500;
   }
-
   .product-card-container {
     height: 100%;
     opacity: 1;
   }
-
   .experience-section {
     background-color: var(--color-cream-dark);
     position: relative;
     overflow: hidden;
   }
-
   .experience-section::before {
     content: '';
     position: absolute;
@@ -651,15 +559,13 @@
     width: 200px;
     height: 200px;
     border-radius: 50%;
-    background-color: rgba(212, 175, 55, 0.1);
+    background-color: rgba(212,175,55,0.1);
     z-index: 1;
   }
-
   .experience-content {
     position: relative;
     z-index: 2;
   }
-
   .section-accent {
     font-size: 0.85rem;
     text-transform: uppercase;
@@ -668,20 +574,8 @@
     margin-bottom: 1rem;
     font-weight: 500;
   }
-
-  .experience-image-container {
-    position: relative;
-    z-index: 2;
-  }
-
-  .experience-image {
-    width: 100%;
-    height: auto;
-    object-fit: cover;
-    border-radius: 2px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-  }
-
+  .experience-image-container { position: relative; z-index: 2; height: 500px; }
+  .experience-image { width: 100%; height: 100%; }
   .experience-image-accent {
     position: absolute;
     bottom: -20px;
@@ -692,48 +586,22 @@
     border-radius: 2px;
     z-index: -1;
   }
-
   @media (min-width: 768px) {
-    .luxury-divider-line {
-      width: 150px;
-    }
-
-    .luxury-divider-emblem {
-      font-size: 2.5rem;
-    }
+    .luxury-divider-line { width: 150px; }
+    .luxury-divider-emblem { font-size: 2.5rem; }
   }
-
   @media (max-width: 767px) {
-    /* Improved featured products grid for mobile */
     .product-grid {
       display: grid;
-      grid-template-columns: repeat(1, 1fr); /* Single column on small mobile */
+      grid-template-columns: repeat(1,1fr);
       gap: 1.5rem;
       margin: 1rem 0;
     }
-
-    /* Target section title spacing */
-    .section-title {
-      margin-bottom: 0.5rem;
-    }
-
-    .section-subtitle {
-      font-size: 0.95rem;
-      margin-bottom: 1.5rem;
-    }
-
-    /* Container padding adjustments */
-    .container {
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
+    .section-title { margin-bottom: 0.5rem; }
+    .section-subtitle { font-size: 0.95rem; margin-bottom: 1.5rem; }
+    .container { padding-left: 1rem; padding-right: 1rem; }
   }
-
-  /* Medium mobile devices (480px and up) */
-  @media (min-width: 480px) and (max-width: 767px) {
-    .product-grid {
-      grid-template-columns: repeat(2, 1fr); /* 2 columns on larger mobile */
-      gap: 1rem;
-    }
+  @media (min-width: 480px) and (max-width:767px) {
+    .product-grid { grid-template-columns: repeat(2,1fr); gap: 1rem; }
   }
 </style>

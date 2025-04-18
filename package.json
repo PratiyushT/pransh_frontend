@@ -33,6 +33,10 @@
 		"@tailwindcss/vite": "^4.1.4",
 		"gsap": "^3.12.7",
 		"mapbox-gl": "^3.11.0",
-		"tailwindcss": "^4.1.4"
+		"tailwindcss": "^4.1.4",
+		"@sanity/client": "^6.29.0",
+		"@stripe/stripe-js": "^7.0.0",
+		"@supabase/supabase-js": "^2.49.4",
+		"stripe": "^18.0.0"
 	}
 }
