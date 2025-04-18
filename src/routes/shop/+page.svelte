@@ -86,7 +86,7 @@
             {#if i + 1 === page}
               <span class="pagination-page active">{i + 1}</span>
             {:else}
-              <button class="pagination-page" on:click={() => goToPage(i + 1)}>{i + 1}</button>
+              <a class="pagination-page" href={`/shop?page=${i + 1}${perPage !== 10 ? `&perPage=${perPage}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}${categories.length ? `&category=${categories.join(',')}` : ''}${sizes.length ? `&size=${sizes.join(',')}` : ''}${colors.length ? `&color=${colors.join(',')}` : ''}${minPrice != null ? `&minPrice=${minPrice}` : ''}${maxPrice != null ? `&maxPrice=${maxPrice}` : ''}${featured ? `&featured=true` : ''}`} rel="external">{i + 1}</a>
             {/if}
           {/each}
         </div>
