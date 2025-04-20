@@ -110,3 +110,22 @@ export const singleProductBySlugQuery = (slug: string) => `
     }
   }[0]
 `
+export const cartProductsQuery = (productID:String[], variantID:String[])=>`
+*[_type == "product" && _id in "${productID}"]{
+          "variants": variants[_id in "${variantID}"] {
+            _id,
+            sku,
+            price,
+            stock,
+            "color": color->{
+              _id, name, hex
+            },
+            "size": size->{
+              _id, name
+            },
+            "images": images[].asset->url,
+            "productId": ^._id,
+            "productName": ^.name
+          }
+        }[].variants[]
+`

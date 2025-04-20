@@ -1,17 +1,17 @@
 <script lang="ts">
   export const ssr = false;
 
-  import { onMount } from 'svelte';
-  import { cart, removeFromCart, updateCartItemQuantity, clearCart } from '$lib/stores';
-  import { formatPrice } from '$lib/utils/data';
-  import gsap from 'gsap';
-  import { createClient } from '@sanity/client';
-
-  const sanity = createClient({
-    projectId: import.meta.env.VITE_SANITY_PROJECT_ID,
-    dataset: import.meta.env.VITE_SANITY_DATASET,
-    useCdn: true
-  });
+  import { onMount } from "svelte";
+  import {
+    cart,
+    removeFromCart,
+    updateCartItemQuantity,
+    clearCart,
+  } from "$lib/stores";
+  import { formatPrice } from "$lib/utils/data";
+  import gsap from "gsap";
+  import { client as sanityClient } from "$lib/sanity/client";
+  import { cartProductsQuery } from "$lib/sanity/queries";
 
   let shippingCost = 15.0;
   let subtotal = 0;
@@ -26,65 +26,124 @@
   $: subtotal = $cart.reduce((sum, item) => {
     const details = productDetails[`${item.productId}___${item.variantId}`];
     if (!details) return sum;
-    return sum + (details.variant.price * item.quantity);
+    return sum + details.variant.price * item.quantity;
   }, 0);
 
   $: total = subtotal + (subtotal > 0 ? shippingCost : 0);
 
-  $: if ($cart.length > 0) {
-    // Whenever the cart changes, refetch relevant product/variant data
-    (async () => {
-      try {
-        isLoadingProducts = true;
-        loadError = false;
-        // Collect unique productIds and variantIds
-        const queries = $cart.map(item => `(_id == "${item.productId}" && variants[_id == "${item.variantId}"])`);
-        const fetchQuery = `*[_type == "product" && (${queries.join(' || ')})]{
-          _id,
-          name,
-          variants[] {
-            _id,
-            sku,
-            size,
-            color,
-            price,
-            images
-          }
-        }`;
-        const fetchedProducts = await sanity.fetch(fetchQuery);
-        // index by productId+variantId for fast lookup
-        productDetails = {};
-        for (const product of fetchedProducts) {
-          for (const variant of product.variants) {
-            productDetails[`${product._id}___${variant._id}`] = {product, variant};
-          }
-        }
+  // Improved function to fetch product data from Sanity
+  async function fetchProductData() {
+    try {
+      // Set loading state
+      isLoadingProducts = true;
+      loadError = false;
+
+      // If cart is empty, clear the loading state and return
+      if ($cart.length === 0) {
         isLoadingProducts = false;
-      } catch (err) {
-        isLoadingProducts = false;
-        loadError = true;
+        return;
       }
-    })();
+
+      console.log($cart);
+      const productIds = $cart.map((item) => item.productId);
+      const variantIds = $cart.map((item) => item.variantId);
+
+      // 2. Write the query:
+      const query = `
+*[
+  _type == "product" &&
+  _id in $productIds
+]{
+  "productId": _id,
+  "productName": name,
+  "variants": variants[_ref in $variantIds]->{
+    _id,
+    sku,
+    price,
+    stock,
+    "color": color->{ _id, name, hex },
+    "size": size->{ _id, name },
+    "images": images[].asset->url,
+    "productId": ^._id,
+    "productName": ^.name
+  }
+}[].variants[]
+
+`;
+
+      // 3. Fetch from Sanity (passing only your variantIds array)
+      const products = await sanityClient.fetch(query, { productIds, variantIds });
+
+      // Process the results
+      const newProductDetails = {};
+
+      for (const v of products) {
+        // 'v' already has .productId and .productName injected in the query
+        const key = `${v.productId}___${v._id}`;
+
+        newProductDetails[key] = {
+          product: {
+            _id: v.productId,
+            name: v.productName,
+          },
+          variant: {
+            _id: v._id,
+            sku: v.sku,
+            price: v.price,
+            stock: v.stock,
+            color: v.color,
+            size: v.size.name,
+            images: v.images,
+          },
+        };
+      }
+
+      console.log("Processed product details:", newProductDetails);
+      productDetails = newProductDetails;
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      loadError = true;
+    } finally {
+      // Always set loading to false when done
+      isLoadingProducts = false;
+    }
   }
 
   // Update quantity handler with animation
-  const handleQuantityChange = (productId: string, variantId: string, quantity: number) => {
+  const handleQuantityChange = (
+    productId: string,
+    variantId: string,
+    quantity: number
+  ) => {
     if (quantity > 0 && quantity <= 99) {
-      const oldQuantity = $cart.find(item => item.productId === productId && item.variantId === variantId)?.quantity || 0;
+      const oldQuantity =
+        $cart.find(
+          (item) => item.productId === productId && item.variantId === variantId
+        )?.quantity || 0;
 
       // Update the store
       updateCartItemQuantity(productId, variantId, quantity);
 
       // Animate the price if quantity changed
       if (oldQuantity !== quantity) {
-        const priceElement = document.getElementById(`price-${productId}-${variantId}`);
+        const priceElement = document.getElementById(
+          `price-${productId}-${variantId}`
+        );
         if (priceElement) {
-          gsap.fromTo(priceElement,
-            { scale: 1, color: 'var(--color-gold)' },
-            { scale: 1.1, duration: 0.2, yoyo: true, repeat: 1,
+          gsap.fromTo(
+            priceElement,
+            { scale: 1, color: "var(--color-gold)" },
+            {
+              scale: 1.1,
+              duration: 0.2,
+              yoyo: true,
+              repeat: 1,
               onComplete: () => {
-                gsap.to(priceElement, { color: 'var(--color-charcoal)', duration: 0.3 });
-              }
+                gsap.to(priceElement, {
+                  color: "var(--color-charcoal)",
+                  duration: 0.3,
+                });
+              },
             }
           );
         }
@@ -114,7 +173,7 @@
         onComplete: () => {
           removeFromCart(productId, variantId);
           isRemoving = false;
-        }
+        },
       });
     } else {
       removeFromCart(productId, variantId);
@@ -124,8 +183,8 @@
 
   // Clear cart with animation
   const handleClearCart = () => {
-    if (confirm('Are you sure you want to clear your cart?')) {
-      const cartItems = document.querySelectorAll('.cart-item');
+    if (confirm("Are you sure you want to clear your cart?")) {
+      const cartItems = document.querySelectorAll(".cart-item");
 
       gsap.to(cartItems, {
         opacity: 0,
@@ -135,7 +194,7 @@
         ease: "power2.in",
         onComplete: () => {
           clearCart();
-        }
+        },
       });
     }
   };
@@ -143,7 +202,7 @@
   // Proceed to checkout
   const proceedToCheckout = () => {
     // Navigate to the checkout page
-    const checkoutBtn = document.querySelector('.checkout-btn');
+    const checkoutBtn = document.querySelector(".checkout-btn");
 
     if (checkoutBtn) {
       gsap.to(checkoutBtn, {
@@ -152,19 +211,27 @@
         yoyo: true,
         repeat: 1,
         onComplete: () => {
-          window.location.href = '/checkout';
-        }
+          window.location.href = "/checkout";
+        },
       });
     } else {
-      window.location.href = '/checkout';
+      window.location.href = "/checkout";
     }
   };
 
-  // Add animations when the component mounts
+  // Initialize data fetching when the component mounts
   onMount(() => {
-    // Animate cart elements when loaded
-    const cartItems = document.querySelectorAll('.cart-item');
-    const summaryElement = document.querySelector('.order-summary');
+    console.log("Component mounted, cart items:", $cart.length);
+    // Fetch data on mount if cart has items
+    if ($cart.length > 0) {
+      fetchProductData();
+    } else {
+      isLoadingProducts = false;
+    }
+
+    // Add animations
+    const cartItems = document.querySelectorAll(".cart-item");
+    const summaryElement = document.querySelector(".order-summary");
 
     gsap.from(cartItems, {
       opacity: 0,
@@ -180,25 +247,46 @@
         x: 20,
         duration: 0.8,
         delay: 0.3,
-        ease: "power2.out"
+        ease: "power2.out",
       });
     }
   });
+
+  // Watch for cart changes and fetch data when needed
+  $: {
+    if ($cart.length > 0) {
+      console.log("Cart changed, fetching new data...");
+      fetchProductData();
+    } else {
+      // Clear product details and loading state when cart is empty
+      productDetails = {};
+      isLoadingProducts = false;
+    }
+  }
 </script>
 
 <svelte:head>
   <title>Cart | Pransh</title>
-  <meta name="description" content="Your shopping cart - Pransh luxury clothing with timeless elegance and exceptional quality.">
+  <meta
+    name="description"
+    content="Your shopping cart - Pransh luxury clothing with timeless elegance and exceptional quality."
+  />
 </svelte:head>
 
 <div class="cart-page py-20 px-6 sm:px-10 min-h-screen" bind:this={cartElement}>
   <div class="max-w-[1320px] mx-auto">
-    <h1 class="text-3xl sm:text-4xl font-serif mb-16 text-center elegant-title">Shopping Cart</h1>
+    <h1 class="text-3xl sm:text-4xl font-serif mb-16 text-center elegant-title">
+      Shopping Cart
+    </h1>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 xl:gap-16 w-full px-2 sm:px-4 xl:px-0">
+    <div
+      class="grid grid-cols-1 xl:grid-cols-3 gap-8 xl:gap-16 w-full px-2 sm:px-4 xl:px-0"
+    >
       {#if $cart.length > 0}
         <div class="xl:col-span-2">
-          <div class="bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300">
+          <div
+            class="bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300"
+          >
             <div class="hidden md:grid md:grid-cols-12 border-b pb-8 mb-10">
               <div class="md:col-span-6">
                 <span class="font-medium text-gray-600 text-lg">Product</span>
@@ -215,42 +303,107 @@
             </div>
 
             {#if isLoadingProducts}
-              <div class="text-center py-20">Loading cart products...</div>
+              <div class="text-center py-20">
+                <div
+                  class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gold border-t-transparent mb-4"
+                ></div>
+                <p>Loading cart products...</p>
+              </div>
             {:else if loadError}
-              <div class="text-center text-red-500 py-20">Failed to load products. Please try again later.</div>
+              <div class="text-center text-red-500 py-20">
+                <p>Failed to load products. Please try again later.</p>
+                <button
+                  class="mt-4 px-4 py-2 bg-gold text-white rounded hover:bg-gold-dark transition-colors"
+                  on:click={fetchProductData}
+                >
+                  Retry
+                </button>
+              </div>
+            {:else if Object.keys(productDetails).length === 0 && $cart.length > 0}
+              <div class="text-center text-amber-600 py-20">
+                <p>
+                  No matching products found in database. Some items in your
+                  cart may be unavailable.
+                </p>
+                <button
+                  class="mt-4 px-4 py-2 bg-gold text-white rounded hover:bg-gold-dark transition-colors"
+                  on:click={fetchProductData}
+                >
+                  Refresh
+                </button>
+              </div>
             {:else}
               {#each $cart as item, i}
-                {#if productDetails[`${item.productId}___${item.variantId}`]}
+                {@const productKey = `${item.productId}___${item.variantId}`}
+                {#if productDetails[productKey]}
                   <div
                     id={`cart-item-${item.productId}-${item.variantId}`}
-                    class="cart-item grid md:grid-cols-12 gap-8 py-10 border-b items-center hover:bg-gray-100 transition-colors duration-300 {i !== 0 ? 'mt-6' : ''}"
+                    class="cart-item grid md:grid-cols-12 gap-8 py-10 border-b items-center hover:bg-gray-100 transition-colors duration-300 {i !==
+                    0
+                      ? 'mt-6'
+                      : ''}"
                   >
                     <!-- Product -->
                     <div class="md:col-span-6 flex items-center space-x-8">
-                      <div class="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 mr-2 overflow-hidden rounded-md shadow-md relative group">
+                      <div
+                        class="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 mr-2 overflow-hidden rounded-md shadow-md relative group"
+                      >
                         <img
-                          src={productDetails[`${item.productId}___${item.variantId}`].variant.images[0]?.url ?? '/images/product-placeholder.jpg'}
-                          alt={productDetails[`${item.productId}___${item.variantId}`].product.name}
+                          src={(productDetails[productKey].variant.images &&
+                            productDetails[productKey].variant.images[0]
+                              ?.url) ||
+                            "/images/product-placeholder.jpg"}
+                          alt={productDetails[productKey].product.name}
                           class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"
-                          on:error={(e) => e.currentTarget.src = '/images/product-placeholder.jpg'}
-                        >
-                        <div class="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+                          on:error={(e) =>
+                            (e.currentTarget.src =
+                              "/images/product-placeholder.jpg")}
+                        />
+                        <div
+                          class="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"
+                        ></div>
                       </div>
                       <div class="ml-2">
-                        <h3 class="font-medium text-gray-700 text-lg mb-3">{productDetails[`${item.productId}___${item.variantId}`].product.name}</h3>
+                        <h3 class="font-medium text-gray-700 text-lg mb-3">
+                          {productDetails[productKey].product.name}
+                        </h3>
                         <p class="text-sm text-gray-600 mt-3 mb-4">
-                          Size: <span class="text-gold font-medium">{productDetails[`${item.productId}___${item.variantId}`].variant.size}</span> | Color:
-                          <span class="flex items-center gap-2 inline-flex ml-1">
-                            <span class="inline-block w-4 h-4 rounded-full border border-gray-300" style={`background-color: ${productDetails[`${item.productId}___${item.variantId}`].variant.color.hex};`}></span>
-                            <span class="text-gray-600">{productDetails[`${item.productId}___${item.variantId}`].variant.color.name}</span>
+                          Size: <span class="text-gold font-medium"
+                            >{productDetails[productKey].variant.size ||
+                              "N/A"}</span
+                          >
+                          | Color:
+                          <span
+                            class="flex items-center gap-2 inline-flex ml-1"
+                          >
+                            <span
+                              class="inline-block w-4 h-4 rounded-full border border-gray-300"
+                              style={`background-color: ${productDetails[productKey].variant.color?.hex || "#888888"};`}
+                            ></span>
+                            <span class="text-gray-600"
+                              >{productDetails[productKey].variant.color
+                                ?.name || "N/A"}</span
+                            >
                           </span>
                         </p>
                         <button
                           class="text-sm text-red-500 hover:text-red-500 hover:underline mt-3 md:hidden flex items-center transition-colors duration-300"
-                          on:click={() => handleRemoveItem(item.productId, item.variantId)}
+                          on:click={() =>
+                            handleRemoveItem(item.productId, item.variantId)}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-3 w-3 mr-2"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
                           </svg>
                           Remove
                         </button>
@@ -259,19 +412,41 @@
 
                     <!-- Price -->
                     <div class="md:col-span-2 text-center">
-                      <span class="text-gold font-medium text-lg">{formatPrice(productDetails[`${item.productId}___${item.variantId}`].variant.price)}</span>
+                      <span class="text-gold font-medium text-lg"
+                        >{formatPrice(
+                          productDetails[productKey].variant.price
+                        )}</span
+                      >
                     </div>
 
                     <!-- Quantity -->
                     <div class="md:col-span-2 flex justify-center">
-                      <div class="quantity-control border border-gold rounded-md flex items-center overflow-hidden shadow-sm">
+                      <div
+                        class="quantity-control border border-gold rounded-md flex items-center overflow-hidden shadow-sm"
+                      >
                         <button
                           class="w-10 h-10 flex items-center justify-center hover:bg-gold hover:text-white transition-colors duration-300"
-                          on:click={() => handleQuantityChange(item.productId, item.variantId, item.quantity - 1)}
+                          on:click={() =>
+                            handleQuantityChange(
+                              item.productId,
+                              item.variantId,
+                              item.quantity - 1
+                            )}
                           aria-label="Decrease quantity"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M20 12H4"
+                            />
                           </svg>
                         </button>
                         <input
@@ -280,29 +455,63 @@
                           max="99"
                           class="w-12 h-10 text-center border-x border-gold bg-white focus:outline-none"
                           value={item.quantity}
-                          on:change={(e) => handleQuantityChange(item.productId, item.variantId, parseInt(e.currentTarget.value))}
-                        >
+                          on:change={(e) =>
+                            handleQuantityChange(
+                              item.productId,
+                              item.variantId,
+                              parseInt(e.currentTarget.value)
+                            )}
+                        />
                         <button
                           class="w-10 h-10 flex items-center justify-center hover:bg-gold hover:text-white transition-colors duration-300"
-                          on:click={() => handleQuantityChange(item.productId, item.variantId, item.quantity + 1)}
+                          on:click={() =>
+                            handleQuantityChange(
+                              item.productId,
+                              item.variantId,
+                              item.quantity + 1
+                            )}
                           aria-label="Increase quantity"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M12 4v16m8-8H4"
+                            />
                           </svg>
                         </button>
                       </div>
                     </div>
 
                     <!-- Total -->
-                    <div class="md:col-span-2 text-right flex justify-between md:block">
-                      <div class="md:hidden font-medium text-gray-600">Total:</div>
+                    <div
+                      class="md:col-span-2 text-right flex justify-between md:block"
+                    >
+                      <div class="md:hidden font-medium text-gray-600">
+                        Total:
+                      </div>
                       <div class="flex items-center justify-end">
-                        <span id={`price-${item.productId}-${item.variantId}`} class="mr-4 font-medium text-lg">{formatPrice(productDetails[`${item.productId}___${item.variantId}`].variant.price * item.quantity)}</span>
+                        <span
+                          id={`price-${item.productId}-${item.variantId}`}
+                          class="mr-4 font-medium text-lg"
+                          >{formatPrice(
+                            productDetails[productKey].variant.price *
+                              item.quantity
+                          )}</span
+                        >
                         <button
                           class="hidden md:block text-gray-500 hover:text-red-500 transition-colors duration-300"
-                          on:click={() => handleRemoveItem(item.productId, item.variantId)}
-                          aria-label="Remove {productDetails[`${item.productId}___${item.variantId}`].product.name} from cart"
+                          on:click={() =>
+                            handleRemoveItem(item.productId, item.variantId)}
+                          aria-label="Remove {productDetails[productKey].product
+                            .name} from cart"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -323,18 +532,42 @@
                     </div>
                   </div>
                 {:else}
-                  <div class="cart-item py-10 text-center text-gray-400">Could not find product information for item</div>
+                  <div
+                    class="cart-item py-10 text-center text-amber-500 border-b"
+                  >
+                    <p>Product information unavailable</p>
+                    <button
+                      class="mt-2 text-sm text-red-500 hover:underline"
+                      on:click={() =>
+                        handleRemoveItem(item.productId, item.variantId)}
+                    >
+                      Remove from cart
+                    </button>
+                  </div>
                 {/if}
               {/each}
             {/if}
 
-            <div class="mt-16 flex flex-col sm:flex-row justify-between items-center">
+            <div
+              class="mt-16 flex flex-col sm:flex-row justify-between items-center"
+            >
               <button
                 class="text-gray-600 hover:text-gold transition-colors flex items-center group mb-6 sm:mb-0 text-lg"
                 on:click={() => window.history.back()}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-3 transform group-hover:-translate-x-1 transition-transform duration-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
                 </svg>
                 Continue Shopping
               </button>
@@ -343,8 +576,19 @@
                 class="text-gray-600 hover:text-red-500 transition-colors flex items-center group text-lg"
                 on:click={handleClearCart}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
                 </svg>
                 Clear Cart
               </button>
@@ -354,33 +598,48 @@
 
         <!-- Order Summary -->
         <div class="w-full mt-0 xl:mt-0 relative z-10">
-          <div class="order-summary bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300 sticky top-24 w-full sm:w-auto">
-
-            <h2 class="font-serif text-2xl sm:text-3xl mb-10 text-gold text-center">Order Summary</h2>
+          <div
+            class="order-summary bg-white p-6 sm:p-10 shadow-xl rounded-md transition-all duration-300 border border-gray-300 sticky top-24 w-full sm:w-auto"
+          >
+            <h2
+              class="font-serif text-2xl sm:text-3xl mb-10 text-gold text-center"
+            >
+              Order Summary
+            </h2>
 
             <div class="space-y-8 mb-10">
-              <div class="flex justify-between items-center py-4 border-b border-gray-300">
+              <div
+                class="flex justify-between items-center py-4 border-b border-gray-300"
+              >
                 <span class="text-gray-600 text-lg">Subtotal</span>
-                <span class="font-medium text-gray-700 text-lg">{formatPrice(subtotal)}</span>
+                <span class="font-medium text-gray-700 text-lg"
+                  >{formatPrice(subtotal)}</span
+                >
               </div>
 
-              <div class="flex justify-between items-center py-4 border-b border-gray-300">
+              <div
+                class="flex justify-between items-center py-4 border-b border-gray-300"
+              >
                 <span class="text-gray-600 text-lg">Shipping</span>
-                <span class="text-gray-700 text-lg">{subtotal > 0 ? formatPrice(shippingCost) : 'N/A'}</span>
+                <span class="text-gray-700 text-lg"
+                  >{subtotal > 0 ? formatPrice(shippingCost) : "N/A"}</span
+                >
               </div>
 
               <div class="pt-4 flex justify-between items-center">
                 <span class="text-xl font-serif text-gray-700">Total</span>
-                <span class="text-2xl text-gold font-medium">{formatPrice(total)}</span>
+                <span class="text-2xl text-gold font-medium"
+                  >{formatPrice(total)}</span
+                >
               </div>
             </div>
 
             <button
               class="checkout-btn btn btn-primary w-full mb-8 transform transition-transform hover:translate-y-[-2px] shadow-md text-lg py-4"
               on:click={proceedToCheckout}
-              disabled={$cart.length === 0}
+              disabled={$cart.length === 0 || isLoadingProducts}
             >
-              Proceed to Checkout
+              {isLoadingProducts ? "Loading..." : "Proceed to Checkout"}
             </button>
 
             <div class="text-center">
@@ -389,27 +648,73 @@
               </p>
 
               <div class="flex justify-center space-x-4 mt-8">
-                <img src="https://same-assets.com/payment-visa.svg" alt="Visa" class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300" />
-                <img src="https://same-assets.com/payment-mastercard.svg" alt="Mastercard" class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300" />
-                <img src="https://same-assets.com/payment-amex.svg" alt="American Express" class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300" />
+                <img
+                  src="https://same-assets.com/payment-visa.svg"
+                  alt="Visa"
+                  class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300"
+                />
+                <img
+                  src="https://same-assets.com/payment-mastercard.svg"
+                  alt="Mastercard"
+                  class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300"
+                />
+                <img
+                  src="https://same-assets.com/payment-amex.svg"
+                  alt="American Express"
+                  class="h-8 opacity-70 hover:opacity-100 transition-opacity duration-300"
+                />
               </div>
             </div>
           </div>
         </div>
       {:else}
-        <div class="bg-white p-16 sm:p-20 text-center max-w-2xl mx-auto shadow-xl rounded-md border border-gray-300">
+        <div
+          class="bg-white p-16 sm:p-20 text-center max-w-2xl mx-auto shadow-xl rounded-md border border-gray-300"
+        >
           <div class="flex justify-center mb-16">
-            <div class="h-36 w-36 text-gray-500 bg-gray-100 rounded-full flex items-center justify-center shadow-inner">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            <div
+              class="h-36 w-36 text-gray-500 bg-gray-100 rounded-full flex items-center justify-center shadow-inner"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-20 w-20"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1"
+                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                />
               </svg>
             </div>
           </div>
-          <h2 class="font-serif text-3xl sm:text-4xl mb-8 text-gold">Your cart is empty</h2>
-          <p class="mb-16 text-gray-600 max-w-md mx-auto text-lg">Looks like you haven't added any items to your cart yet. Discover our collection of luxury products.</p>
-          <a href="/shop" class="btn btn-primary transform transition-transform hover:translate-y-[-2px] inline-flex items-center shadow-md text-lg py-5 px-10">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          <h2 class="font-serif text-3xl sm:text-4xl mb-8 text-gold">
+            Your cart is empty
+          </h2>
+          <p class="mb-16 text-gray-600 max-w-md mx-auto text-lg">
+            Looks like you haven't added any items to your cart yet. Discover
+            our collection of luxury products.
+          </p>
+          <a
+            href="/shop"
+            class="btn btn-primary transform transition-transform hover:translate-y-[-2px] inline-flex items-center shadow-md text-lg py-5 px-10"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 mr-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+              />
             </svg>
             Start Shopping
           </a>
@@ -457,7 +762,7 @@
   }
 
   .elegant-title::after {
-    content: '';
+    content: "";
     position: absolute;
     width: 100px;
     height: 2px;
@@ -472,14 +777,14 @@
   }
 
   /* Hide number input arrows in Safari, Chrome, Edge, Opera */
-  input[type=number]::-webkit-inner-spin-button,
-  input[type=number]::-webkit-outer-spin-button {
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
 
   /* Hide number input arrows in Firefox */
-  input[type=number] {
+  input[type="number"] {
     -moz-appearance: textfield;
   }
 
@@ -489,7 +794,7 @@
   }
 
   .cart-item::before {
-    content: '';
+    content: "";
     position: absolute;
     bottom: 0;
     left: 50%;
