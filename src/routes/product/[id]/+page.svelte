@@ -3,7 +3,7 @@
   import { getProductById, formatPrice, getRandomProducts } from '$lib/utils/data';
   import { addToCart } from '$lib/stores';
   import ProductCard from '$lib/components/ProductCard.svelte';
-  import type { Product } from '$lib/types';
+  import type { Product } from '$lib/types.js';
   import { page } from '$app/stores';
 
   // Get product ID from route parameter

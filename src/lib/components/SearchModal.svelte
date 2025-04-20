@@ -98,15 +98,6 @@
     // Ensure the searchValue is updated in the store
     searchQuery.set(searchValue);
 
-    console.log('Loaded filters from URL:', {
-      searchValue,
-      selectedCategories,
-      selectedColors,
-      selectedSizes,
-      minPrice,
-      maxPrice,
-      sortBy
-    });
   };
 
   onMount(() => {

@@ -1,32 +1,83 @@
 <script lang="ts">
+  export const ssr = false;
+
   import { onMount } from 'svelte';
-  import { cart, cartTotal, removeFromCart, updateCartItemQuantity, clearCart } from '$lib/stores';
+  import { cart, removeFromCart, updateCartItemQuantity, clearCart } from '$lib/stores';
   import { formatPrice } from '$lib/utils/data';
   import gsap from 'gsap';
+  import { createClient } from '@sanity/client';
+
+  const sanity = createClient({
+    projectId: import.meta.env.VITE_SANITY_PROJECT_ID,
+    dataset: import.meta.env.VITE_SANITY_DATASET,
+    useCdn: true
+  });
 
   let shippingCost = 15.0;
   let subtotal = 0;
   let total = 0;
   let isRemoving = false;
   let cartElement: HTMLElement;
+  let productDetails: Record<string, any> = {};
+  let isLoadingProducts = true;
+  let loadError = false;
 
-  // Calculate total and subtotal when cart changes
-  $: {
-    subtotal = $cartTotal;
-    total = subtotal + (subtotal > 0 ? shippingCost : 0);
+  // Calculate subtotal from up-to-date Sanity data
+  $: subtotal = $cart.reduce((sum, item) => {
+    const details = productDetails[`${item.productId}___${item.variantId}`];
+    if (!details) return sum;
+    return sum + (details.variant.price * item.quantity);
+  }, 0);
+
+  $: total = subtotal + (subtotal > 0 ? shippingCost : 0);
+
+  $: if ($cart.length > 0) {
+    // Whenever the cart changes, refetch relevant product/variant data
+    (async () => {
+      try {
+        isLoadingProducts = true;
+        loadError = false;
+        // Collect unique productIds and variantIds
+        const queries = $cart.map(item => `(_id == "${item.productId}" && variants[_id == "${item.variantId}"])`);
+        const fetchQuery = `*[_type == "product" && (${queries.join(' || ')})]{
+          _id,
+          name,
+          variants[] {
+            _id,
+            sku,
+            size,
+            color,
+            price,
+            images
+          }
+        }`;
+        const fetchedProducts = await sanity.fetch(fetchQuery);
+        // index by productId+variantId for fast lookup
+        productDetails = {};
+        for (const product of fetchedProducts) {
+          for (const variant of product.variants) {
+            productDetails[`${product._id}___${variant._id}`] = {product, variant};
+          }
+        }
+        isLoadingProducts = false;
+      } catch (err) {
+        isLoadingProducts = false;
+        loadError = true;
+      }
+    })();
   }
 
   // Update quantity handler with animation
-  const handleQuantityChange = (productId: string, variantSku: string, quantity: number) => {
+  const handleQuantityChange = (productId: string, variantId: string, quantity: number) => {
     if (quantity > 0 && quantity <= 99) {
-      const oldQuantity = $cart.find(item => item.productId === productId && item.variantSku === variantSku)?.quantity || 0;
+      const oldQuantity = $cart.find(item => item.productId === productId && item.variantId === variantId)?.quantity || 0;
 
       // Update the store
-      updateCartItemQuantity(productId, variantSku, quantity);
+      updateCartItemQuantity(productId, variantId, quantity);
 
       // Animate the price if quantity changed
       if (oldQuantity !== quantity) {
-        const priceElement = document.getElementById(`price-${productId}-${variantSku}`);
+        const priceElement = document.getElementById(`price-${productId}-${variantId}`);
         if (priceElement) {
           gsap.fromTo(priceElement,
             { scale: 1, color: 'var(--color-gold)' },
@@ -42,12 +93,12 @@
   };
 
   // Remove item handler with animation
-  const handleRemoveItem = (productId: string, variantSku: string) => {
+  const handleRemoveItem = (productId: string, variantId: string) => {
     if (isRemoving) return;
     isRemoving = true;
 
     // Ensure we're using the correct unique ID for the cart item
-    const itemId = `cart-item-${productId}-${variantSku}`;
+    const itemId = `cart-item-${productId}-${variantId}`;
     const itemElement = document.getElementById(itemId);
 
     if (itemElement) {
@@ -61,12 +112,12 @@
         duration: 0.5,
         ease: "power2.inOut",
         onComplete: () => {
-          removeFromCart(productId, variantSku);
+          removeFromCart(productId, variantId);
           isRemoving = false;
         }
       });
     } else {
-      removeFromCart(productId, variantSku);
+      removeFromCart(productId, variantId);
       isRemoving = false;
     }
   };
@@ -163,109 +214,119 @@
               </div>
             </div>
 
-            {#each $cart as item, i}
-              <div
-                id={`cart-item-${item.productId}-${item.variantSku}`}
-                class="cart-item grid md:grid-cols-12 gap-8 py-10 border-b items-center hover:bg-gray-100 transition-colors duration-300 {i !== 0 ? 'mt-6' : ''}"
-              >
-                <!-- Product -->
-                <div class="md:col-span-6 flex items-center space-x-8">
-                  <div class="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 mr-2 overflow-hidden rounded-md shadow-md relative group">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"
-                      on:error={(e) => e.currentTarget.src = '/images/product-placeholder.jpg'}
-                    >
-                    <div class="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
-                  </div>
-                  <div class="ml-2">
-                    <h3 class="font-medium text-gray-700 text-lg mb-3">{item.name}</h3>
-                    <p class="text-sm text-gray-600 mt-3 mb-4">
-                      Size: <span class="text-gold font-medium">{item.size}</span> | Color:
-                      <span class="flex items-center gap-2 inline-flex ml-1">
-                        <span class="inline-block w-4 h-4 rounded-full border border-gray-300" style={`background-color: ${item.color.hex};`}></span>
-                        <span class="text-gray-600">{item.color.name}</span>
-                      </span>
-                    </p>
-                    <button
-                      class="text-sm text-red-500 hover:text-red-500 hover:underline mt-3 md:hidden flex items-center transition-colors duration-300"
-                      on:click={() => handleRemoveItem(item.productId, item.variantSku)}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      Remove
-                    </button>
-                  </div>
-                </div>
+            {#if isLoadingProducts}
+              <div class="text-center py-20">Loading cart products...</div>
+            {:else if loadError}
+              <div class="text-center text-red-500 py-20">Failed to load products. Please try again later.</div>
+            {:else}
+              {#each $cart as item, i}
+                {#if productDetails[`${item.productId}___${item.variantId}`]}
+                  <div
+                    id={`cart-item-${item.productId}-${item.variantId}`}
+                    class="cart-item grid md:grid-cols-12 gap-8 py-10 border-b items-center hover:bg-gray-100 transition-colors duration-300 {i !== 0 ? 'mt-6' : ''}"
+                  >
+                    <!-- Product -->
+                    <div class="md:col-span-6 flex items-center space-x-8">
+                      <div class="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 mr-2 overflow-hidden rounded-md shadow-md relative group">
+                        <img
+                          src={productDetails[`${item.productId}___${item.variantId}`].variant.images[0]?.url ?? '/images/product-placeholder.jpg'}
+                          alt={productDetails[`${item.productId}___${item.variantId}`].product.name}
+                          class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"
+                          on:error={(e) => e.currentTarget.src = '/images/product-placeholder.jpg'}
+                        >
+                        <div class="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+                      </div>
+                      <div class="ml-2">
+                        <h3 class="font-medium text-gray-700 text-lg mb-3">{productDetails[`${item.productId}___${item.variantId}`].product.name}</h3>
+                        <p class="text-sm text-gray-600 mt-3 mb-4">
+                          Size: <span class="text-gold font-medium">{productDetails[`${item.productId}___${item.variantId}`].variant.size}</span> | Color:
+                          <span class="flex items-center gap-2 inline-flex ml-1">
+                            <span class="inline-block w-4 h-4 rounded-full border border-gray-300" style={`background-color: ${productDetails[`${item.productId}___${item.variantId}`].variant.color.hex};`}></span>
+                            <span class="text-gray-600">{productDetails[`${item.productId}___${item.variantId}`].variant.color.name}</span>
+                          </span>
+                        </p>
+                        <button
+                          class="text-sm text-red-500 hover:text-red-500 hover:underline mt-3 md:hidden flex items-center transition-colors duration-300"
+                          on:click={() => handleRemoveItem(item.productId, item.variantId)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
 
-                <!-- Price -->
-                <div class="md:col-span-2 text-center">
-                  <span class="text-gold font-medium text-lg">{formatPrice(item.price)}</span>
-                </div>
+                    <!-- Price -->
+                    <div class="md:col-span-2 text-center">
+                      <span class="text-gold font-medium text-lg">{formatPrice(productDetails[`${item.productId}___${item.variantId}`].variant.price)}</span>
+                    </div>
 
-                <!-- Quantity -->
-                <div class="md:col-span-2 flex justify-center">
-                  <div class="quantity-control border border-gold rounded-md flex items-center overflow-hidden shadow-sm">
-                    <button
-                      class="w-10 h-10 flex items-center justify-center hover:bg-gold hover:text-white transition-colors duration-300"
-                      on:click={() => handleQuantityChange(item.productId, item.variantSku, item.quantity - 1)}
-                      aria-label="Decrease quantity"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                      </svg>
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      max="99"
-                      class="w-12 h-10 text-center border-x border-gold bg-white focus:outline-none"
-                      value={item.quantity}
-                      on:change={(e) => handleQuantityChange(item.productId, item.variantSku, parseInt(e.currentTarget.value))}
-                    >
-                    <button
-                      class="w-10 h-10 flex items-center justify-center hover:bg-gold hover:text-white transition-colors duration-300"
-                      on:click={() => handleQuantityChange(item.productId, item.variantSku, item.quantity + 1)}
-                      aria-label="Increase quantity"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                    <!-- Quantity -->
+                    <div class="md:col-span-2 flex justify-center">
+                      <div class="quantity-control border border-gold rounded-md flex items-center overflow-hidden shadow-sm">
+                        <button
+                          class="w-10 h-10 flex items-center justify-center hover:bg-gold hover:text-white transition-colors duration-300"
+                          on:click={() => handleQuantityChange(item.productId, item.variantId, item.quantity - 1)}
+                          aria-label="Decrease quantity"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                          </svg>
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          class="w-12 h-10 text-center border-x border-gold bg-white focus:outline-none"
+                          value={item.quantity}
+                          on:change={(e) => handleQuantityChange(item.productId, item.variantId, parseInt(e.currentTarget.value))}
+                        >
+                        <button
+                          class="w-10 h-10 flex items-center justify-center hover:bg-gold hover:text-white transition-colors duration-300"
+                          on:click={() => handleQuantityChange(item.productId, item.variantId, item.quantity + 1)}
+                          aria-label="Increase quantity"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
 
-                <!-- Total -->
-                <div class="md:col-span-2 text-right flex justify-between md:block">
-                  <div class="md:hidden font-medium text-gray-600">Total:</div>
-                  <div class="flex items-center justify-end">
-                    <span id={`price-${item.productId}-${item.variantSku}`} class="mr-4 font-medium text-lg">{formatPrice(item.price * item.quantity)}</span>
-                    <button
-                      class="hidden md:block text-gray-500 hover:text-red-500 transition-colors duration-300"
-                      on:click={() => handleRemoveItem(item.productId, item.variantSku)}
-                      aria-label="Remove {item.name} from cart"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
+                    <!-- Total -->
+                    <div class="md:col-span-2 text-right flex justify-between md:block">
+                      <div class="md:hidden font-medium text-gray-600">Total:</div>
+                      <div class="flex items-center justify-end">
+                        <span id={`price-${item.productId}-${item.variantId}`} class="mr-4 font-medium text-lg">{formatPrice(productDetails[`${item.productId}___${item.variantId}`].variant.price * item.quantity)}</span>
+                        <button
+                          class="hidden md:block text-gray-500 hover:text-red-500 transition-colors duration-300"
+                          on:click={() => handleRemoveItem(item.productId, item.variantId)}
+                          aria-label="Remove {productDetails[`${item.productId}___${item.variantId}`].product.name} from cart"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            {/each}
+                {:else}
+                  <div class="cart-item py-10 text-center text-gray-400">Could not find product information for item</div>
+                {/if}
+              {/each}
+            {/if}
 
             <div class="mt-16 flex flex-col sm:flex-row justify-between items-center">
               <button

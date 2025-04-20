@@ -42,18 +42,11 @@ export const cartCount = derived(cart, ($cart) =>
   Array.isArray($cart) ? $cart.reduce((acc, item) => acc + item.quantity, 0) : 0
 );
 
-// Cart total price (safe)
-export const cartTotal = derived(cart, ($cart) =>
-  Array.isArray($cart) ? $cart.reduce((acc, item) => acc + (item.price * item.quantity), 0) : 0
-);
-
 // Add to cart
-export const addToCart = (product: Product, variantIndex: number, quantity: number = 1) => {
-  const variant = product.variants[variantIndex];
-
+export const addToCart = (productId: string, variantId: string, quantity: number = 1) => {
   cart.update(items => {
     const existingIndex = items.findIndex(item =>
-      item.productId === product._id && item.variantSku === variant.sku
+      item.productId === productId && item.variantId === variantId
     );
 
     if (existingIndex >= 0) {
@@ -63,40 +56,25 @@ export const addToCart = (product: Product, variantIndex: number, quantity: numb
     }
 
     return [...items, {
-      productId: product._id,
-      variantSku: variant.sku,
-      name: product.name,
-      price: variant.price,
-      size: variant.size,
-      color: variant.color,
-      quantity,
-      image: variant.images?.[0]?.url || '/images/product-placeholder.jpg'
+      productId,
+      variantId,
+      quantity
     }];
   });
 };
 
 // Remove from cart
-export const removeFromCart = (productId: string, variantSku: string) => {
-  cart.update(items => {
-    // Only filter out the exact match of both productId AND variantSku
-    const newItems = items.filter(item => {
-      // Make sure we're comparing both productId and variantSku
-      const isMatchingProduct = item.productId === productId;
-      const isMatchingVariant = item.variantSku === variantSku;
-
-      // Keep the item unless both product ID and variant SKU match
-      return !(isMatchingProduct && isMatchingVariant);
-    });
-
-    return newItems;
-  });
+export const removeFromCart = (productId: string, variantId: string) => {
+  cart.update(items =>
+    items.filter(item => !(item.productId === productId && item.variantId === variantId))
+  );
 };
 
 // Update cart item quantity
-export const updateCartItemQuantity = (productId: string, variantSku: string, quantity: number) => {
+export const updateCartItemQuantity = (productId: string, variantId: string, quantity: number) => {
   cart.update(items =>
     items.map(item =>
-      item.productId === productId && item.variantSku === variantSku
+      item.productId === productId && item.variantId === variantId
         ? { ...item, quantity }
         : item
     )

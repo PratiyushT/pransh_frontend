@@ -6,13 +6,12 @@ export interface Size {
 export interface Color {
   _id: string;
   name: string;
-  hex: string;
+  hex: string[];
 }
 
 export interface Category {
   _id: string;
   name: string;
-  description?: string; // Added description field
 }
 
 export interface Image {
@@ -34,6 +33,8 @@ export interface Variant {
 export interface Product {
   _id: string;
   name: string;
+  slug:string;
+  image:Image;
   description: string;
   category: string;
   variants: Variant[];
@@ -43,13 +44,8 @@ export interface Product {
 
 export interface CartItem {
   productId: string;
-  variantSku: string;
-  name: string;
-  price: number;
-  size: string;
-  color: Color;
+  variantId: string;
   quantity: number;
-  image: string;
 }
 
 export interface ProductFilterOptions {

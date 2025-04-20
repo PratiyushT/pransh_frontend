@@ -1,201 +1,218 @@
 <script lang="ts">
-  import { formatPrice } from '$lib/utils/data';
-  import { addToCart } from '$lib/stores';
-  import type { Product } from '$lib/types';
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { formatPrice } from "$lib/utils/data";
+  import { addToCart } from "$lib/stores";
+  import type { Product, Variant } from "$lib/types";
+  import { onMount, createEventDispatcher } from "svelte";
 
   export let product: Product | null = null;
   export let open = false;
 
-
   const dispatch = createEventDispatcher();
 
-  let selectedVariantIndex = 0;
+  // State management
+  let selectedVariant: Variant | null = null;
   let quantity = 1;
-  let activeImage = 0;
+  let activeImageIndex = 0;
   let isAddingToCart = false;
   let addedToCart = false;
 
-  $: selectedVariant = product?.variants[selectedVariantIndex] || null;
-
-  // Combine all images from the selected variant's color
-  $: variantImages = product?.variants
-    .filter(v => v.color.name === selectedVariant?.color.name)
-    .flatMap(v => v.images) || [];
-
-  // Handle thumbnail click
-  const setActiveImage = (index) => {
-    activeImage = index;
-  };
-
-  // Handle close
-  const handleClose = () => {
-    dispatch('close');
-    setTimeout(() => {
-      // Reset state after animation completes
-      selectedVariantIndex = 0;
-      quantity = 1;
-      activeImage = 0;
-      isAddingToCart = false;
-      addedToCart = false;
-    }, 300);
-  };
-
-  // Handle color selection
-  const selectColor = (color) => {
-    if (color) {
-      const variantIndex = product?.variants.findIndex(
-        v => v.color.name === color.name
-      );
-
-      if (variantIndex !== -1 && variantIndex !== undefined) {
-        selectedVariantIndex = variantIndex;
-        activeImage = 0;
-      }
-    }
-  };
-
-  // Handle size selection
-  let availableSizes = [];
-
-  // Get available sizes for the selected color
-  $: {
-    if (product && selectedVariant) {
-      // Find all variants with the same color and get their sizes
-      availableSizes = product.variants
-        .filter(variant => variant.color.name === selectedVariant.color.name)
-        .map(variant => variant.size)
-        .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
-    }
+  // Initialize selected variant when product changes
+  $: if (product && product.variants.length > 0) {
+    selectedVariant = selectedVariant || product.variants[0];
   }
 
-  const selectSize = (size) => {
-    if (size) {
-      // Find variant with selected color and size
-      const variantIndex = product?.variants.findIndex(
-        v => v.color.name === selectedVariant?.color.name && v.size === size
-      );
+  // Get deduplicated color options from variants
+  $: colorOptions = product 
+    ? [...new Map(product.variants.map(v => [v.color._id, v.color])).values()]
+    : [];
 
-      if (variantIndex !== -1 && variantIndex !== undefined) {
-        selectedVariantIndex = variantIndex;
-      }
-    }
-  };
+  // Get available sizes for the selected color
+  $: sizeOptions = product && selectedVariant
+    ? product.variants
+        .filter(v => v.color._id === selectedVariant.color._id)
+        .map(v => v.size.name)
+        .filter((value, index, self) => self.indexOf(value) === index)
+    : [];
 
-  // Handle quantity changes
-  const decreaseQuantity = () => {
-    if (quantity > 1) quantity--;
-  };
+  // Images for the selected variant - accessing direct URL strings per schema
+  $: variantImages = selectedVariant?.images || [];
 
-  const increaseQuantity = () => {
-    if (quantity < selectedVariant?.stock) quantity++;
-  };
-
-  // Handle add to cart
-  const handleAddToCart = () => {
-    if (product && selectedVariant) {
-      isAddingToCart = true;
-
-      // Simulate a small delay for animation purposes
-      setTimeout(() => {
-        addToCart(product, selectedVariantIndex, quantity);
-        isAddingToCart = false;
-        addedToCart = true;
-
-        // Reset the added state and close the modal after a brief delay
-        setTimeout(() => {
-          addedToCart = false;
-          handleClose();
-        }, 1000);
-      }, 600);
-    }
-  };
-
-  // In stock
+  // Stock status
   $: inStock = selectedVariant && selectedVariant.stock > 0;
   $: lowStock = selectedVariant && selectedVariant.stock <= 3 && selectedVariant.stock > 0;
 
-  // Click outside to close
+  // Handle color selection
+  function selectColor(colorId: string) {
+    if (!product) return;
+    
+    // Find first variant with the selected color
+    const newVariant = product.variants.find(v => v.color._id === colorId);
+    if (newVariant) {
+      selectedVariant = newVariant;
+      activeImageIndex = 0;
+    }
+  }
+
+  // Handle size selection
+  function selectSize(sizeName: string) {
+    if (!product || !selectedVariant) return;
+    
+    // Find variant with current color and the selected size
+    const newVariant = product.variants.find(
+      v => v.color._id === selectedVariant.color._id && v.size.name === sizeName
+    );
+    
+    if (newVariant) {
+      selectedVariant = newVariant;
+    }
+  }
+
+  // Quantity controls
+  function decreaseQuantity() {
+    if (quantity > 1) quantity--;
+  }
+
+  function increaseQuantity() {
+    if (selectedVariant && quantity < selectedVariant.stock) quantity++;
+  }
+
+  // Image gallery controls
+  function setActiveImage(index: number) {
+    activeImageIndex = index;
+  }
+
+  // Add to cart functionality
+  function handleAddToCart() {
+    if (!product || !selectedVariant) return;
+    
+    isAddingToCart = true;
+    
+    setTimeout(() => {
+      addToCart(product._id, selectedVariant._id, quantity);
+      isAddingToCart = false;
+      addedToCart = true;
+      
+      setTimeout(() => {
+        addedToCart = false;
+        handleClose();
+      }, 1000);
+    }, 600);
+  }
+
+  // Modal controls
+  function handleClose() {
+    dispatch("close");
+    setTimeout(() => {
+      // Reset state after animation completes
+      quantity = 1;
+      activeImageIndex = 0;
+      isAddingToCart = false;
+      addedToCart = false;
+      // Don't reset selectedVariant here to maintain selection between opens
+    }, 300);
+  }
+
   function handleClickOutside(e) {
-    if (e.target.classList.contains('modal-overlay')) {
+    if (e.target.classList.contains("modal-overlay")) {
       handleClose();
     }
   }
 
-  // Keyboard navigation
   function handleKeydown(e) {
-    if (e.key === 'Escape' && open) {
+    if (e.key === "Escape" && open) {
       handleClose();
     }
   }
 
-  // When the Page mounts, add keyboard event listener
-  onMount(() => {
-    document.addEventListener('keydown', handleKeydown);
-    return () => {
-      document.removeEventListener('keydown', handleKeydown);
-    };
-  });
-
-  function handleProductImageError(event) {
+  // Image error handler
+  function handleImageError(event) {
     const img = event.target;
     img.onerror = null;
-    img.src = '/images/product-placeholder.jpg';
+    img.src = "/images/product-placeholder.jpg";
   }
+
+  // Lifecycle management
+  onMount(() => {
+    document.addEventListener("keydown", handleKeydown);
+    return () => {
+      document.removeEventListener("keydown", handleKeydown);
+    };
+  });
 </script>
 
 {#if open && product}
   <div
     class="modal-overlay {open ? 'open' : ''}"
     on:click={handleClickOutside}
-    on:keydown={(e) => e.key === 'Enter' && handleClickOutside(e)}
+    on:keydown={(e) => e.key === "Enter" && handleClickOutside(e)}
     role="dialog"
     aria-modal="true"
     aria-labelledby="modal-title"
     tabindex="0"
   >
     <div class="modal-content">
-      <button class="modal-close" on:click={handleClose} aria-label="Close modal">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button
+        class="modal-close"
+        on:click={handleClose}
+        aria-label="Close modal"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
 
       <div class="modal-body">
+        <!-- Product Images -->
         <div class="product-images">
           <div class="product-main-image-container">
             <img
-              src={variantImages[activeImage]?.url || "/images/product-placeholder.jpg"}
+              src={variantImages[activeImageIndex] || "/images/product-placeholder.jpg"}
               alt={product.name}
               class="product-main-image"
-              on:error={handleProductImageError}
-            >
+              on:error={handleImageError}
+            />
           </div>
 
           {#if variantImages.length > 1}
             <div class="product-thumbnails">
-              {#each variantImages as image, index}
+              {#each variantImages as imageUrl, index}
                 <button
-                  class="product-thumbnail-btn {activeImage === index ? 'active' : ''}"
+                  class="product-thumbnail-btn {activeImageIndex === index ? 'active' : ''}"
                   on:click={() => setActiveImage(index)}
                   aria-label={`View product image ${index + 1}`}
                 >
                   <img
-                    src={image.url || "/images/product-placeholder.jpg"}
+                    src={imageUrl || "/images/product-placeholder.jpg"}
                     alt={`${product.name} - Image ${index + 1}`}
                     class="product-thumbnail"
-                    on:error={handleProductImageError}
-                  >
+                    on:error={handleImageError}
+                  />
                 </button>
               {/each}
             </div>
           {/if}
         </div>
 
+        <!-- Product Info -->
         <div class="product-info">
           <h2 id="modal-title" class="product-title">{product.name}</h2>
-          <div class="product-price">{formatPrice(selectedVariant?.price || 0)}</div>
+          {#if product.category}
+            <div class="product-category">{product.category.name}</div>
+          {/if}
+          <div class="product-price">
+            {formatPrice(selectedVariant?.price || 0)}
+          </div>
 
           {#if product.rating > 0}
             <div class="product-rating">
@@ -210,39 +227,40 @@
             <p>{product.description}</p>
           </div>
 
-          {#if product.variants.length > 1}
+          {#if colorOptions.length > 1}
             <div class="option-group">
               <h3 class="option-title">Color</h3>
               <div class="color-options">
-                {#each [...new Set(product.variants.map(v => v.color.name))].map(name =>
-                  product.variants.find(v => v.color.name === name).color) as color}
+                {#each colorOptions as color}
                   <button
-                    class="color-option {selectedVariant?.color.name === color.name ? 'active' : ''}"
+                    class="color-option {selectedVariant?.color._id === color._id ? 'active' : ''}"
                     style="background-color: {color.hex}; border-color: {color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex}"
-                    on:click={() => selectColor(color)}
+                    on:click={() => selectColor(color._id)}
                     aria-label={`Select ${color.name} color`}
-                    aria-pressed={selectedVariant?.color.name === color.name}
+                    aria-pressed={selectedVariant?.color._id === color._id}
                   ></button>
                 {/each}
               </div>
             </div>
           {/if}
 
-          <div class="option-group">
-            <h3 class="option-title">Size</h3>
-            <div class="size-options">
-              {#each availableSizes as size}
-                <button
-                  class="size-option {selectedVariant?.size === size ? 'active' : ''}"
-                  on:click={() => selectSize(size)}
-                  aria-label={`Select size ${size}`}
-                  aria-pressed={selectedVariant?.size === size}
-                >
-                  {size}
-                </button>
-              {/each}
+          {#if sizeOptions.length > 0}
+            <div class="option-group">
+              <h3 class="option-title">Size</h3>
+              <div class="size-options">
+                {#each sizeOptions as sizeName}
+                  <button
+                    class="size-option {selectedVariant?.size.name === sizeName ? 'active' : ''}"
+                    on:click={() => selectSize(sizeName)}
+                    aria-label={`Select size ${sizeName}`}
+                    aria-pressed={selectedVariant?.size.name === sizeName}
+                  >
+                    {sizeName}
+                  </button>
+                {/each}
+              </div>
             </div>
-          </div>
+          {/if}
 
           <div class="option-group">
             <h3 class="option-title">Quantity</h3>
@@ -253,7 +271,17 @@
                 disabled={quantity <= 1 || !inStock}
                 aria-label="Decrease quantity"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
               </button>
@@ -261,10 +289,20 @@
               <button
                 class="quantity-btn"
                 on:click={increaseQuantity}
-                disabled={quantity >= selectedVariant?.stock || !inStock}
+                disabled={quantity >= (selectedVariant?.stock || 0) || !inStock}
                 aria-label="Increase quantity"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <line x1="12" y1="5" x2="12" y2="19"></line>
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
@@ -274,7 +312,7 @@
             {#if inStock}
               <div class="stock-status">
                 {#if lowStock}
-                  <span class="low-stock">Only {selectedVariant.stock} left in stock</span>
+                  <span class="low-stock">Only {selectedVariant?.stock} left in stock</span>
                 {:else}
                   <span class="in-stock">In Stock</span>
                 {/if}
@@ -294,21 +332,50 @@
             >
               {#if isAddingToCart}
                 <svg class="spinner" viewBox="0 0 50 50">
-                  <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                  <circle
+                    class="path"
+                    cx="25"
+                    cy="25"
+                    r="20"
+                    fill="none"
+                    stroke-width="5"
+                  ></circle>
                 </svg>
                 <span>Adding to Cart</span>
               {:else if addedToCart}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
                 <span>Added to Cart</span>
               {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="9" cy="21" r="1"></circle>
                   <circle cx="20" cy="21" r="1"></circle>
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                  <path
+                    d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
+                  ></path>
                 </svg>
-                <span>{inStock ? 'Add to Cart' : 'Out of Stock'}</span>
+                <span>{inStock ? "Add to Cart" : "Out of Stock"}</span>
               {/if}
             </button>
 
@@ -337,7 +404,9 @@
     padding: 1rem;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition:
+      opacity 0.3s ease,
+      visibility 0.3s ease;
   }
 
   .modal-overlay.open {
@@ -357,7 +426,9 @@
     flex-direction: column;
     transform: translateY(20px);
     opacity: 0;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    transition:
+      transform 0.3s ease,
+      opacity 0.3s ease;
     animation: modalFadeIn 0.3s forwards;
   }
 
@@ -383,7 +454,9 @@
     cursor: pointer;
     z-index: 10;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    transition: background-color 0.3s ease, transform 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      transform 0.3s ease;
   }
 
   .modal-close:hover {
@@ -407,11 +480,12 @@
     position: relative;
     overflow: hidden;
     background-color: var(--color-cream-dark);
+    aspect-ratio: 1;
   }
 
   .product-main-image {
     width: 100%;
-    height: auto;
+    height: 100%;
     object-fit: cover;
     transition: transform 0.3s ease;
   }
@@ -455,9 +529,17 @@
 
   .product-title {
     font-size: 1.75rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.25rem;
     line-height: 1.2;
     font-family: var(--heading-font);
+  }
+
+  .product-category {
+    font-size: 0.9rem;
+    color: var(--color-charcoal-light);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .product-price {
@@ -528,7 +610,9 @@
   }
 
   .color-option.active {
-    box-shadow: 0 0 0 2px var(--color-white), 0 0 0 3px var(--color-gold);
+    box-shadow:
+      0 0 0 2px var(--color-white),
+      0 0 0 3px var(--color-gold);
   }
 
   .size-options {
@@ -637,7 +721,7 @@
   }
 
   .btn-add-to-cart::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
