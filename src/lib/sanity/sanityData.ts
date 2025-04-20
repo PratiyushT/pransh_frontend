@@ -5,9 +5,10 @@ import {
   allColorsQuery,
   allSizesQuery,
   paginatedProductsQuery,
-  singleProductBySlugQuery
+  singleProductBySlugQuery,
+  cartProductsQuery,
 } from '$lib/sanity/queries';
-import type { Size, Color, Category, Product, Variant, Image } from '$lib/types';
+import type { Size, Color, Category, Product, Variant, Image, CartItem, ProductDetails } from '$lib/types';
 
 // Helper function to transform Sanity data to match our app's data structure
 function transformSanityProduct(sanityProduct: any): Product {
@@ -211,4 +212,39 @@ export async function getProductBySlug(slug: string) {
     console.error('Error fetching product by slug:', err);
     throw err;
   }
+}
+
+export async function getCartProductDetails(
+  cartItems: CartItem[]
+): Promise<ProductDetails> {
+  if (!cartItems?.length) {
+    return {};
+  }
+
+  const productIds = cartItems.map(i => i.productId);
+  const variantIds = cartItems.map(i => i.variantId);
+
+  const raw: any[] = await client.fetch(cartProductsQuery, { productIds, variantIds });
+
+  const details: ProductDetails = {};
+  for (const v of raw) {
+    const key = `${v.productId}___${v._id}`;
+    details[key] = {
+      product: {
+        _id: v.productId,
+        name: v.productName
+      },
+      variant: {
+        _id:    v._id,
+        sku:    v.sku,
+        price:  v.price,
+        stock:  v.stock,
+        color:  v.color,
+        size:   v.size.name,
+        images: v.images
+      }
+    };
+  }
+
+  return details;
 }

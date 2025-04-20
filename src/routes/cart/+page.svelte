@@ -10,10 +10,11 @@
   } from "$lib/stores";
   import { formatPrice } from "$lib/utils/data";
   import gsap from "gsap";
-  import { client as sanityClient } from "$lib/sanity/client";
-  import { cartProductsQuery } from "$lib/sanity/queries";
-
-  let shippingCost = 15.0;
+  import { getCartProductDetails } from "$lib/sanity/sanityData";
+  
+  
+  
+let shippingCost = 15.0;
   let subtotal = 0;
   let total = 0;
   let isRemoving = false;
@@ -32,57 +33,17 @@
   $: total = subtotal + (subtotal > 0 ? shippingCost : 0);
 
   // Improved function to fetch product data from Sanity
-  async function fetchProductData() {
+ // Improved function to fetch product data from Sanity
+ async function loadProductDetails() {
+    isLoadingProducts = true;
+    loadError = false;
+
     try {
-      // Set loading state
-      isLoadingProducts = true;
-      loadError = false;
-
-      // If cart is empty, clear the loading state and return
-      if ($cart.length === 0) {
-        isLoadingProducts = false;
-        return;
-      }
-
-      console.log($cart);
-      const productIds = $cart.map((item) => item.productId);
-      const variantIds = $cart.map((item) => item.variantId);
-
-
-      // 3. Fetch from Sanity (passing only your variantIds array)
-      const products = await sanityClient.fetch(cartProductsQuery, { productIds, variantIds });
-
-      // Process the results
-      const newProductDetails = {};
-
-      for (const v of products) {
-        // 'v' already has .productId and .productName injected in the query
-        const key = `${v.productId}___${v._id}`;
-
-        newProductDetails[key] = {
-          product: {
-            _id: v.productId,
-            name: v.productName,
-          },
-          variant: {
-            _id: v._id,
-            sku: v.sku,
-            price: v.price,
-            stock: v.stock,
-            color: v.color,
-            size: v.size.name,
-            images: v.images,
-          },
-        };
-      }
-
-      console.log("Processed product details:", newProductDetails);
-      productDetails = newProductDetails;
-    } catch (error) {
-      console.error("Error fetching products:", error);
+      productDetails = await getCartProductDetails($cart);
+    } catch (e) {
+      console.error(e);
       loadError = true;
     } finally {
-      // Always set loading to false when done
       isLoadingProducts = false;
     }
   }
@@ -202,7 +163,7 @@
     console.log("Component mounted, cart items:", $cart.length);
     // Fetch data on mount if cart has items
     if ($cart.length > 0) {
-      fetchProductData();
+      loadProductDetails();
     } else {
       isLoadingProducts = false;
     }
@@ -234,7 +195,7 @@
   $: {
     if ($cart.length > 0) {
       console.log("Cart changed, fetching new data...");
-      fetchProductData();
+      loadProductDetails();
     } else {
       // Clear product details and loading state when cart is empty
       productDetails = {};
@@ -292,7 +253,7 @@
                 <p>Failed to load products. Please try again later.</p>
                 <button
                   class="mt-4 px-4 py-2 bg-gold text-white rounded hover:bg-gold-dark transition-colors"
-                  on:click={fetchProductData}
+                  on:click={loadProductDetails}
                 >
                   Retry
                 </button>
@@ -305,7 +266,7 @@
                 </p>
                 <button
                   class="mt-4 px-4 py-2 bg-gold text-white rounded hover:bg-gold-dark transition-colors"
-                  on:click={fetchProductData}
+                  on:click={loadProductDetails}
                 >
                   Refresh
                 </button>

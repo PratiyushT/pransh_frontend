@@ -59,3 +59,19 @@ export interface ProductFilterOptions {
   maxPrice?: number;
   featuredOnly?: boolean;
 }
+
+
+export interface ProductDetails {
+  [key: string]: {
+    product: { _id: string; name: string };
+    variant: {
+      _id: string;
+      sku: string;
+      price: number;
+      stock: number;
+      color: { _id: string; name: string; hex: string };
+      size: string;
+      images: string[];
+    };
+  };
+}

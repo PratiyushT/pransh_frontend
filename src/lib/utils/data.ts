@@ -280,6 +280,18 @@ export const getRandomProducts = (count: number): Product[] => {
 };
 
 // Format price utility
-export const formatPrice = (price: number): string => {
-  return `$${price.toFixed(2)}`;
-};
+export function formatPrice(amount?: number, currency = 'USD'): string {
+  // if amount is missing or not a finite number, return blank or “$0.00”
+  if (typeof amount !== 'number' || !isFinite(amount)) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency
+    }).format(0);
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency
+  }).format(amount);
+}
+
