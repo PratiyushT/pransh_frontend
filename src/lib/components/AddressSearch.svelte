@@ -26,9 +26,7 @@
                 await import('@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css');
 
                 // Get API key from environment, with fallback
-                const mapboxApiKey = publicEnv.VITE_PUBLIC_MAPBOX_API_KEY ||
-                                    'pk.eyJ1IjoicHJ0MTUiLCJhIjoiY205aXh3cW5kMDc5MzJqcHk3ODg2eGFlaCJ9.sMg8tneQeKsSTDxSc4C9Bg';
-                console.log('Mapbox API key:', mapboxApiKey);
+                const mapboxApiKey = import.meta.env.VITE_MAPBOX_API_KEY 
                 mapboxgl.accessToken = mapboxApiKey;
 
                 // Initialize the geocoder with error handling

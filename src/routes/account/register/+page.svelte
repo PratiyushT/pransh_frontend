@@ -126,6 +126,7 @@
   let zipCode = '';
   let country = 'United States';
   let addressSelected = false;
+  let addressFromMapbox = false; // Add new flag to track if address came from Mapbox
 
   // Address fields interaction tracking
   let streetAddressTouched = false;
@@ -182,6 +183,7 @@
     countryTouched = true;
 
     addressSelected = true;
+    addressFromMapbox = true; // Set the flag when address is selected from Mapbox
 
     // Reset form errors
     resetFieldError();
@@ -189,6 +191,12 @@
 
   const handleAddressCleared = () => {
     addressSelected = false;
+    addressFromMapbox = false; // Reset the flag when address is cleared
+  };
+
+  // Add a function to edit manually
+  const enableManualEdit = () => {
+    addressFromMapbox = false;
   };
 
   const handleShowManualEntry = () => {
@@ -252,7 +260,8 @@
           zipCode,
           country,
           // Store whether the address was selected via Mapbox
-          selectedViaMapbox: addressSelected
+          selectedViaMapbox: addressSelected,
+          addressFromMapbox: addressFromMapbox // Save the flag to know if address is readonly
         };
 
         localStorage.setItem('userAddress', JSON.stringify(addressData));
@@ -523,8 +532,23 @@
           </div>
 
           {#if showManualAddressForm || addressSelected}
-            <!-- Address fields (can be edited after selection) -->
+            <!-- Address fields - always visible when in manual mode -->
             <div class="form-field animate-fade-in">
+              {#if addressFromMapbox}
+                <div class="mapbox-selection-notice">
+                  <div class="mapbox-notice-content">
+                    <p>Address selected from search</p>
+                    <button
+                      type="button"
+                      class="edit-address-btn"
+                      on:click={enableManualEdit}
+                    >
+                      Edit address manually
+                    </button>
+                  </div>
+                </div>
+              {/if}
+
               <label for="streetAddress" class="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
               <input
                 type="text"
@@ -532,8 +556,9 @@
                 bind:value={streetAddress}
                 on:input={resetFieldError}
                 on:blur={() => streetAddressTouched = true}
-                class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
                 placeholder="123 Main St, Apt 4B"
+                readonly={addressFromMapbox}
                 required={showAddressFields}
               >
               {#if streetAddressTouched && !isStreetAddressValid}
@@ -551,8 +576,9 @@
                   bind:value={city}
                   on:input={resetFieldError}
                   on:blur={() => cityTouched = true}
-                  class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                  class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
                   placeholder="New York"
+                  readonly={addressFromMapbox}
                   required={showAddressFields}
                 >
                 {#if cityTouched && !isCityValid}
@@ -568,8 +594,9 @@
                   bind:value={state}
                   on:input={resetFieldError}
                   on:blur={() => stateTouched = true}
-                  class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                  class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
                   placeholder="NY"
+                  readonly={addressFromMapbox}
                   required={showAddressFields}
                 >
                 {#if stateTouched && !isStateValid}
@@ -588,8 +615,9 @@
                   bind:value={zipCode}
                   on:input={resetFieldError}
                   on:blur={() => zipCodeTouched = true}
-                  class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                  class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
                   placeholder="10001"
+                  readonly={addressFromMapbox}
                   required={showAddressFields}
                 >
                 {#if zipCodeTouched && !isZipCodeValid}
@@ -604,7 +632,8 @@
                   bind:value={country}
                   on:change={resetFieldError}
                   on:blur={() => countryTouched = true}
-                  class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white"
+                  class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white {addressFromMapbox ? 'input-readonly' : ''}"
+                  disabled={addressFromMapbox}
                   required={showAddressFields}
                 >
                   <option value="">Select Country</option>
@@ -753,5 +782,48 @@
   /* Add transition for password strength indicator */
   [transition\:slide] {
     transition: width 0.3s ease-in-out;
+  }
+
+  /* Styles for read-only inputs */
+  .input-readonly {
+    background-color: #f8f8f8;
+    cursor: not-allowed;
+    opacity: 0.8;
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Mapbox address selection notification */
+  .mapbox-selection-notice {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background-color: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 0.375rem;
+  }
+
+  .mapbox-notice-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mapbox-notice-content p {
+    font-size: 0.875rem;
+    color: #0284c7;
+    margin: 0;
+  }
+
+  .edit-address-btn {
+    font-size: 0.75rem;
+    color: #0284c7;
+    background: none;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .edit-address-btn:hover {
+    color: #0369a1;
   }
 </style>

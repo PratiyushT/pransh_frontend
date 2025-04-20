@@ -26,8 +26,17 @@
   let quickViewProduct = null;
   let quickViewOpen = false;
 
+  // Calculate pagination values in the script
+  $: totalPages = Math.ceil(data.totalCount / perPage);
+  $: maxDisplayedPages = 5; // Max page numbers to show at once
+  $: halfMaxPages = Math.floor(maxDisplayedPages / 2);
+  $: startPage = Math.max(1, Math.min(page - halfMaxPages, totalPages - maxDisplayedPages + 1));
+  $: endPage = Math.min(totalPages, startPage + maxDisplayedPages - 1);
+  $: startItem = (page - 1) * perPage + 1;
+  $: endItem = Math.min(page * perPage, data.totalCount);
+
   function goToPage(newPage: number) {
-    if (newPage < 1 || newPage > Math.ceil(data.totalCount / perPage)) return;
+    if (newPage < 1 || newPage > totalPages) return;
     page = newPage;
     applyFilters();
   }
@@ -50,11 +59,11 @@
   function handleQuickView(event) {
     quickViewProduct = event.detail.product;
     quickViewOpen = true;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden'; // Ensure body doesn't scroll when modal is open
   }
   function handleCloseQuickView() {
     quickViewOpen = false;
-    document.body.style.overflow = '';
+    document.body.style.overflow = ''; // Restore normal scrolling when modal is closed
   }
 </script>
 
@@ -73,6 +82,11 @@
         <p class="text-xl text-gray-500">No products found.</p>
       </div>
     {:else}
+      <!-- Product count indicator at the top -->
+      <div class="product-count-indicator">
+        Showing {startItem}-{endItem} of {data.totalCount} products
+      </div>
+
       <div class="products-grid">
         {#each data.products as product (product._id)}
           <div class="product-card-wrapper">
@@ -80,15 +94,93 @@
           </div>
         {/each}
       </div>
-      {#if Math.ceil(data.totalCount / perPage) > 1}
-        <div class="pagination-bar mt-8 flex justify-center items-center gap-2">
-          {#each Array(Math.ceil(data.totalCount / perPage)) as _, i}
-            {#if i + 1 === page}
-              <span class="pagination-page active">{i + 1}</span>
+
+      {#if totalPages > 1}
+        <div class="pagination-bar mt-8">
+          <div class="pagination-controls">
+            <!-- Previous page button -->
+            {#if page > 1}
+              <a
+                class="pagination-btn prev"
+                href={`/shop?page=${page - 1}${perPage !== 10 ? `&perPage=${perPage}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}${categories.length ? `&category=${categories.join(',')}` : ''}${sizes.length ? `&size=${sizes.join(',')}` : ''}${colors.length ? `&color=${colors.join(',')}` : ''}${minPrice != null ? `&minPrice=${minPrice}` : ''}${maxPrice != null ? `&maxPrice=${maxPrice}` : ''}${featured ? `&featured=true` : ''}`}
+                aria-label="Go to previous page"
+                rel="external"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </a>
             {:else}
-              <a class="pagination-page" href={`/shop?page=${i + 1}${perPage !== 10 ? `&perPage=${perPage}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}${categories.length ? `&category=${categories.join(',')}` : ''}${sizes.length ? `&size=${sizes.join(',')}` : ''}${colors.length ? `&color=${colors.join(',')}` : ''}${minPrice != null ? `&minPrice=${minPrice}` : ''}${maxPrice != null ? `&maxPrice=${maxPrice}` : ''}${featured ? `&featured=true` : ''}`} rel="external">{i + 1}</a>
+              <span class="pagination-btn prev disabled">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </span>
             {/if}
-          {/each}
+
+            <!-- First page and ellipsis if needed -->
+            {#if startPage > 1}
+              <a
+                class="pagination-page"
+                href={`/shop?page=1${perPage !== 10 ? `&perPage=${perPage}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}${categories.length ? `&category=${categories.join(',')}` : ''}${sizes.length ? `&size=${sizes.join(',')}` : ''}${colors.length ? `&color=${colors.join(',')}` : ''}${minPrice != null ? `&minPrice=${minPrice}` : ''}${maxPrice != null ? `&maxPrice=${maxPrice}` : ''}${featured ? `&featured=true` : ''}`}
+                rel="external"
+              >
+                1
+              </a>
+              {#if startPage > 2}
+                <span class="pagination-ellipsis">…</span>
+              {/if}
+            {/if}
+
+            <!-- Page numbers -->
+            {#each Array(endPage - startPage + 1) as _, i}
+              {#if startPage + i === page}
+                <span class="pagination-page active">{startPage + i}</span>
+              {:else}
+                <a
+                  class="pagination-page"
+                  href={`/shop?page=${startPage + i}${perPage !== 10 ? `&perPage=${perPage}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}${categories.length ? `&category=${categories.join(',')}` : ''}${sizes.length ? `&size=${sizes.join(',')}` : ''}${colors.length ? `&color=${colors.join(',')}` : ''}${minPrice != null ? `&minPrice=${minPrice}` : ''}${maxPrice != null ? `&maxPrice=${maxPrice}` : ''}${featured ? `&featured=true` : ''}`}
+                  rel="external"
+                >
+                  {startPage + i}
+                </a>
+              {/if}
+            {/each}
+
+            <!-- Last page and ellipsis if needed -->
+            {#if endPage < totalPages}
+              {#if endPage < totalPages - 1}
+                <span class="pagination-ellipsis">…</span>
+              {/if}
+              <a
+                class="pagination-page"
+                href={`/shop?page=${totalPages}${perPage !== 10 ? `&perPage=${perPage}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}${categories.length ? `&category=${categories.join(',')}` : ''}${sizes.length ? `&size=${sizes.join(',')}` : ''}${colors.length ? `&color=${colors.join(',')}` : ''}${minPrice != null ? `&minPrice=${minPrice}` : ''}${maxPrice != null ? `&maxPrice=${maxPrice}` : ''}${featured ? `&featured=true` : ''}`}
+                rel="external"
+              >
+                {totalPages}
+              </a>
+            {/if}
+
+            <!-- Next page button -->
+            {#if page < totalPages}
+              <a
+                class="pagination-btn next"
+                href={`/shop?page=${page + 1}${perPage !== 10 ? `&perPage=${perPage}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}${categories.length ? `&category=${categories.join(',')}` : ''}${sizes.length ? `&size=${sizes.join(',')}` : ''}${colors.length ? `&color=${colors.join(',')}` : ''}${minPrice != null ? `&minPrice=${minPrice}` : ''}${maxPrice != null ? `&maxPrice=${maxPrice}` : ''}${featured ? `&featured=true` : ''}`}
+                aria-label="Go to next page"
+                rel="external"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </a>
+            {:else}
+              <span class="pagination-btn next disabled">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </span>
+            {/if}
+          </div>
         </div>
       {/if}
     {/if}
@@ -97,7 +189,7 @@
 </section>
 
 {#if quickViewOpen && quickViewProduct}
-  <QuickViewModal product={quickViewProduct} on:close={handleCloseQuickView} />
+  <QuickViewModal product={quickViewProduct} open={quickViewOpen} on:close={handleCloseQuickView} />
 {/if}
 
 <style>
@@ -105,34 +197,138 @@
     display: grid;
     grid-template-columns: repeat(1, 1fr);
     gap: 1.5rem;
+    margin-top: 1.5rem;
   }
+
+  /* Product count indicator at the top */
+  .product-count-indicator {
+    font-size: 0.95rem;
+    color: var(--color-charcoal-light);
+    padding: 0.5rem 1rem;
+    background-color: #f8f8f8;
+    border-radius: 2rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: inline-block;
+    margin-bottom: 1.5rem;
+  }
+
   @media (min-width: 640px) {
     .products-grid { grid-template-columns: repeat(2, 1fr); }
   }
   @media (min-width: 1024px) {
     .products-grid { grid-template-columns: repeat(3, 1fr); }
   }
+
+  /* Improved pagination styles */
   .pagination-bar {
-    margin-top: 2rem;
+    margin-top: 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
   }
+
+  /* Remove pagination-top and pagination-info styles */
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
   .pagination-page {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-width: 2.5rem;
     height: 2.5rem;
-    line-height: 2.5rem;
     border-radius: 50%;
-    background: #f5f5f5;
-    color: #1a1a1a;
+    background: #f8f8f8;
+    color: var(--color-charcoal);
     font-weight: 500;
     border: none;
     cursor: pointer;
-    font-size: 1.1rem;
-    transition: background 0.2s, color 0.2s;
-    margin: 0 0.2rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
-  .pagination-page.active, .pagination-page:disabled {
-    background: var(--color-gold, #c7a033);
+
+  .pagination-page:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  }
+
+  .pagination-page.active {
+    background: var(--color-gold);
     color: #fff;
     cursor: default;
+    box-shadow: 0 3px 8px rgba(199, 160, 51, 0.3);
+  }
+
+  .pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: #f8f8f8;
+    color: var(--color-charcoal);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .pagination-btn:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  }
+
+  .pagination-btn.prev:hover {
+    transform: translateY(-2px) translateX(-2px);
+  }
+
+  .pagination-btn.next:hover {
+    transform: translateY(-2px) translateX(2px);
+  }
+
+  .pagination-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .pagination-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    color: var(--color-charcoal-light);
+    font-weight: 500;
+  }
+
+  @media (max-width: 640px) {
+    .pagination-page, .pagination-btn {
+      min-width: 2.2rem;
+      height: 2.2rem;
+      font-size: 0.9rem;
+    }
+
+    .pagination-info {
+      font-size: 0.8rem;
+    }
+
+    .pagination-top {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
   }
 </style>
