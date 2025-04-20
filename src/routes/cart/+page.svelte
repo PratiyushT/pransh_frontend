@@ -48,31 +48,9 @@
       const productIds = $cart.map((item) => item.productId);
       const variantIds = $cart.map((item) => item.variantId);
 
-      // 2. Write the query:
-      const query = `
-*[
-  _type == "product" &&
-  _id in $productIds
-]{
-  "productId": _id,
-  "productName": name,
-  "variants": variants[_ref in $variantIds]->{
-    _id,
-    sku,
-    price,
-    stock,
-    "color": color->{ _id, name, hex },
-    "size": size->{ _id, name },
-    "images": images[].asset->url,
-    "productId": ^._id,
-    "productName": ^.name
-  }
-}[].variants[]
-
-`;
 
       // 3. Fetch from Sanity (passing only your variantIds array)
-      const products = await sanityClient.fetch(query, { productIds, variantIds });
+      const products = await sanityClient.fetch(cartProductsQuery, { productIds, variantIds });
 
       // Process the results
       const newProductDetails = {};
@@ -349,9 +327,8 @@
                         class="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 mr-2 overflow-hidden rounded-md shadow-md relative group"
                       >
                         <img
-                          src={(productDetails[productKey].variant.images &&
-                            productDetails[productKey].variant.images[0]
-                              ?.url) ||
+                        src={(productDetails[productKey].variant.images &&
+    productDetails[productKey].variant.images[0]) ||
                             "/images/product-placeholder.jpg"}
                           alt={productDetails[productKey].product.name}
                           class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"

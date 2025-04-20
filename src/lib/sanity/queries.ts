@@ -110,22 +110,27 @@ export const singleProductBySlugQuery = (slug: string) => `
     }
   }[0]
 `
-export const cartProductsQuery = (productID:String[], variantID:String[])=>`
-*[_type == "product" && _id in "${productID}"]{
-          "variants": variants[_id in "${variantID}"] {
-            _id,
-            sku,
-            price,
-            stock,
-            "color": color->{
-              _id, name, hex
-            },
-            "size": size->{
-              _id, name
-            },
-            "images": images[].asset->url,
-            "productId": ^._id,
-            "productName": ^.name
-          }
-        }[].variants[]
-`
+
+// Get Products in cart page. 
+// ProductIds and VariantIds needs to be passed as param.
+export const cartProductsQuery = `
+*[
+  _type == "product" &&
+  _id in $productIds
+]{
+  "productId": _id,
+  "productName": name,
+  "variants": variants[_ref in $variantIds]->{
+    _id,
+    sku,
+    price,
+    stock,
+    "color": color->{ _id, name, hex },
+    "size": size->{ _id, name },
+    "images": images[].asset->url,
+    "productId": ^._id,
+    "productName": ^.name
+  }
+}[].variants[]
+
+`;
