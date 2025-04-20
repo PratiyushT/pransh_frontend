@@ -1,7 +1,7 @@
 <script lang="ts">
     import {onMount, createEventDispatcher} from 'svelte';
     import {browser} from '$app/environment';
-    import {PUBLIC_MAPBOX_API_KEY} from '$env/static/public';
+    import * as publicEnv from '$env/static/public';
 
     const dispatch = createEventDispatcher();
 
@@ -11,59 +11,156 @@
     let mapboxgl: any;
     let MapboxGeocoder: any;
     let selectedResult = '';
+    let loadError = false;
+    let errorMessage = '';
 
     onMount(async () => {
         if (browser) {
-            // Dynamically import Mapbox libraries only on client-side
-            mapboxgl = (await import('mapbox-gl')).default;
-            MapboxGeocoder = (await import('@mapbox/mapbox-gl-geocoder')).default;
+            try {
+                // Dynamically import Mapbox libraries only on client-side
+                mapboxgl = (await import('mapbox-gl')).default;
+                MapboxGeocoder = (await import('@mapbox/mapbox-gl-geocoder')).default;
 
-            // Also import CSS
-            await import('mapbox-gl/dist/mapbox-gl.css');
-            await import('@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css');
+                // Also import CSS
+                await import('mapbox-gl/dist/mapbox-gl.css');
+                await import('@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css');
 
-            mapboxgl.accessToken = PUBLIC_MAPBOX_API_KEY;
+                // Get API key from environment, with fallback
+                const mapboxApiKey = publicEnv.VITE_PUBLIC_MAPBOX_API_KEY ||
+                                    'pk.eyJ1IjoicHJ0MTUiLCJhIjoiY205aXh3cW5kMDc5MzJqcHk3ODg2eGFlaCJ9.sMg8tneQeKsSTDxSc4C9Bg';
+                console.log('Mapbox API key:', mapboxApiKey);
+                mapboxgl.accessToken = mapboxApiKey;
 
-            // Initialize the geocoder
-            geocoder = new MapboxGeocoder({
-                accessToken: mapboxgl.accessToken,
-                types: 'address',
-                placeholder: 'Search for your address...',
-                marker: false,
-                mapboxgl: mapboxgl,
-                countries: 'us,ca,uk,jau,nz,de,fr,it,es,jp', // Limit to countries in your dropdown
-            });
+                // Initialize the geocoder with error handling
+                try {
+                    geocoder = new MapboxGeocoder({
+                        accessToken: mapboxgl.accessToken,
+                        types: 'address',
+                        placeholder: 'Search for your address...',
+                        marker: false,
+                        mapboxgl: mapboxgl,
+                        countries: 'us,ca,gb,au,nz,de,fr,it,es,jp', // Fixed country codes (removed invalid 'jau')
+                    });
 
-            // Add geocoder to the container
-            geocoder.addTo(geocoderContainer);
+                    // Helper to show geocoding error
+                    function showGeocodingError() {
+                        // Handle geocoding error without crashing
+                        const container = document.querySelector('.address-search-container');
+                        if (container) {
+                            // Show geocoding error message
+                            const errorEl = document.createElement('div');
+                            errorEl.className = 'mapbox-error mb-4';
+                            errorEl.textContent = 'Error searching for that address. Please try again or enter manually.';
 
-            // Listen for results
-            geocoder.on('result', (e: any) => {
-                const result = e.result;
-                console.log('Mapbox result:', result); // Log the result for debugging
-                const address = parseMapboxAddress(result);
-                console.log('Parsed address:', address); // Log the parsed address
-                dispatch('addressSelected', address);
-                // Set the selected result text for display
-                selectedResult = result.place_name || '';
-                // Add visual indicator when an address is selected
-                document.querySelector('.address-search-container').classList.add('address-selected');
-            });
+                            // Find the geocoder container and add error after it
+                            const geocoderEl = container.querySelector('.mapbox-geocoder-container');
+                            if (geocoderEl && !container.querySelector('.mapbox-error')) {
+                                geocoderEl.insertAdjacentElement('afterend', errorEl);
 
-            // Listen for clear
-            geocoder.on('clear', () => {
-                dispatch('addressCleared');
-                // Remove visual indicator when cleared
-                selectedResult = '';
-                document.querySelector('.address-search-container').classList.remove('address-selected');
-            });
+                                // Auto-remove after 5 seconds
+                                setTimeout(() => {
+                                    if (errorEl.parentNode) {
+                                        errorEl.parentNode.removeChild(errorEl);
+                                    }
+                                }, 5000);
+                            }
+                        }
+                    }
 
-            return () => {
-                if (geocoder) {
-                    // Clean up geocoder on component unmount
-                    geocoder.onRemove();
+                    // Override the _geocode method to add error handling
+                    const originalGeocode = geocoder._geocode;
+                    geocoder._geocode = function(searchInput) {
+                        try {
+                            return originalGeocode.call(this, searchInput).catch(err => {
+                                console.error('Geocoding error:', err);
+
+                                // Check if it's a country code error
+                                if (err && err.message && err.message.includes('is not a known stack')) {
+                                    console.log('Country code error detected, retrying with US only');
+
+                                    // If the error is related to country codes, try again with just US
+                                    // This is a temporary fix that allows the search to continue
+                                    const originalCountries = this.options.countries;
+                                    this.options.countries = 'us';
+
+                                    // After 100ms, restore the original countries list
+                                    setTimeout(() => {
+                                        this.options.countries = originalCountries;
+                                    }, 100);
+
+                                    // Retry the search with just US
+                                    return originalGeocode.call(this, searchInput).catch(retryErr => {
+                                        console.error('Retry geocoding also failed:', retryErr);
+                                        showGeocodingError();
+                                        dispatch('error', { message: 'Geocoding retry failed', error: retryErr });
+                                        return Promise.resolve({ features: [] });
+                                    });
+                                }
+
+                                // For other errors, show error message
+                                showGeocodingError();
+
+                                // Dispatch error event
+                                dispatch('error', { message: 'Geocoding failed', error: err });
+
+                                return Promise.resolve({ features: [] }); // Return empty results to avoid crash
+                            });
+                        } catch (e) {
+                            console.error('Error in geocode method:', e);
+                            return Promise.resolve({ features: [] });
+                        }
+                    };
+
+                    // Add geocoder to the container
+                    geocoder.addTo(geocoderContainer);
+
+                    // Listen for results
+                    geocoder.on('result', (e: any) => {
+                        const result = e.result;
+                        console.log('Mapbox result:', result); // Log the result for debugging
+                        const address = parseMapboxAddress(result);
+                        console.log('Parsed address:', address); // Log the parsed address
+                        dispatch('addressSelected', address);
+                        // Set the selected result text for display
+                        selectedResult = result.place_name || '';
+                        // Add visual indicator when an address is selected
+                        const container = document.querySelector('.address-search-container');
+                        if (container) {
+                            container.classList.add('address-selected');
+                        }
+                    });
+
+                    // Listen for clear
+                    geocoder.on('clear', () => {
+                        dispatch('addressCleared');
+                        // Remove visual indicator when cleared
+                        selectedResult = '';
+                        const container = document.querySelector('.address-search-container');
+                        if (container) {
+                            container.classList.remove('address-selected');
+                        }
+                    });
+
+                    return () => {
+                        if (geocoder) {
+                            // Clean up geocoder on component unmount
+                            geocoder.onRemove();
+                        }
+                    };
+                } catch (initErr) {
+                    console.error('Error initializing Mapbox Geocoder:', initErr);
+                    loadError = true;
+                    errorMessage = 'Unable to load address search. Please enter your address manually.';
+                    dispatch('showManualEntry');
+                    dispatch('error', { message: 'Failed to initialize Mapbox geocoder' });
                 }
-            };
+            } catch (err) {
+                console.error('Error initializing Mapbox:', err);
+                loadError = true;
+                errorMessage = 'Unable to load address search. Please enter your address manually.';
+                dispatch('showManualEntry');
+                dispatch('error', { message: 'Failed to initialize Mapbox' });
+            }
         }
     });
 
@@ -186,33 +283,50 @@
         Search for your address
     </label>
 
-    <div class="mapbox-geocoder-container mb-4" bind:this={geocoderContainer}></div>
-
-    {#if selectedResult}
-        <div class="selected-result p-2 bg-green-50 border border-green-200 rounded-md mb-4 text-sm">
-            <div class="flex items-start">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                <div>
-                    <p class="font-medium text-green-800">Address selected:</p>
-                    <p class="text-gray-700">{selectedResult}</p>
-                </div>
-            </div>
+    {#if loadError}
+        <div class="mapbox-error mb-4">
+            {errorMessage}
         </div>
-    {/if}
-
-    <button
+        <button
             type="button"
             class="text-gray-500 hover:text-gold text-sm flex items-center transition-colors duration-300"
             on:click={handleShowManualEntry}
-    >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
-             stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        Can't find your address? Enter manually
-    </button>
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Enter address manually
+        </button>
+    {:else}
+        <div class="mapbox-geocoder-container mb-4" bind:this={geocoderContainer}></div>
+
+        {#if selectedResult}
+            <div class="selected-result p-2 bg-green-50 border border-green-200 rounded-md mb-4 text-sm">
+                <div class="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div>
+                        <p class="font-medium text-green-800">Address selected:</p>
+                        <p class="text-gray-700">{selectedResult}</p>
+                    </div>
+                </div>
+            </div>
+        {/if}
+
+        <button
+                type="button"
+                class="text-gray-500 hover:text-gold text-sm flex items-center transition-colors duration-300"
+                on:click={handleShowManualEntry}
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Can't find your address? Enter manually
+        </button>
+    {/if}
 </div>
 
 <style>
@@ -249,5 +363,13 @@
 
     .address-selected {
         border: 2px solid #f59e0b; /* Gold border to indicate selection */
+    }
+
+    .mapbox-error {
+        padding: 0.75rem;
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
     }
 </style>
