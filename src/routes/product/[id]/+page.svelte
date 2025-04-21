@@ -32,15 +32,48 @@
   let isWishlisted = product ? isInWishlist(product._id) : false;
 
   $: selectedVariant = product?.variants[selectedVariantIndex] || null;
-  $: availableSizes = product ? [...new Set(product.variants.map(v => v.size.name))] : [];
+
+  // Make sure we show all available colors, not filtered by size
   $: availableColors = product
-    ? [...new Set(product.variants.filter(v =>
-        !selectedSize || v.size.name === selectedSize).map(v => v.color))].filter(Boolean)
+    ? [...new Map(
+        product.variants
+          .filter(v => v.color) // Just filter out variants without colors
+          .map(v => [v.color._id, v.color])
+      ).values()]
     : [];
+
+  // Get sizes based on the selected color
+  $: availableSizes = product && selectedColor
+    ? [...new Set(
+        product.variants
+          .filter(v => v.color && v.color._id === selectedColor._id)
+          .map(v => v.size.name)
+      )]
+    : [];
+
+  // Fix for variant images to correctly display variant images based on selected color
   $: variantImages = product
-    ? product.variants
-        .filter(v => v.color?.name === selectedVariant?.color?.name)
-        .flatMap(v => v.images.map(url => ({ url })))
+    ? (() => {
+        // Filter variants by selected color
+        const filteredVariants = product.variants
+          .filter(v => v.color && selectedColor && v.color._id === selectedColor._id);
+
+        // If we have variants with the selected color, get their images
+        if (filteredVariants.length > 0) {
+          const images = filteredVariants
+            .flatMap(v => v.images || [])
+            .filter(url => url)
+            .map(url => ({ url }));
+
+          if (images.length > 0) {
+            return images;
+          }
+        }
+
+        // Fallback - if no images for selected color or no variants,
+        // return the product's main image if it exists
+        return product.image ? [{ url: product.image }] : [];
+      })()
     : [];
 
   // Update wishlist state when product changes
@@ -50,8 +83,34 @@
 
   // Initialize selectedSize and selectedColor if product exists
   $: if (product && product.variants && product.variants.length > 0) {
-    if (!selectedSize) selectedSize = product.variants[0]?.size?.name || '';
-    if (!selectedColor) selectedColor = product.variants[0]?.color || null;
+    if (!selectedColor && product.variants[0]?.color) {
+      selectedColor = product.variants[0]?.color;
+    }
+    if (!selectedSize) {
+      // Pick the first size for the selected color, or first overall
+      if (selectedColor) {
+        const variantWithColor = product.variants.find(v => v.color && v.color._id === selectedColor._id);
+        if (variantWithColor) {
+          selectedSize = variantWithColor.size.name;
+        } else {
+          selectedSize = product.variants[0]?.size?.name || '';
+        }
+      } else {
+        selectedSize = product.variants[0]?.size?.name || '';
+      }
+    }
+    // Ensure selectedVariantIndex matches selectedColor and selectedSize
+    const idx = product.variants.findIndex(
+      v =>
+        v.color &&
+        selectedColor &&
+        v.color._id === selectedColor._id &&
+        v.size &&
+        v.size.name === selectedSize
+    );
+    if (idx !== -1 && idx !== undefined) {
+      selectedVariantIndex = idx;
+    }
   }
 
   // Handle size selection
@@ -60,7 +119,7 @@
 
     // Find a variant with the selected size and color
     const variantIndex = product?.variants.findIndex(
-      v => v.size.name === selectedSize && (selectedColor ? v.color.name === selectedColor.name : true)
+      v => v.size.name === selectedSize && (selectedColor ? v.color._id === selectedColor._id : true)
     );
 
     if (variantIndex !== -1 && variantIndex !== undefined) {
@@ -78,28 +137,46 @@
     }
   };
 
-  // Handle color selection
+  // Fix the color selection function to properly update images
   const selectColor = (color) => {
     if (color) {
       selectedColor = color;
 
-      // Find a variant with the selected color and size
-      const variantIndex = product?.variants.findIndex(
-        v => v.color.name === color.name && v.size.name === selectedSize
+      // Find any variant with this color first
+      const firstColorVariant = product?.variants.find(v =>
+        v.color && v.color._id === color._id
       );
 
-      if (variantIndex !== -1 && variantIndex !== undefined) {
-        selectedVariantIndex = variantIndex;
-        activeImage = 0;
-      } else {
-        // If no variant found with selected color and size, just find one with selected color
-        const colorVariantIndex = product?.variants.findIndex(v => v.color.name === color.name);
-        if (colorVariantIndex !== -1 && colorVariantIndex !== undefined) {
-          selectedVariantIndex = colorVariantIndex;
-          selectedSize = product?.variants[colorVariantIndex].size.name;
-          activeImage = 0;
+      if (firstColorVariant) {
+        // Update size if needed
+        if (!availableSizes.includes(selectedSize)) {
+          // If current size isn't available for this color, select the first size
+          selectedSize = firstColorVariant.size.name;
+        }
+
+        // Now find the specific variant with this color AND selected size
+        const specificVariant = product?.variants.find(v =>
+          v.color && v.color._id === color._id && v.size.name === selectedSize
+        );
+
+        if (specificVariant) {
+          // Find the index of this variant
+          const variantIndex = product?.variants.findIndex(v => v._id === specificVariant._id);
+          if (variantIndex !== -1) {
+            selectedVariantIndex = variantIndex;
+          }
+        } else {
+          // If we can't find the exact variant, just use the first one with this color
+          const colorVariantIndex = product?.variants.findIndex(v => v._id === firstColorVariant._id);
+          if (colorVariantIndex !== -1) {
+            selectedVariantIndex = colorVariantIndex;
+            selectedSize = firstColorVariant.size.name;
+          }
         }
       }
+
+      // Always reset active image when changing color
+      activeImage = 0;
     }
   };
 
@@ -214,8 +291,13 @@
             tabindex="0"
             aria-label="Click to zoom image"
           >
+            {#if product.isFeatured}
+              <div class="product-featured-badge">Featured</div>
+            {/if}
             <img
-              src={variantImages[activeImage]?.url || "/images/product-placeholder.jpg"}
+              src={(variantImages && variantImages.length > 0) ?
+                  variantImages[activeImage]?.url || product?.image || "/images/product-placeholder.jpg" :
+                  product?.image || "/images/product-placeholder.jpg"}
               alt={product.name}
               class="product-main-image"
               style={zoomedImage ? `transform: scale(1.5); transform-origin: ${zoomPosition.x}% ${zoomPosition.y}%` : ''}
@@ -233,7 +315,7 @@
             </div>
           </div>
 
-          {#if variantImages.length > 1}
+          {#if variantImages && variantImages.length > 1}
             <div class="product-thumbnails">
               {#each variantImages as image, index}
                 <button
@@ -255,7 +337,12 @@
 
         <!-- Product Info -->
         <div class="product-info">
-          <h1 class="product-info-title">{product.name}</h1>
+          <h1 class="product-info-title">
+            {product.name}
+            {#if product.isFeatured}
+              <span class="product-featured-label">Featured</span>
+            {/if}
+          </h1>
 
           <div class="product-info-price">{formatPrice(selectedVariant?.price || 0)}</div>
 
@@ -275,30 +362,32 @@
           <div class="product-options">
             {#if availableColors.length > 1}
               <div class="option-group">
-                <h3 class="option-title">Color: <span class="selected-option">{selectedColor?.name}</span></h3>
+                <h3 class="option-title">Color: <span class="selected-option">{selectedColor?.name || 'Select a color'}</span></h3>
                 <div class="color-options">
                   {#each availableColors as color}
+                    {#if color}
                     <button
-                      class="color-option {selectedColor?.name === color.name ? 'active' : ''}"
+                      class="color-option {selectedColor?._id === color._id ? 'active' : ''}"
                       on:click={() => selectColor(color)}
                       aria-label={`Select ${color.name} color`}
-                      aria-pressed={selectedColor?.name === color.name}
+                      aria-pressed={selectedColor?._id === color._id}
                     >
                       {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
-                        <ColorPieChart hexColors={color.hex} size={24} border={true} borderColor={selectedColor?.name === color.name ? 'var(--color-gold)' : '#e2e2e2'} borderWidth={2} />
+                        <ColorPieChart hexColors={color.hex} size={24} border={true} borderColor={selectedColor?._id === color._id ? 'var(--color-gold)' : '#e2e2e2'} borderWidth={2} />
                       {:else}
                         <span
                           class="color-swatch"
-                          style="background-color: {Array.isArray(color.hex) ? color.hex[0] : color.hex}; border-color: {Array.isArray(color.hex) ? (color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0]) : (color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex)}"
+                          style="background-color: {Array.isArray(color.hex) ? color.hex[0] || '#ccc' : color.hex || '#ccc'}; border-color: {Array.isArray(color.hex) ? (color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0] || '#ccc') : (color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex || '#ccc')}"
                         ></span>
                       {/if}
                     </button>
+                    {/if}
                   {/each}
                 </div>
               </div>
             {/if}
 
-            {#if availableSizes.length > 1}
+            {#if availableSizes.length > 0}
               <div class="option-group">
                 <h3 class="option-title">Size: <span class="selected-option">{selectedSize}</span></h3>
                 <div class="size-options">
@@ -306,7 +395,7 @@
                     <button
                       class="size-option {selectedSize === size ? 'active' : ''}"
                       on:click={() => selectSize(size)}
-                      disabled={!product.variants.some(v => v.size.name === size && v.color.name === selectedColor?.name)}
+                      disabled={!product.variants.some(v => v.size.name === size && v.color?._id === selectedColor?._id)}
                       aria-label={`Select size ${size}`}
                       aria-pressed={selectedSize === size}
                     >
@@ -1176,6 +1265,49 @@
     margin-top: 2rem;
   }
 
+  .product-featured-badge {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background-color: var(--color-gold);
+    color: var(--color-white);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.4rem 0.8rem;
+    z-index: 5;
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    animation: featuredBadgePulse 2s infinite alternate ease-in-out;
+  }
+
+  @keyframes featuredBadgePulse {
+    0% {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    100% {
+      box-shadow: 0 2px 15px rgba(212, 175, 55, 0.5);
+    }
+  }
+
+  .product-featured-label {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 1rem;
+    background-color: var(--color-gold);
+    color: var(--color-white);
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 2px;
+    vertical-align: middle;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.25);
+    transform: translateY(-4px);
+  }
+
   @media (max-width: 767px) {
     .product-detail {
       grid-template-columns: 1fr;
@@ -1187,6 +1319,25 @@
     }
     .breadcrumbs-container {
       margin-bottom: 1.5rem;
+    }
+    .product-featured-badge {
+      top: 0.75rem;
+      left: 0.75rem;
+      font-size: 0.6rem;
+      padding: 0.3rem 0.6rem;
+    }
+    .product-featured-label {
+      margin-left: 0.5rem;
+      font-size: 0.6rem;
+      padding: 0.2rem 0.5rem;
+      transform: translateY(-3px);
+    }
+    .product-info-title {
+      font-size: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
     }
   }
 
