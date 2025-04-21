@@ -21,6 +21,11 @@
   const primaryImage = product.image;
   const secondaryImage = product.variants[0]?.images?.[1]?.url || primaryImage;
 
+  // Extract unique colors from variants
+  const uniqueColors = Array.from(new Set(product.variants.map(variant =>
+    variant.color && variant.color._id ? JSON.stringify(variant.color) : null
+  ))).filter(color => color !== null).map(color => JSON.parse(color));
+
   // Format price range
   const priceDisplay = minPrice === maxPrice
     ? formatPrice(minPrice)
@@ -374,6 +379,20 @@
     <div class="product-card-info">
       <div class="product-card-category">{typeof product.category === 'object' ? product.category?.name : product.category}</div>
       <h3 class="product-card-title">{product.name}</h3>
+
+      {#if uniqueColors.length > 0}
+        <div class="product-card-colors" aria-label="Available colors">
+          {#each uniqueColors as color}
+            <span
+              class="color-swatch"
+              title={color.name || 'Color'}
+              style="background-color: {color.hex || color.hexCode || color.colorCode || color.color || '#ccc'}"
+              aria-label={color.name || 'Color swatch'}
+            ></span>
+          {/each}
+        </div>
+      {/if}
+
       <div class="product-card-price">{priceDisplay}</div>
       {#if product.rating > 0}
         <div class="product-card-rating">
@@ -637,6 +656,22 @@
     -webkit-box-orient: vertical;
   }
 
+  /* Color swatches container */
+  .product-card-colors {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .color-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 0 2px rgba(0,0,0,0.1);
+    cursor: default;
+    flex-shrink: 0;
+  }
+
   .product-card-price {
     color: var(--color-gold-dark);
     font-weight: 600;
@@ -782,6 +817,16 @@
       left: 0.75rem;
       font-size: 0.65rem;
       padding: 0.25rem 0.5rem;
+    }
+
+    /* Adjust color swatches on mobile */
+    .product-card-colors {
+      gap: 0.4rem;
+      margin-bottom: 0.6rem;
+    }
+    .color-swatch {
+      width: 16px;
+      height: 16px;
     }
   }
 

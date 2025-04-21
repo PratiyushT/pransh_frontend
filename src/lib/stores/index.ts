@@ -175,7 +175,8 @@ export const performSearch = (query: string, filters?: {
   sizes?: string[],
   minPrice?: number,
   maxPrice?: number,
-  sort?: string
+  sort?: string,
+  featured?: boolean // Add featured filter type
 }) => {
   searchQuery.set(query);
 
@@ -212,6 +213,11 @@ export const performSearch = (query: string, filters?: {
 
       if (filters.sort) {
         params.set('sort', filters.sort);
+      }
+
+      // Add featured flag if true
+      if (filters.featured) {
+        params.set('featured', 'true');
       }
     }
 
