@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { isSearchOpen, closeSearch, performSearch, searchQuery } from '$lib/stores/index';
-  import { getCategories, getColors, getSizes } from '$lib/utils/data';
+  import { categoriesStore, colorsStore, sizesStore, isLoadingFilters, filtersError, initializeFilterData } from '$lib/stores/filters';
   import gsap from 'gsap';
   import { page } from '$app/stores';
 
@@ -12,6 +12,27 @@
   // Search state
   let searchValue = '';
   let showFilters = false;
+
+  // State for showing/hiding the applied filters - collapsed by default if there are many filters
+  let showAppliedFilters = true;
+
+  // Check applied filter count
+  $: {
+    // Count how many filter types are applied
+    const appliedFilterCount = [
+      filterState.categories.length > 0,
+      filterState.colors.length > 0,
+      filterState.sizes.length > 0,
+      filterState.minPrice > 0 || filterState.maxPrice < 1000,
+      filterState.sortBy !== 'featured',
+      filterState.featuredOnly
+    ].filter(Boolean).length;
+
+    // Auto-collapse if more than 3 filter types are applied
+    if (appliedFilterCount > 3) {
+      showAppliedFilters = false;
+    }
+  }
 
   // Filter states - wrapped in objects to maintain reference stability
   const filterState = {
@@ -24,21 +45,28 @@
     featuredOnly: false
   };
 
+  // Function to get total filter count
+  function getTotalFilterCount() {
+    return filterState.categories.length +
+           filterState.colors.length +
+           filterState.sizes.length +
+           (filterState.minPrice > 0 || filterState.maxPrice < 1000 ? 1 : 0) +
+           (filterState.sortBy !== 'featured' ? 1 : 0) +
+           (filterState.featuredOnly ? 1 : 0);
+  }
+
   // Tracking states for price range slider
   let isDraggingMinSlider = false;
   let isDraggingMaxSlider = false;
   let minTooltipPosition = "0%";
   let maxTooltipPosition = "100%";
 
-  // Get filter options from data
-  const categories = getCategories();
-  const colors = getColors();
-  const sizes = getSizes();
+  // Global price range
+  let globalMinPrice = 0;
+  let globalMaxPrice = 1000;
 
-  // Get global price range
-  const allPrices = getColors().flatMap(c => [0, 1000]); // Simplified for demo
-  const globalMinPrice = Math.floor(Math.min(...allPrices));
-  const globalMaxPrice = Math.ceil(Math.max(...allPrices));
+  // Make sure filter data is initialized
+  initializeFilterData();
 
   // Recalculate tooltip positions when price changes
   $: {
@@ -296,10 +324,29 @@
     performSearch(searchValue, filters);
   };
 
-  // Toggle filter visibility
+  // Toggle filter visibility - updated to ensure it affects both forms
   const toggleFilters = () => {
     showFilters = !showFilters;
-    animateFilterSection(showFilters);
+
+    // If showing filters, animate them in after a slight delay
+    if (showFilters && searchModalContent) {
+      setTimeout(() => {
+        const filterSection = searchModalContent.querySelector('.search-filters');
+        if (filterSection) {
+          gsap.fromTo(filterSection,
+            { opacity: 0, y: -20 },
+            { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }
+          );
+
+          // Animate filter groups with staggered effect
+          const filterGroups = filterSection.querySelectorAll('.filter-group');
+          gsap.fromTo(filterGroups,
+            { opacity: 0, y: -10 },
+            { opacity: 1, y: 0, duration: 0.4, stagger: 0.08, ease: "power2.out" }
+          );
+        }
+      }, 50);
+    }
   };
 
   // Reset price range
@@ -311,6 +358,71 @@
   // Reset sort selection
   const resetSort = () => {
     filterState.sortBy = 'featured';
+  };
+
+  // Toggle applied filters visibility with better animation handling
+  const toggleAppliedFilters = () => {
+    showAppliedFilters = !showAppliedFilters;
+
+    // Animate collapse/expand
+    if (searchModalContent) {
+      const appliedFiltersContent = searchModalContent.querySelector('.current-filters-list');
+      if (appliedFiltersContent) {
+        if (showAppliedFilters) {
+          // First set height to 0, then animate to auto
+          const element = appliedFiltersContent as HTMLElement;
+
+          // Temporarily set height to 'auto' to measure natural height
+          element.style.height = 'auto';
+          element.style.opacity = '0';
+          element.style.position = 'absolute';
+          element.style.visibility = 'hidden';
+          element.style.display = 'flex';
+
+          // Get the natural height
+          const naturalHeight = element.offsetHeight;
+
+          // Reset to collapsed state for animation
+          element.style.position = '';
+          element.style.visibility = '';
+          element.style.height = '0px';
+          element.style.display = 'flex';
+
+          // Force a reflow to ensure the browser recognizes the starting state
+          void element.offsetHeight;
+
+          // Animate to natural height
+          gsap.to(element, {
+            height: naturalHeight,
+            opacity: 1,
+            duration: 0.3,
+            ease: "power2.out",
+            onComplete: () => {
+              // Set back to auto after animation completes
+              element.style.height = 'auto';
+            }
+          });
+        } else {
+          // Get current height before collapsing
+          const element = appliedFiltersContent as HTMLElement;
+          const currentHeight = element.offsetHeight;
+
+          // Set fixed height before animating to 0
+          element.style.height = `${currentHeight}px`;
+
+          // Force a reflow to ensure the browser recognizes the fixed height
+          void element.offsetHeight;
+
+          // Animate to 0
+          gsap.to(element, {
+            height: 0,
+            opacity: 0,
+            duration: 0.3,
+            ease: "power2.in"
+          });
+        }
+      }
+    }
   };
 
   onMount(() => {
@@ -380,61 +492,83 @@
 <div class="search-modal-overlay" class:open={$isSearchOpen}>
   <div class="search-modal-container" class:with-filters={showFilters}>
     <div class="search-modal-content" bind:this={searchModalContent}>
-      <div class="search-modal-header">
-        <h2 class="search-modal-title">Search</h2>
-        <button
-          class="search-close-button"
-          on:click={closeSearch}
-          aria-label="Close search"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+      <div class="search-modal-sticky-header">
+        <div class="search-modal-header">
+          <h2 class="search-modal-title">Search</h2>
+          <button
+            class="search-close-button"
+            on:click={closeSearch}
+            aria-label="Close search"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="search-form-sticky">
+          <div class="search-input-container">
+            <svg
+              class="search-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              bind:value={searchValue}
+              bind:this={searchInput}
+              placeholder="Search for products..."
+              class="search-input"
+            />
+          </div>
+
+          <div class="search-actions">
+            <button type="button" class="filter-toggle-button" on:click={toggleFilters}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
+            <button type="button" class="search-button" on:click={handleSubmit}>Search</button>
+          </div>
+        </div>
       </div>
 
-      <form on:submit={handleSubmit} class="search-form">
-        <div class="search-input-container">
-          <svg
-            class="search-icon"
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            bind:value={searchValue}
-            bind:this={searchInput}
-            placeholder="Search for products..."
-            class="search-input"
-          />
-        </div>
-
-        <div class="search-actions">
-          <button type="button" class="filter-toggle-button" on:click={toggleFilters}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-            </svg>
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
-          </button>
-          <button type="submit" class="search-button">Search</button>
-        </div>
-
-        <!-- Applied filters summary -->
+      <div class="search-modal-scrollable-content">
+        <!-- Applied filters summary with collapsible functionality -->
         {#if (filterState.categories.length > 0 || filterState.colors.length > 0 || filterState.sizes.length > 0 || filterState.minPrice > 0 || filterState.maxPrice < 1000 || filterState.sortBy !== 'featured' || filterState.featuredOnly)}
           <div class="current-filters-container">
-            <h3 class="filter-title">Currently Applied Filters:</h3>
-            <div class="current-filters-list">
+            <div class="current-filters-header">
+              <h3 class="filter-title">
+                Applied Filters
+                {#if getTotalFilterCount() > 0}
+                  <span class="filter-count">{getTotalFilterCount()}</span>
+                {/if}
+              </h3>
+              <button
+                type="button"
+                class="collapse-filters-button"
+                on:click={toggleAppliedFilters}
+                aria-label={showAppliedFilters ? 'Collapse filters' : 'Expand filters'}
+                title={showAppliedFilters ? 'Collapse filters' : 'Expand filters'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:rotated={!showAppliedFilters}>
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+              </button>
+            </div>
+            <div class="current-filters-list" class:collapsed={!showAppliedFilters}>
               <!-- Categories -->
               {#if filterState.categories.length > 0}
                 <div class="current-filter-group">
@@ -563,15 +697,21 @@
             <div class="filter-group">
               <h3 class="filter-title">Categories</h3>
               <div class="filter-options categories">
-                {#each categories as category}
-                  <button
-                    type="button"
-                    class="category-chip {filterState.categories.includes(category.name.toLowerCase()) ? 'active' : ''}"
-                    on:click={() => toggleCategory(category.name.toLowerCase())}
-                  >
-                    {category.name}
-                  </button>
-                {/each}
+                {#if $isLoadingFilters}
+                  <p class="loading-message">Loading categories...</p>
+                {:else if $categoriesStore.length === 0}
+                  <p class="no-data-message">No categories available</p>
+                {:else}
+                  {#each $categoriesStore as category}
+                    <button
+                      type="button"
+                      class="category-chip {filterState.categories.includes(category.name.toLowerCase()) ? 'active' : ''}"
+                      on:click={() => toggleCategory(category.name.toLowerCase())}
+                    >
+                      {category.name}
+                    </button>
+                  {/each}
+                {/if}
               </div>
             </div>
 
@@ -579,17 +719,23 @@
             <div class="filter-group">
               <h3 class="filter-title">Colors</h3>
               <div class="filter-options colors">
-                {#each colors as color}
-                  <button
-                    type="button"
-                    class="color-chip {filterState.colors.includes(color.name.toLowerCase()) ? 'active' : ''}"
-                    style="--color-dot: {color.hex};"
-                    on:click={() => toggleColor(color.name.toLowerCase())}
-                  >
-                    <span class="color-dot"></span>
-                    <span class="color-name">{color.name}</span>
-                  </button>
-                {/each}
+                {#if $isLoadingFilters}
+                  <p class="loading-message">Loading colors...</p>
+                {:else if $colorsStore.length === 0}
+                  <p class="no-data-message">No colors available</p>
+                {:else}
+                  {#each $colorsStore as color}
+                    <button
+                      type="button"
+                      class="color-chip {filterState.colors.includes(color.name.toLowerCase()) ? 'active' : ''}"
+                      style="--color-dot: {color.hex};"
+                      on:click={() => toggleColor(color.name.toLowerCase())}
+                    >
+                      <span class="color-dot"></span>
+                      <span class="color-name">{color.name}</span>
+                    </button>
+                  {/each}
+                {/if}
               </div>
             </div>
 
@@ -597,15 +743,21 @@
             <div class="filter-group">
               <h3 class="filter-title">Sizes</h3>
               <div class="filter-options sizes">
-                {#each sizes as size}
-                  <button
-                    type="button"
-                    class="size-chip {filterState.sizes.includes(size.name) ? 'active' : ''}"
-                    on:click={() => toggleSize(size.name)}
-                  >
-                    {size.name}
-                  </button>
-                {/each}
+                {#if $isLoadingFilters}
+                  <p class="loading-message">Loading sizes...</p>
+                {:else if $sizesStore.length === 0}
+                  <p class="no-data-message">No sizes available</p>
+                {:else}
+                  {#each $sizesStore as size}
+                    <button
+                      type="button"
+                      class="size-chip {filterState.sizes.includes(size.name) ? 'active' : ''}"
+                      on:click={() => toggleSize(size.name)}
+                    >
+                      {size.name}
+                    </button>
+                  {/each}
+                {/if}
               </div>
             </div>
 
@@ -780,16 +932,16 @@
             </button>
           </div>
         {/if}
-      </form>
 
-      {#if !showFilters}
-        <div class="search-tips">
-          <p>
-            Try searching for product types (e.g., "dress"), materials (e.g., "silk"),
-            or colors (e.g., "black"). Click "Show Filters" for more options.
-          </p>
-        </div>
-      {/if}
+        {#if !showFilters}
+          <div class="search-tips">
+            <p>
+              Try searching for product types (e.g., "dress"), materials (e.g., "silk"),
+              or colors (e.g., "black"). Click "Show Filters" for more options.
+            </p>
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 </div>
@@ -830,6 +982,7 @@
     max-width: 800px;
   }
 
+  /* Update modal content styles to accommodate sticky header */
   .search-modal-content {
     background-color: white;
     border-radius: 12px;
@@ -837,9 +990,40 @@
     padding: 1.75rem;
     position: relative;
     max-height: 80vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+    overflow: hidden; /* Changed from overflow-y: auto to hidden */
+    -webkit-overflow-scrolling: touch;
     border: 1px solid rgba(212, 175, 55, 0.1);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Sticky header styles - removed background color and box shadow */
+  .search-modal-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.08);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+  }
+
+  .search-form-sticky {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .search-modal-scrollable-content {
+    overflow-y: auto;
+    max-height: calc(80vh - 160px); /* Adjust height to account for sticky header */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+  }
+
+  /* Hide the duplicate form that's only needed for form submission */
+  .search-form {
+    display: none;
   }
 
   .search-modal-header {
@@ -885,12 +1069,7 @@
     transform: rotate(90deg);
   }
 
-  .search-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-  }
-
+  /* Search input container */
   .search-input-container {
     position: relative;
     width: 100%;
@@ -1050,11 +1229,78 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   }
 
+  /* Current filters header styles */
+  .current-filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(145deg, #f8f8f8, #f0f0f0);
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.1);
+  }
+
+  .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-gold);
+    color: white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-left: 0.5rem;
+    box-shadow: 0 2px 4px rgba(212, 175, 55, 0.3);
+  }
+
+  .collapse-filters-button {
+    background: none;
+    border: none;
+    padding: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #666;
+    /* Improved touch target */
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .collapse-filters-button:hover {
+    background-color: rgba(212, 175, 55, 0.1);
+    color: var(--color-gold);
+  }
+
+  .collapse-filters-button svg {
+    transition: transform 0.3s ease;
+  }
+
+  .collapse-filters-button svg.rotated {
+    transform: rotate(180deg);
+  }
+
+  /* Animation styles for collapse/expand */
   .current-filters-list {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     margin-top: 0.75rem;
+    transition: height 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+  }
+
+  .current-filters-list.collapsed {
+    height: 0;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none;
   }
 
   .current-filter-group {
@@ -1704,5 +1950,32 @@
         display: none;
       }
     }
+  }
+
+  /* Mobile adjustments for sticky header */
+  @media (max-width: 640px) {
+    .search-modal-sticky-header {
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .search-modal-scrollable-content {
+      max-height: calc(80vh - 140px);
+    }
+
+    .search-actions {
+      flex-direction: row; /* Keep buttons side by side on smaller screens */
+    }
+  }
+
+  /* Loading and no-data messages */
+  .loading-message,
+  .no-data-message {
+    font-size: 0.9rem;
+    color: #777;
+    font-style: italic;
+    padding: 0.5rem 0;
+    width: 100%;
+    text-align: center;
   }
 </style>
