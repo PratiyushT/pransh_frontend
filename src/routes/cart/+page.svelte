@@ -7,6 +7,9 @@
     removeFromCart,
     updateCartItemQuantity,
     clearCart,
+    savedCart,
+    savedCartCount,
+    restoreSavedCart,
   } from "$lib/stores";
   import { formatPrice } from "$lib/utils/data";
   import gsap from "gsap";
@@ -21,6 +24,8 @@
   let productDetails: Record<string, any> = {};
   let isLoadingProducts = true;
   let loadError = false;
+  let hasSavedItems = false;
+  let isMergingCart = false;
 
   // Calculate subtotal from up-to-date Sanity data
   $: subtotal = $cart.reduce((sum, item) => {
@@ -156,9 +161,17 @@
     }
   };
 
+  // Handler to restore saved cart
+  function handleRestoreSavedCart() {
+    isMergingCart = true;
+    restoreSavedCart();
+    setTimeout(() => {
+      isMergingCart = false;
+    }, 1000);
+  }
+
   // Initialize data fetching when the component mounts
   onMount(() => {
-    console.log("Component mounted, cart items:", $cart.length);
     // Fetch data on mount if cart has items
     if ($cart.length > 0) {
       loadProductDetails();
@@ -192,7 +205,6 @@
   // Watch for cart changes and fetch data when needed
   $: {
     if ($cart.length > 0) {
-      console.log("Cart changed, fetching new data...");
       loadProductDetails();
     } else {
       // Clear product details and loading state when cart is empty
@@ -200,6 +212,10 @@
       isLoadingProducts = false;
     }
   }
+
+  // Watch for saved cart items to show restore notification
+  $: hasSavedItems =
+    $cart.length === 0 && $savedCartCount > 0 && Array.isArray($savedCart) && $savedCart.length > 0;
 </script>
 
 <svelte:head>
@@ -215,6 +231,38 @@
     <h1 class="text-3xl sm:text-4xl font-serif mb-16 text-center elegant-title">
       Shopping Cart
     </h1>
+
+    {#if hasSavedItems}
+      <div class="saved-cart-notification flex flex-col sm:flex-row items-center justify-center bg-gold-light border border-gold rounded-lg px-6 py-5 mb-10 shadow-lg gap-4 animate-fade-in">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-gold-dark flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div class="flex-1 text-center sm:text-left">
+          <span class="text-gold-dark font-semibold text-lg">You have { $savedCartCount } saved item{ $savedCartCount === 1 ? '' : 's' } in your previous cart.</span>
+          <span class="block text-gold-dark/80 text-sm mt-1">Would you like to restore your saved cart?</span>
+        </div>
+        <button
+          class="btn btn-gold px-6 py-2 text-base font-medium rounded transition-colors duration-200 flex items-center gap-2"
+          on:click={handleRestoreSavedCart}
+          disabled={isMergingCart}
+        >
+          {isMergingCart
+            ? (
+              <>
+                <span class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+                Restoring...
+              </>
+            )
+            : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h7V3m0 0l-9 9 9 9m4-7h7v7m0 0l-9-9 9-9" /></svg>
+                Restore Cart
+              </>
+            )
+          }
+        </button>
+      </div>
+    {/if}
 
     <div
       class="grid grid-cols-1 xl:grid-cols-3 gap-8 xl:gap-16 w-full px-2 sm:px-4 xl:px-0"
@@ -786,10 +834,36 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
   }
 
+  /* Saved cart notification styles */
+  .saved-cart-notification {
+    animation: fadeInDown 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-24px);}
+    to { opacity: 1; transform: translateY(0);}
+  }
+
+  .bg-gold-light {
+    background: rgba(255, 245, 217, 0.85);
+  }
+  .text-gold-dark {
+    color: #bfa043;
+  }
+
   @media (max-width: 639px) {
     .elegant-title::after {
       width: 80px;
       bottom: -12px;
+    }
+    .saved-cart-notification {
+      flex-direction: column;
+      align-items: stretch;
+      text-align: center;
+      gap: 0.5rem;
+    }
+    .saved-cart-notification button {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>

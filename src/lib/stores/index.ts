@@ -30,16 +30,44 @@ if (browser) {
 // Cart store (always an array)
 export const cart = writable<CartItem[]>(storedCart);
 
+// Create a store for saved cart items
+export const savedCart = writable<CartItem[]>([]);
+
 // Auto update localStorage on cart change
 if (browser) {
   cart.subscribe(items => {
     localStorage.setItem('cart', JSON.stringify(items));
   });
+
+  // Also save the savedCart to localStorage
+  savedCart.subscribe(items => {
+    if (items.length > 0) {
+      localStorage.setItem('savedCart', JSON.stringify(items));
+    }
+  });
+
+  // Initialize savedCart from localStorage if it exists
+  try {
+    const savedCartData = localStorage.getItem('savedCart');
+    if (savedCartData) {
+      const parsed = JSON.parse(savedCartData);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        savedCart.set(parsed);
+      }
+    }
+  } catch (e) {
+    console.error('Error loading saved cart:', e);
+  }
 }
 
 // Cart count (safe)
 export const cartCount = derived(cart, ($cart) =>
   Array.isArray($cart) ? $cart.reduce((acc, item) => acc + item.quantity, 0) : 0
+);
+
+// Saved cart count (for UI indicator)
+export const savedCartCount = derived(savedCart, ($savedCart) =>
+  Array.isArray($savedCart) ? $savedCart.reduce((acc, item) => acc + item.quantity, 0) : 0
 );
 
 // Add to cart
@@ -87,6 +115,64 @@ export const keepOnlyLastCartItem = () => {
     if (items.length === 0) return items;
     return [items[items.length - 1]];
   });
+};
+
+// Save current cart items and clear cart for direct checkout
+export const saveCartAndClearForDirectCheckout = () => {
+  const currentCart = get(cart);
+
+  // Only save if there are items
+  if (currentCart.length > 0) {
+    savedCart.set(currentCart);
+
+    // Store in localStorage too (as a backup)
+    if (browser) {
+      localStorage.setItem('savedCart', JSON.stringify(currentCart));
+    }
+
+    // Now clear the cart
+    cart.set([]);
+  }
+};
+
+// Restore saved cart items by adding them to the current cart
+export const restoreSavedCart = () => {
+  const currentSavedCart = get(savedCart);
+
+  if (currentSavedCart.length > 0) {
+    // Add all saved items to the current cart
+    cart.update(currentItems => {
+      // Combine saved items with current cart
+      const combinedCart = [...currentItems];
+
+      currentSavedCart.forEach(savedItem => {
+        const existingIndex = combinedCart.findIndex(
+          item => item.productId === savedItem.productId && item.variantId === savedItem.variantId
+        );
+
+        if (existingIndex >= 0) {
+          // If item exists, add quantities
+          combinedCart[existingIndex].quantity += savedItem.quantity;
+        } else {
+          // Otherwise add the item
+          combinedCart.push(savedItem);
+        }
+      });
+
+      return combinedCart;
+    });
+
+    // Clear the saved cart after restoring
+    clearSavedCart();
+  }
+};
+
+// Clear saved cart
+export const clearSavedCart = () => {
+  savedCart.set([]);
+  if (browser) {
+    localStorage.removeItem('savedCart');
+  }
 };
 
 // Clear cart completely

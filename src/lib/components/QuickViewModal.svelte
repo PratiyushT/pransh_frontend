@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatPrice } from "$lib/utils/data";
-  import { addToCart, clearCart } from "$lib/stores";
+  import { addToCart, saveCartAndClearForDirectCheckout, cart } from "$lib/stores";
   import type { Product, Variant } from "$lib/types";
   import { onMount, createEventDispatcher } from "svelte";
   import ColorPieChart from "$lib/components/ColorPieChart.svelte";
@@ -17,6 +17,7 @@
   let activeImageIndex = 0;
   let isAddingToCart = false;
   let addedToCart = false;
+  let showBuyNowTooltip = false;
 
   // Initialize selected variant when product changes
   $: if (product && product.variants.length > 0) {
@@ -107,16 +108,22 @@
 
     isAddingToCart = true;
 
-    // Clear cart first to ensure only this product is processed
-    clearCart();
+    // Save current cart items and clear cart for Buy Now
+    saveCartAndClearForDirectCheckout();
 
     // Add to cart
     addToCart(product._id, selectedVariant._id, quantity);
+
+    // Show tooltip/notification
+    showBuyNowTooltip = true;
 
     // Navigate to checkout with direct=true parameter
     setTimeout(() => {
       handleClose();
       goto('/checkout?direct=true');
+      setTimeout(() => {
+        showBuyNowTooltip = false;
+      }, 3000);
     }, 600);
   }
 
@@ -129,6 +136,7 @@
       activeImageIndex = 0;
       isAddingToCart = false;
       addedToCart = false;
+      showBuyNowTooltip = false;
       // Don't reset selectedVariant here to maintain selection between opens
     }, 300);
   }
@@ -408,27 +416,40 @@
               {/if}
             </button>
 
-            <button
-              class="btn-buy-now"
-              on:click={handleBuyNow}
-              disabled={!inStock || isAddingToCart}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+            <div class="buy-now-wrapper" style="position: relative; flex: 1;">
+              <button
+                class="btn-buy-now"
+                on:click={handleBuyNow}
+                disabled={!inStock || isAddingToCart}
+                on:mouseenter={() => (showBuyNowTooltip = true)}
+                on:mouseleave={() => (showBuyNowTooltip = false)}
+                aria-describedby="buynow-tooltip"
               >
-                <circle cx="12" cy="12" r="10"></circle>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-              <span>Buy Now</span>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span>Buy Now</span>
+              </button>
+              {#if showBuyNowTooltip}
+                <div class="buynow-tooltip" id="buynow-tooltip" role="tooltip">
+                  <span>
+                    <b>Buy Now</b> temporarily clears your cart and checks out only this item.<br />
+                    Your previous cart will be restored after checkout.
+                  </span>
+                </div>
+              {/if}
+            </div>
 
             <a href={`/product/${product.slug}`} class="btn-view-details" data-sveltekit-preload-data="off">
               View Details
@@ -878,6 +899,7 @@
     flex: 1;
     min-width: 0;
     border-radius: 4px;
+    z-index: 2;
   }
 
   .btn-buy-now::before {
@@ -929,6 +951,52 @@
     color: var(--color-gold);
   }
 
+  .buy-now-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .buynow-tooltip {
+    position: absolute;
+    top: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-cream-dark, #fffbe5);
+    color: var(--color-charcoal);
+    border: 1px solid var(--color-gold);
+    border-radius: 6px;
+    font-size: 0.92rem;
+    padding: 0.75em 1em;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    min-width: 230px;
+    max-width: 300px;
+    z-index: 99;
+    text-align: left;
+    pointer-events: none;
+    opacity: 1;
+    animation: buynowTooltipAppear 0.22s cubic-bezier(.4,1.5,.6,1) both;
+  }
+
+  @keyframes buynowTooltipAppear {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  .buynow-tooltip b {
+    color: var(--color-gold);
+    font-weight: 600;
+  }
+
   @media (min-width: 768px) {
     .modal-body {
       grid-template-columns: 1fr 1fr;
@@ -947,12 +1015,21 @@
     }
 
     .btn-add-to-cart,
-    .btn-buy-now {
+    .btn-buy-now,
+    .buy-now-wrapper {
       flex: 1 1 calc(50% - 0.5rem);
     }
 
     .btn-view-details {
       flex: 0 0 100%;
+    }
+    .buynow-tooltip {
+      min-width: 180px;
+      max-width: 90vw;
+      font-size: 0.96rem;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
     }
   }
 </style>

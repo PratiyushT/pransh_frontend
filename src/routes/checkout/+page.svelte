@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { cart, keepOnlyLastCartItem } from '$lib/stores';
+  import { cart, keepOnlyLastCartItem, savedCart, savedCartCount, restoreSavedCart } from '$lib/stores';
   import { getCartProductDetails } from '$lib/sanity/sanityData';
   import { formatPrice } from '$lib/utils/data';
   import AddressSearch from '$lib/components/AddressSearch.svelte';
@@ -20,6 +20,11 @@
   // Check if this is a direct checkout (Buy Now functionality)
   let isDirectCheckout = false;
   let directCheckoutItem = null;
+
+  // Saved cart notification state
+  let showSavedCartNotification = false;
+  let savedCartInfo = { itemCount: 0, totalPrice: 0 };
+  let isMergingCart = false;
 
   // Form validation
   let formSubmitted = false;
@@ -72,6 +77,43 @@
 
   // Compute the cart items to display
   $: displayedCart = $cart;
+
+  // Check if there are saved items to restore
+  $: hasSavedItems = $savedCartCount > 0;
+
+  // Update saved cart notification info
+  $: {
+    if ($savedCartCount > 0) {
+      showSavedCartNotification = true;
+      savedCartInfo.itemCount = $savedCartCount;
+      // Calculate total price for saved items if not already set
+      if ($savedCart && Array.isArray($savedCart)) {
+        // If productDetails for savedCart items are loaded, show price
+        let total = 0;
+        for (const item of $savedCart) {
+          const details = productDetails[`${item.productId}___${item.variantId}`];
+          if (details) {
+            total += details.variant.price * item.quantity;
+          }
+        }
+        savedCartInfo.totalPrice = total;
+      }
+    } else {
+      showSavedCartNotification = false;
+    }
+  }
+
+  // Handler to restore saved cart items
+  function handleRestoreSavedCart() {
+    isMergingCart = true;
+    restoreSavedCart();
+
+    // After a short delay, hide the notification and reset the loading state
+    setTimeout(() => {
+      showSavedCartNotification = false;
+      isMergingCart = false;
+    }, 1000);
+  }
 
   $: subtotal = displayedCart.reduce((sum, item) => {
     const details = productDetails[`${item.productId}___${item.variantId}`];
@@ -269,6 +311,28 @@
 
 <section class="checkout-wrapper section">
   <h1 class="checkout-title">Checkout</h1>
+
+  {#if showSavedCartNotification}
+    <div class="saved-cart-notification">
+      <div class="saved-cart-text">
+        <span>
+          {isMergingCart
+            ? 'Restoring saved items...'
+            : `You have ${savedCartInfo.itemCount} saved item${savedCartInfo.itemCount === 1 ? '' : 's'} in your cart.`}
+        </span>
+        {#if savedCartInfo.totalPrice > 0}
+          <span class="saved-cart-total">({formatPrice(savedCartInfo.totalPrice)})</span>
+        {/if}
+      </div>
+      <button
+        class="restore-saved-cart-btn"
+        on:click={handleRestoreSavedCart}
+        disabled={isMergingCart}
+      >
+        {isMergingCart ? 'Restoring...' : 'Restore Items'}
+      </button>
+    </div>
+  {/if}
 
   {#if isLoadingProducts}
     <div class="checkout-loading">Loading cart details…</div>
@@ -674,6 +738,47 @@
   border-radius: 0.375rem;
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
+}
+
+/* Saved cart notification styles */
+.saved-cart-notification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f6f7eb;
+  border: 1px solid #e8e3c1;
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+  animation: fadeIn 0.3s;
+  gap: 1.5rem;
+}
+.saved-cart-text {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 1rem;
+  color: #927d3c;
+}
+.saved-cart-total {
+  color: #ad974f;
+  font-weight: 600;
+}
+.restore-saved-cart-btn {
+  background: var(--color-gold, #ad974f);
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.55rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.restore-saved-cart-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Shipping form styles */

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { formatPrice } from '$lib/utils/data';
-  import { addToCart, isInWishlist, toggleWishlist, clearCart } from '$lib/stores';
+  import { addToCart, isInWishlist, toggleWishlist, saveCartAndClearForDirectCheckout, cart } from '$lib/stores';
   import ProductCard from '$lib/components/ProductCard.svelte';
   import ColorPieChart from '$lib/components/ColorPieChart.svelte';
   import { goto } from '$app/navigation';
+  import { get } from 'svelte/store';
 
   let accordionStates = {
     features: true,
@@ -203,8 +204,8 @@
     if (product && selectedVariant) {
       isBuyingNow = true;
 
-      // Clear cart first to ensure only this product is in the cart
-      clearCart();
+      // Save current cart items and clear cart for Buy Now
+      saveCartAndClearForDirectCheckout();
 
       // Add the current product to cart
       addToCart(product._id, selectedVariant._id, quantity);
@@ -431,61 +432,82 @@
             </div>
           </div>
 
-          <div class="product-actions">
-            <button
-              class="btn-add-to-cart {isAddingToCart ? 'adding' : ''} {addedToCart ? 'added' : ''}"
-              on:click={handleAddToCart}
-              disabled={!inStock || isAddingToCart || isBuyingNow}
-            >
-              {#if isAddingToCart}
-                <svg class="spinner" viewBox="0 0 50 50">
-                  <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
-                </svg>
-                <span>Adding...</span>
-              {:else if addedToCart}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span>Added</span>
-              {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="9" cy="21" r="1"></circle>
-                  <circle cx="20" cy="21" r="1"></circle>
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                </svg>
-                <span>Add to Cart</span>
-              {/if}
-            </button>
+          <!-- Product Actions with Buy Now Tooltip -->
+          <div class="product-detail-actions">
+            {#if inStock}
+              <div class="flex flex-col md:flex-row gap-4 items-stretch">
+                <div class="add-to-cart-button-container">
+                  <button
+                    class="add-to-cart-button btn-add-to-cart {isAddingToCart ? 'adding' : ''} {addedToCart ? 'added' : ''}"
+                    on:click={handleAddToCart}
+                    disabled={!inStock || isAddingToCart || isBuyingNow}
+                  >
+                    {#if isAddingToCart && !addedToCart}
+                      <svg class="spinner" viewBox="0 0 50 50">
+                        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                      </svg>
+                      <span>Adding...</span>
+                    {:else if addedToCart}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                      <span>Added</span>
+                    {:else}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                      </svg>
+                      <span>Add to Cart</span>
+                    {/if}
+                  </button>
+                </div>
 
-            <button
-              class="btn-buy-now {isBuyingNow ? 'buying' : ''}"
-              on:click={handleBuyNow}
-              disabled={!inStock || isAddingToCart || isBuyingNow}
-            >
-              {#if isBuyingNow}
-                <svg class="spinner" viewBox="0 0 50 50">
-                  <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
-                </svg>
-                <span>Processing...</span>
-              {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                <span>Buy Now</span>
-              {/if}
-            </button>
+                <div class="buy-now-button-container relative">
+                  <button
+                    class="buy-now-button btn-buy-now {isBuyingNow ? 'buying' : ''}"
+                    on:click={handleBuyNow}
+                    disabled={!inStock || isAddingToCart || isBuyingNow}
+                    title="Go directly to checkout with this item"
+                    on:mouseenter={() => showBuyNowTooltip = true}
+                    on:mouseleave={() => showBuyNowTooltip = false}
+                    on:focus={() => showBuyNowTooltip = true}
+                    on:blur={() => showBuyNowTooltip = false}
+                  >
+                    {#if isBuyingNow}
+                      <svg class="spinner" viewBox="0 0 50 50">
+                        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                      </svg>
+                      <span>Processing...</span>
+                    {:else}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                      <span>Buy Now</span>
+                    {/if}
+                  </button>
+                  <div class="buy-now-tooltip" tabindex="-1">
+                    <span>Go directly to checkout with this item.</span>
+                    {#if $cart.length > 1}
+                      <span class="font-semibold block">Your current cart items will be saved for later.</span>
+                    {/if}
+                  </div>
+                </div>
 
-            <button
-              class="btn-wishlist {isWishlisted ? 'active' : ''}"
-              on:click={handleToggleWishlist}
-              aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-              </svg>
-            </button>
+                <button
+                  class="btn-wishlist {isWishlisted ? 'active' : ''}"
+                  on:click={handleToggleWishlist}
+                  aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                  </svg>
+                </button>
+              </div>
+            {/if}
           </div>
+          <!-- End Product Actions with Buy Now Tooltip -->
 
           <div class="product-meta">
             <div class="meta-item">
@@ -1030,22 +1052,59 @@
     color: red;
   }
 
-  .product-actions {
-    display: flex;
-    gap: 0.6rem;
+  .product-detail-actions {
     margin: 2rem 0;
-    align-items: center;
-    flex-wrap: nowrap;
+  }
+  .add-to-cart-button-container,
+  .buy-now-button-container {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    align-items: stretch;
+  }
+  .buy-now-button-container {
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+    flex: 1 1 0;
+  }
+  .buy-now-tooltip {
+    display: none;
+    position: absolute;
+    z-index: 20;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 110%;
+    min-width: 220px;
+    background: #282828;
+    color: #fff;
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    font-size: 0.98rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.20);
+    pointer-events: none;
+    opacity: 0.95;
+    text-align: center;
+    white-space: normal;
+    transition: opacity 0.2s;
+  }
+  .buy-now-button-container:hover .buy-now-tooltip,
+  .buy-now-button-container:focus-within .buy-now-tooltip {
+    display: block;
+  }
+  .buy-now-tooltip .font-semibold {
+    font-weight: 600;
+    color: #ffd700;
+    display: block;
+    margin-top: 0.4em;
   }
 
-  .btn-add-to-cart {
-    flex: 1;
+  .add-to-cart-button,
+  .buy-now-button {
+    flex: 1 1 0;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    background-color: var(--color-gold);
-    color: var(--color-white);
     border: none;
     padding: 0.875rem 0.75rem;
     font-size: 0.95rem;
@@ -1061,40 +1120,39 @@
     white-space: nowrap;
     text-overflow: ellipsis;
   }
-
-  .btn-add-to-cart::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(255, 255, 255, 0.2);
-    transform: translateX(-100%);
-    transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
-    z-index: 0;
+  .add-to-cart-button {
+    background-color: var(--color-gold);
+    color: var(--color-white);
   }
-
-  .btn-add-to-cart:hover:not([disabled])::before {
-    transform: translateX(0);
-  }
-
-  .btn-add-to-cart:hover:not([disabled]) {
-    background-color: var(--color-gold-dark, #a9852f);
-  }
-
-  .btn-add-to-cart:disabled {
+  .add-to-cart-button:disabled {
     opacity: 0.7;
     cursor: not-allowed;
     background-color: var(--color-charcoal-light);
   }
-
-  .btn-add-to-cart.adding {
+  .add-to-cart-button.adding {
     background-color: var(--color-gold);
   }
-
-  .btn-add-to-cart.added {
+  .add-to-cart-button.added {
     background-color: green;
+  }
+  .add-to-cart-button:hover:not([disabled]) {
+    background-color: var(--color-gold-dark, #a9852f);
+  }
+  .buy-now-button {
+    background-color: var(--color-charcoal);
+    color: var(--color-white);
+  }
+  .buy-now-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background-color: var(--color-charcoal-light);
+  }
+  .buy-now-button.buying {
+    background-color: var(--color-charcoal);
+    opacity: 0.9;
+  }
+  .buy-now-button:hover:not([disabled]) {
+    background-color: var(--color-charcoal-dark, #1a1a1a);
   }
 
   .spinner {
@@ -1130,62 +1188,6 @@
     }
   }
 
-  .btn-buy-now {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    background-color: var(--color-charcoal);
-    color: var(--color-white);
-    border: none;
-    padding: 0.875rem 0.75rem;
-    font-size: 0.95rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(.77,0,.18,1);
-    position: relative;
-    overflow: hidden;
-    border-radius: 8px;
-    min-width: 0;
-    min-height: 0;
-    outline: none;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .btn-buy-now::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(255, 255, 255, 0.2);
-    transform: translateX(-100%);
-    transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
-    z-index: 0;
-  }
-
-  .btn-buy-now:hover:not([disabled])::before {
-    transform: translateX(0);
-  }
-
-  .btn-buy-now:hover:not([disabled]) {
-    background-color: var(--color-charcoal-dark, #1a1a1a);
-  }
-
-  .btn-buy-now:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    background-color: var(--color-charcoal-light);
-  }
-
-  .btn-buy-now.buying {
-    background-color: var(--color-charcoal);
-    opacity: 0.9;
-  }
-
   .btn-wishlist {
     width: 50px;
     height: 50px;
@@ -1201,6 +1203,7 @@
     outline: none;
     padding: 0;
     font-size: 1.2rem;
+    margin-left: 0.5rem;
   }
 
   .btn-wishlist:hover {
@@ -1424,19 +1427,25 @@
       min-height: 220px;
       max-height: 320px;
     }
-    .product-actions {
-      flex-direction: row;
-      flex-wrap: wrap;
+    .product-detail-actions {
+      flex-direction: column;
       gap: 0.5rem;
     }
-    .btn-add-to-cart,
-    .btn-buy-now {
-      flex: 1 1 calc(50% - 0.5rem);
+    .add-to-cart-button,
+    .buy-now-button {
+      flex: 1 1 100%;
       padding: 0.75rem 0.5rem;
       font-size: 0.9rem;
     }
     .btn-wishlist {
       flex: 0 0 auto;
+      margin-left: 0.5rem;
+    }
+    .buy-now-tooltip {
+      min-width: 180px;
+      font-size: 0.93rem;
+      left: 50%;
+      transform: translateX(-50%);
     }
   }
 

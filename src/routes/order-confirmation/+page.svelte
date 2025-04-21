@@ -2,14 +2,28 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import gsap from 'gsap';
+  import { savedCartCount, restoreSavedCart } from '$lib/stores';
+  import { goto } from '$app/navigation';
 
   let orderNumber = '';
   let loading = true;
+  let hasSavedItems = false;
+  let savedItemsCount = 0;
+
+  // Handler to restore saved cart and go to cart page
+  function handleRestoreSavedCartAndGoToCart() {
+    restoreSavedCart();
+    goto('/cart');
+  }
 
   onMount(() => {
     // Get order number from URL query parameter
     orderNumber = $page.url.searchParams.get('order') || 'PRN-00000000';
     loading = false;
+
+    // Check if there are saved items
+    hasSavedItems = $savedCartCount > 0;
+    savedItemsCount = $savedCartCount;
 
     // Add animation
     gsap.from('.confirmation-icon', {
@@ -26,6 +40,17 @@
       delay: 0.4,
       ease: 'power2.out',
     });
+
+    // Animate saved cart notification if it exists
+    if (hasSavedItems) {
+      gsap.from('.saved-cart-notification', {
+        y: 20,
+        opacity: 0,
+        duration: 0.5,
+        delay: 0.8,
+        ease: 'power2.out',
+      });
+    }
   });
 
   // Format date as Month Day, Year
@@ -72,6 +97,21 @@
           </p>
         </div>
       </div>
+
+      {#if hasSavedItems}
+        <div class="saved-cart-notification mb-12 p-6 bg-yellow-100 border border-yellow-400 rounded-md text-yellow-900 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <strong>{savedItemsCount}</strong> {savedItemsCount === 1 ? 'item' : 'items'} saved in your cart from a previous visit.
+          </div>
+          <button
+            class="btn btn-primary px-5 py-2 text-sm font-semibold rounded cursor-pointer"
+            on:click={handleRestoreSavedCartAndGoToCart}
+            aria-label="Restore saved cart and go to cart page"
+          >
+            Restore Cart & View
+          </button>
+        </div>
+      {/if}
 
       <div class="bg-white p-8 sm:p-12 shadow-xl rounded-md transition-all duration-300 border border-gray-300 mb-12">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 pb-10 border-b">
@@ -214,5 +254,9 @@
 
   .animate-spin {
     animation: spin 1s linear infinite;
+  }
+
+  .saved-cart-notification button {
+    min-width: 140px;
   }
 </style>
