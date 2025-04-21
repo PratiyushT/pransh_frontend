@@ -106,11 +106,37 @@ if (browser) {
 
 export const wishlist = writable<string[]>(storedWishlist);
 
-// Auto update localStorage on wishlist change
+// Auto update localStorage on wishlist change and sync to cookies
 if (browser) {
   wishlist.subscribe(items => {
     localStorage.setItem('wishlist', JSON.stringify(items));
+
+    // Also sync to cookies so server-side functions can access it
+    try {
+      document.cookie = `wishlist=${encodeURIComponent(JSON.stringify(items))}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch (e) {
+      console.error('Error syncing wishlist to cookies', e);
+    }
   });
+}
+
+/**
+ * Synchronize wishlist from localStorage to cookies.
+ * Useful to call on app startup or when you want to ensure cookies are in sync.
+ */
+export function syncWishlistToCookies() {
+  if (!browser) return;
+  try {
+    const rawWishlist = localStorage.getItem('wishlist');
+    if (rawWishlist) {
+      const parsed = JSON.parse(rawWishlist);
+      if (Array.isArray(parsed)) {
+        document.cookie = `wishlist=${encodeURIComponent(JSON.stringify(parsed))}; path=/; max-age=31536000; SameSite=Lax`;
+      }
+    }
+  } catch (e) {
+    console.error('Error syncing wishlist to cookies', e);
+  }
 }
 
 export const wishlistCount = derived(wishlist, $wishlist => $wishlist.length);

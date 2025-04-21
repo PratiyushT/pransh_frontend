@@ -1,21 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { wishlist, wishlistCount, isInWishlist, removeFromWishlist, addToCart, clearCart, addToWishlist } from '$lib/stores';
-  import { formatPrice, getProducts } from '$lib/utils/data';
+  import { formatPrice } from '$lib/utils/data';
   import type { Product } from '$lib/types';
   import gsap from 'gsap';
   import ProductCard from '$lib/components/ProductCard.svelte';
   import QuickViewModal from '$lib/components/QuickViewModal.svelte';
 
-  // Products data - we need to fetch complete products by their IDs
-  let products: Product[] = [];
-  let isLoading = true;
+  // Get product data from server
+  export let data;
+  let products: Product[] = data.wishlistProducts || [];
+  let isLoading = false;
   let removingProduct = false;
   let showClearConfirm = false;
   let lastRemovedProduct: string | null = null;
   let addingAllToCart = false;
   let quickViewProduct = null;
   let quickViewOpen = false;
+  let error = data.error || null;
 
   // Handle quick view
   const handleQuickView = (event) => {
@@ -29,29 +31,6 @@
     quickViewOpen = false;
     // Re-enable scrolling when modal closes
     document.body.style.overflow = '';
-  };
-
-  // Fetch product data for each product in wishlist
-  const fetchWishlistProducts = async () => {
-    isLoading = true;
-
-    try {
-      // Simulate API fetch delay for a smoother UX
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Use the data utility function instead of accessing mockProductsData directly
-      const allProducts: Product[] = getProducts();
-
-      // Filter only products that are in the wishlist
-      products = allProducts.filter(p => $wishlist.includes(p._id));
-
-    } catch (error) {
-      console.error('Error fetching wishlist products:', error);
-      // If fetch fails, we'll just use empty array
-      products = [];
-    } finally {
-      isLoading = false;
-    }
   };
 
   // Handle moving an item from wishlist to cart with enhanced animation
@@ -74,8 +53,10 @@
 
     button.appendChild(circle);
 
-    // Add the first variant to cart
-    addToCart(product, 0, 1);
+    // Add the first variant to cart (if product has variants)
+    if (product.variants && product.variants.length > 0) {
+      addToCart(product._id, product.variants[0]._id, 1);
+    }
 
     // Create a visual clone of the product card that moves to the cart icon
     const productCard = (event.currentTarget as HTMLElement).closest('.favorite-card');
@@ -245,7 +226,9 @@
 
         // Add to cart with a small delay between each
         setTimeout(() => {
-          addToCart(product, 0, 1);
+          if (product.variants && product.variants.length > 0) {
+            addToCart(product._id, product.variants[0]._id, 1);
+          }
         }, index * 100);
 
         // Animate dot to cart
@@ -281,7 +264,9 @@
     } else {
       // Fallback if cart icon not found
       products.forEach(product => {
-        addToCart(product, 0, 1);
+        if (product.variants && product.variants.length > 0) {
+          addToCart(product._id, product.variants[0]._id, 1);
+        }
       });
       wishlist.set([]);
       products = [];
@@ -300,11 +285,18 @@
     }
   };
 
-  // Load data on component mount
-  onMount(async () => {
-    // Load wishlist products
-    await fetchWishlistProducts();
+  // Sync UI when wishlist changes (for when items are added/removed elsewhere)
+  $: if ($wishlist) {
+    if ($wishlist.length !== products.length) {
+      // If the length doesn't match, we need to update our products list
+      // This is a simplified approach - in a real app with server data,
+      // you'd want to trigger a refresh from the server
+      products = products.filter(p => $wishlist.includes(p._id));
+    }
+  }
 
+  // Load page animations
+  onMount(() => {
     // Add page animations
     const favoriteItems = document.querySelectorAll('.favorite-card');
     const pageTitle = document.querySelector('.page-title');
@@ -326,16 +318,6 @@
       ease: "power2.out",
       delay: 0.2
     });
-
-    // Subscribe to wishlist changes
-    const unsubscribe = wishlist.subscribe(async ids => {
-      if (ids.length !== products.length) {
-        // Only refetch if the count of items changed
-        await fetchWishlistProducts();
-      }
-    });
-
-    return unsubscribe;
   });
 </script>
 
@@ -386,10 +368,15 @@
       </div>
       <p class="mt-4 text-gray-600">Loading your favorites...</p>
     </div>
-  {:else if $wishlistCount > 0}
+  {:else if error}
+    <div class="bg-red-50 text-red-800 p-6 rounded-md text-center">
+      <p class="mb-4">There was an error loading your wishlist</p>
+      <p class="text-sm text-red-600">{error}</p>
+    </div>
+  {:else if products && products.length > 0}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
       {#each products as product}
-        <div class="product-card-wrapper">
+        <div class="product-card-wrapper favorite-card">
           <ProductCard {product} on:quickview={handleQuickView} />
         </div>
       {/each}
@@ -441,7 +428,6 @@
   {/if}
 </div>
 
-<!-- Confirmation modal for clear wishlist -->
 {#if showClearConfirm}
   <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-md p-6 max-w-sm w-full shadow-xl transform transition-all">

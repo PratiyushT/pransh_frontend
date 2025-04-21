@@ -5,21 +5,17 @@
   import ProductCard from '$lib/components/ProductCard.svelte';
   import ColorPieChart from '$lib/components/ColorPieChart.svelte';
 
-  // Add accordion state
   let accordionStates = {
     features: true,
     care: false,
     delivery: false
   };
 
-  // Get product data from server load function
   export let data;
   const { product, relatedProducts, error: productError } = data;
 
-  // If error is defined, display error message
   $: errorMessage = productError?.message || (product === null ? 'Product not found' : null);
 
-  // Only set up product-related variables if we have a product
   let selectedVariantIndex = 0;
   let selectedSize = '';
   let selectedColor = null;
@@ -33,16 +29,14 @@
 
   $: selectedVariant = product?.variants[selectedVariantIndex] || null;
 
-  // Make sure we show all available colors, not filtered by size
   $: availableColors = product
     ? [...new Map(
         product.variants
-          .filter(v => v.color) // Just filter out variants without colors
+          .filter(v => v.color)
           .map(v => [v.color._id, v.color])
       ).values()]
     : [];
 
-  // Get sizes based on the selected color
   $: availableSizes = product && selectedColor
     ? [...new Set(
         product.variants
@@ -51,14 +45,11 @@
       )]
     : [];
 
-  // Fix for variant images to correctly display variant images based on selected color
   $: variantImages = product
     ? (() => {
-        // Filter variants by selected color
         const filteredVariants = product.variants
           .filter(v => v.color && selectedColor && v.color._id === selectedColor._id);
 
-        // If we have variants with the selected color, get their images
         if (filteredVariants.length > 0) {
           const images = filteredVariants
             .flatMap(v => v.images || [])
@@ -69,25 +60,19 @@
             return images;
           }
         }
-
-        // Fallback - if no images for selected color or no variants,
-        // return the product's main image if it exists
         return product.image ? [{ url: product.image }] : [];
       })()
     : [];
 
-  // Update wishlist state when product changes
   $: if (product) {
     isWishlisted = isInWishlist(product._id);
   }
 
-  // Initialize selectedSize and selectedColor if product exists
   $: if (product && product.variants && product.variants.length > 0) {
     if (!selectedColor && product.variants[0]?.color) {
       selectedColor = product.variants[0]?.color;
     }
     if (!selectedSize) {
-      // Pick the first size for the selected color, or first overall
       if (selectedColor) {
         const variantWithColor = product.variants.find(v => v.color && v.color._id === selectedColor._id);
         if (variantWithColor) {
@@ -99,7 +84,6 @@
         selectedSize = product.variants[0]?.size?.name || '';
       }
     }
-    // Ensure selectedVariantIndex matches selectedColor and selectedSize
     const idx = product.variants.findIndex(
       v =>
         v.color &&
@@ -113,11 +97,9 @@
     }
   }
 
-  // Handle size selection
   const selectSize = (size: string) => {
     selectedSize = size;
 
-    // Find a variant with the selected size and color
     const variantIndex = product?.variants.findIndex(
       v => v.size.name === selectedSize && (selectedColor ? v.color._id === selectedColor._id : true)
     );
@@ -127,7 +109,6 @@
       selectedColor = product?.variants[variantIndex].color;
       activeImage = 0;
     } else {
-      // If no variant found with selected size and color, just find one with selected size
       const sizeVariantIndex = product?.variants.findIndex(v => v.size.name === selectedSize);
       if (sizeVariantIndex !== -1 && sizeVariantIndex !== undefined) {
         selectedVariantIndex = sizeVariantIndex;
@@ -137,36 +118,29 @@
     }
   };
 
-  // Fix the color selection function to properly update images
   const selectColor = (color) => {
     if (color) {
       selectedColor = color;
 
-      // Find any variant with this color first
       const firstColorVariant = product?.variants.find(v =>
         v.color && v.color._id === color._id
       );
 
       if (firstColorVariant) {
-        // Update size if needed
         if (!availableSizes.includes(selectedSize)) {
-          // If current size isn't available for this color, select the first size
           selectedSize = firstColorVariant.size.name;
         }
 
-        // Now find the specific variant with this color AND selected size
         const specificVariant = product?.variants.find(v =>
           v.color && v.color._id === color._id && v.size.name === selectedSize
         );
 
         if (specificVariant) {
-          // Find the index of this variant
           const variantIndex = product?.variants.findIndex(v => v._id === specificVariant._id);
           if (variantIndex !== -1) {
             selectedVariantIndex = variantIndex;
           }
         } else {
-          // If we can't find the exact variant, just use the first one with this color
           const colorVariantIndex = product?.variants.findIndex(v => v._id === firstColorVariant._id);
           if (colorVariantIndex !== -1) {
             selectedVariantIndex = colorVariantIndex;
@@ -174,19 +148,15 @@
           }
         }
       }
-
-      // Always reset active image when changing color
       activeImage = 0;
     }
   };
 
-  // Handle thumbnail click
   const setActiveImage = (index) => {
     activeImage = index;
     zoomedImage = false;
   };
 
-  // Handle image zoom
   const toggleZoom = (e) => {
     if (!zoomedImage) {
       zoomedImage = true;
@@ -196,7 +166,6 @@
     }
   };
 
-  // Update zoom position
   const updateZoomPosition = (e) => {
     if (zoomedImage) {
       const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -206,7 +175,6 @@
     }
   };
 
-  // Handle quantity changes
   const decreaseQuantity = () => {
     if (quantity > 1) quantity--;
   };
@@ -215,18 +183,13 @@
     if (quantity < selectedVariant?.stock) quantity++;
   };
 
-  // Handle add to cart
   const handleAddToCart = () => {
     if (product && selectedVariant) {
       isAddingToCart = true;
-
-      // Simulate a small delay for animation purposes
       setTimeout(() => {
         addToCart(product._id, selectedVariant._id, quantity);
         isAddingToCart = false;
         addedToCart = true;
-
-        // Reset the added state after a brief delay
         setTimeout(() => {
           addedToCart = false;
         }, 2000);
@@ -234,7 +197,6 @@
     }
   };
 
-  // Handle toggle wishlist
   const handleToggleWishlist = () => {
     if (product) {
       toggleWishlist(product._id);
@@ -258,7 +220,7 @@
 </svelte:head>
 
 <section class="section product-detail-section">
-  <div class="container">
+  <div class="container product-detail-container">
     {#if errorMessage}
       <div class="not-found">
         <h1>{errorMessage}</h1>
@@ -283,38 +245,39 @@
       <div class="product-detail">
         <!-- Product Images -->
         <div class="product-images">
-          <div
-            class="product-main-image-container {zoomedImage ? 'zoomed' : ''}"
-            on:click={toggleZoom}
-            on:keydown={(e) => e.key === 'Enter' && toggleZoom(e)}
-            role="button"
-            tabindex="0"
-            aria-label="Click to zoom image"
-          >
-            {#if product.isFeatured}
-              <div class="product-featured-badge">Featured</div>
-            {/if}
-            <img
-              src={(variantImages && variantImages.length > 0) ?
-                  variantImages[activeImage]?.url || product?.image || "/images/product-placeholder.jpg" :
-                  product?.image || "/images/product-placeholder.jpg"}
-              alt={product.name}
-              class="product-main-image"
-              style={zoomedImage ? `transform: scale(1.5); transform-origin: ${zoomPosition.x}% ${zoomPosition.y}%` : ''}
-              on:error={handleProductImageError}
-              on:mousemove={updateZoomPosition}
+          <div class="product-main-image-wrapper">
+            <div
+              class="product-main-image-container {zoomedImage ? 'zoomed' : ''}"
+              on:click={toggleZoom}
+              on:keydown={(e) => e.key === 'Enter' && toggleZoom(e)}
+              role="button"
+              tabindex="0"
+              aria-label="Click to zoom image"
             >
-            <div class="zoom-instruction {zoomedImage ? 'hidden' : ''}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                <line x1="11" y1="8" x2="11" y2="14"></line>
-                <line x1="8" y1="11" x2="14" y2="11"></line>
-              </svg>
-              <span>Click to zoom</span>
+              {#if product.isFeatured}
+                <div class="product-featured-badge">Featured</div>
+              {/if}
+              <img
+                src={(variantImages && variantImages.length > 0) ?
+                    variantImages[activeImage]?.url || product?.image || "/images/product-placeholder.jpg" :
+                    product?.image || "/images/product-placeholder.jpg"}
+                alt={product.name}
+                class="product-main-image"
+                style={zoomedImage ? `transform: scale(1.5); transform-origin: ${zoomPosition.x}% ${zoomPosition.y}%` : ''}
+                on:error={handleProductImageError}
+                on:mousemove={updateZoomPosition}
+              >
+              <div class="zoom-instruction {zoomedImage ? 'hidden' : ''}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  <line x1="11" y1="8" x2="11" y2="14"></line>
+                  <line x1="8" y1="11" x2="14" y2="11"></line>
+                </svg>
+                <span>Click to zoom</span>
+              </div>
             </div>
           </div>
-
           {#if variantImages && variantImages.length > 1}
             <div class="product-thumbnails">
               {#each variantImages as image, index}
@@ -615,10 +578,11 @@
             <h2>You May Also Like</h2>
             <div class="title-underline"></div>
           </div>
-
-          <div class="product-grid">
+          <div class="product-grid related-product-grid">
             {#each relatedProducts as relatedProduct}
-              <ProductCard product={relatedProduct} />
+              <div class="related-product-card-wrapper">
+                <ProductCard product={relatedProduct} />
+              </div>
             {/each}
           </div>
         </div>
@@ -633,6 +597,12 @@
     padding-bottom: 2rem;
     background: var(--color-cream-light, #f9f6f1);
     min-height: 100vh;
+  }
+
+  .product-detail-container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
   }
 
   .breadcrumbs-container {
@@ -664,6 +634,13 @@
     border-radius: 0;
   }
 
+  .product-main-image-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
   .product-main-image-container {
     position: relative;
     overflow: hidden;
@@ -677,6 +654,7 @@
     justify-content: center;
     min-height: 320px;
     max-height: 520px;
+    width: 100%;
   }
 
   .product-main-image-container.zoomed {
@@ -729,6 +707,7 @@
     flex-wrap: wrap;
     justify-content: flex-start;
     align-items: center;
+    width: 100%;
   }
 
   .product-thumbnail-btn {
@@ -1258,13 +1237,245 @@
     color: var(--color-charcoal-light);
   }
 
+  /* --- Related Products Grid Styling --- */
   .product-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 2rem;
     margin-top: 2rem;
+    width: 100%;
   }
 
+  .related-product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 2rem;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .related-product-card-wrapper {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: stretch;
+  }
+
+  .related-product-card-wrapper :global(.product-card) {
+    margin: 0 !important;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .related-product-card-wrapper :global(.product-card-image) {
+    object-fit: cover !important;
+    width: 100% !important;
+    height: 220px !important;
+    min-height: 180px;
+    max-height: 260px;
+    border-radius: 8px 8px 0 0;
+    background: #f8f8f8;
+    display: block;
+  }
+
+  @media (max-width: 767px) {
+    .product-detail-container {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+    .product-detail {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .product-grid,
+    .related-product-grid {
+      grid-template-columns: repeat(1, 1fr);
+      gap: 1.5rem;
+    }
+    .breadcrumbs-container {
+      margin-bottom: 1.5rem;
+    }
+    .product-featured-badge {
+      top: 0.75rem;
+      left: 0.75rem;
+      font-size: 0.6rem;
+      padding: 0.3rem 0.6rem;
+    }
+    .product-featured-label {
+      margin-left: 0.5rem;
+      font-size: 0.6rem;
+      padding: 0.2rem 0.5rem;
+      transform: translateY(-3px);
+    }
+    .product-info-title {
+      font-size: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .related-product-card-wrapper :global(.product-card-image) {
+      height: 140px !important;
+      min-height: 100px;
+      max-height: 180px;
+    }
+    .product-main-image-container {
+      min-height: 220px;
+      max-height: 320px;
+    }
+    .product-main-image {
+      min-height: 220px;
+      max-height: 320px;
+    }
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .product-detail-container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+    .product-grid,
+    .related-product-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+    .related-product-card-wrapper :global(.product-card-image) {
+      height: 180px !important;
+      min-height: 120px;
+      max-height: 220px;
+    }
+    .product-main-image-container {
+      min-height: 320px;
+      max-height: 400px;
+    }
+    .product-main-image {
+      min-height: 320px;
+      max-height: 400px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .product-detail-container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+    .product-detail {
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      margin-bottom: 7rem;
+    }
+    .product-images {
+      padding: 2.5rem 2.5rem 2.5rem 3.5rem;
+      border-radius: 12px 0 0 12px;
+      min-width: 0;
+      max-width: none;
+      min-height: 0;
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .product-main-image-wrapper {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .product-main-image-container {
+      min-width: 0;
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      min-height: 400px;
+      max-height: 600px;
+      aspect-ratio: 1;
+    }
+    .product-main-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      max-height: 600px;
+      min-height: 400px;
+    }
+    .product-info {
+      padding: 2.5rem 3.5rem 2.5rem 2.5rem;
+      border-radius: 0 12px 12px 0;
+      flex: 1;
+      width: 100%;
+    }
+    .product-info-title {
+      font-size: 3rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .product-detail-container {
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
+    }
+    .product-detail {
+      gap: 0;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .product-detail-section {
+      padding-top: 3rem;
+      padding-bottom: 3rem;
+    }
+    .product-images {
+      padding: 3.5rem 3.5rem 3.5rem 4.5rem;
+    }
+    .product-info {
+      padding: 3.5rem 4.5rem 3.5rem 3.5rem;
+    }
+    .product-main-image-container {
+      min-width: 0;
+      max-width: none;
+      width: 100%;
+      min-height: 500px;
+      max-height: 700px;
+    }
+    .product-main-image {
+      max-width: 100%;
+      max-height: 700px;
+      min-height: 500px;
+    }
+    .product-thumbnails {
+      max-width: 100%;
+      justify-content: center;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .product-detail-container {
+      padding-left: 0;
+      padding-right: 0;
+      max-width: 1400px;
+    }
+    .product-detail {
+      gap: 2rem;
+    }
+    .product-main-image-container {
+      min-height: 600px;
+      max-height: 800px;
+    }
+    .product-main-image {
+      max-height: 800px;
+      min-height: 600px;
+    }
+    .product-images {
+      padding: 4rem;
+    }
+    .product-info {
+      padding: 4rem;
+    }
+  }
+
+  /* --- Featured Badge and Label --- */
   .product-featured-badge {
     position: absolute;
     top: 1rem;
@@ -1306,92 +1517,5 @@
     vertical-align: middle;
     box-shadow: 0 2px 8px rgba(212, 175, 55, 0.25);
     transform: translateY(-4px);
-  }
-
-  @media (max-width: 767px) {
-    .product-detail {
-      grid-template-columns: 1fr;
-      gap: 2rem;
-    }
-    .product-grid {
-      grid-template-columns: repeat(1, 1fr);
-      gap: 1.5rem;
-    }
-    .breadcrumbs-container {
-      margin-bottom: 1.5rem;
-    }
-    .product-featured-badge {
-      top: 0.75rem;
-      left: 0.75rem;
-      font-size: 0.6rem;
-      padding: 0.3rem 0.6rem;
-    }
-    .product-featured-label {
-      margin-left: 0.5rem;
-      font-size: 0.6rem;
-      padding: 0.2rem 0.5rem;
-      transform: translateY(-3px);
-    }
-    .product-info-title {
-      font-size: 2rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.5rem;
-    }
-  }
-
-  @media (min-width: 768px) and (max-width: 1023px) {
-    .product-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (min-width: 768px) {
-    .product-detail {
-      grid-template-columns: 1fr 1fr;
-      gap: 0;
-      margin-bottom: 7rem;
-    }
-    .product-images {
-      padding: 2.5rem 2.5rem 2.5rem 3.5rem;
-      border-radius: 12px 0 0 12px;
-      min-width: 360px;
-      max-width: 520px;
-      min-height: 0;
-    }
-    .product-info {
-      padding: 2.5rem 3.5rem 2.5rem 2.5rem;
-      border-radius: 0 12px 12px 0;
-    }
-    .product-info-title {
-      font-size: 3rem;
-    }
-    .product-main-image-container {
-      min-width: 320px;
-      max-width: 440px;
-      min-height: 320px;
-      max-height: 520px;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .product-detail {
-      gap: 0;
-    }
-    .product-detail-section {
-      padding-top: 3rem;
-      padding-bottom: 3rem;
-    }
-    .product-images {
-      padding: 3.5rem 3.5rem 3.5rem 4.5rem;
-    }
-    .product-info {
-      padding: 3.5rem 4.5rem 3.5rem 3.5rem;
-    }
-    .product-main-image-container {
-      min-width: 360px;
-      max-width: 480px;
-    }
   }
 </style>

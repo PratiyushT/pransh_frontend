@@ -3,7 +3,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { navigating } from "$app/stores";
-  import { isLoading } from "$lib";
+  import { isLoading, syncWishlistToCookies } from "$lib";
   import gsap from "gsap";
   import Header from "$lib/components/Header.svelte";
   import Footer from "$lib/components/Footer.svelte";
@@ -17,6 +17,9 @@
   let isMobile = false;
 
   onMount(() => {
+    // Sync wishlist from localStorage to cookies on app initialization
+    syncWishlistToCookies();
+
     // Check if mobile/touch device
     isMobile =
       "ontouchstart" in window ||
