@@ -242,38 +242,127 @@ export async function getCartProductDetails(
       return {};
     }
 
-    const productIds = validCartItems.map(i => i.productId);
-    const variantIds = validCartItems.map(i => i.variantId);
+    // Create a more direct query to fix the data fetching issue
+    // This query fetches both the product and its variants in a single request
+    const fetchQuery = `
+      {
+        "products": *[_type == "product" && _id in $productIds] {
+          _id,
+          name,
+          "variants": *[_type == "variant" && _id in $variantIds && references(^._id)] {
+            _id,
+            sku,
+            price,
+            stock,
+            "color": color->{
+              _id,
+              name,
+              hex
+            },
+            "size": size->{
+              _id,
+              name
+            },
+            "images": images[].asset->url
+          }
+        }
+      }
+    `;
+
+    const productIds = [...new Set(validCartItems.map(i => i.productId))];
+    const variantIds = [...new Set(validCartItems.map(i => i.variantId))];
 
     console.log('Product IDs:', productIds);
     console.log('Variant IDs:', variantIds);
 
-    const raw: any[] = await client.fetch(cartProductsQuery, { productIds, variantIds });
-    console.log('Raw response from Sanity:', raw);
+    const result = await client.fetch(fetchQuery, { productIds, variantIds });
+    console.log('Raw response from Sanity:', result);
 
     const details: ProductDetails = {};
-    for (const v of raw) {
-      if (!v || !v.productId || !v._id) {
-        console.warn('Invalid item in Sanity response:', v);
-        continue;
-      }
 
-      const key = `${v.productId}___${v._id}`;
-      details[key] = {
-        product: {
-          _id: v.productId,
-          name: v.productName || 'Unknown Product'
-        },
-        variant: {
-          _id:    v._id,
-          sku:    v.sku || 'unknown',
-          price:  typeof v.price === 'number' ? v.price : 0,
-          stock:  typeof v.stock === 'number' ? v.stock : 0,
-          color:  v.color || { _id: 'default', name: 'Default', hex: '#000000' },
-          size:   v.size?.name || 'One Size',
-          images: Array.isArray(v.images) ? v.images : []
+    // Process the results
+    if (result && result.products && Array.isArray(result.products)) {
+      result.products.forEach(product => {
+        if (product && product.variants && Array.isArray(product.variants)) {
+          product.variants.forEach(variant => {
+            if (variant && variant._id) {
+              const key = `${product._id}___${variant._id}`;
+              details[key] = {
+                product: {
+                  _id: product._id,
+                  name: product.name || 'Unknown Product'
+                },
+                variant: {
+                  _id: variant._id,
+                  sku: variant.sku || 'unknown',
+                  price: typeof variant.price === 'number' ? variant.price : 0,
+                  stock: typeof variant.stock === 'number' ? variant.stock : 0,
+                  color: variant.color || { _id: 'default', name: 'Default', hex: '#000000' },
+                  size: variant.size?.name || 'One Size',
+                  images: Array.isArray(variant.images) ? variant.images : []
+                }
+              };
+            }
+          });
         }
-      };
+      });
+    }
+
+    // Fallback to individual queries if the combined query fails or returns empty results
+    if (Object.keys(details).length === 0) {
+      console.log('Falling back to individual product queries...');
+
+      // Fetch each product and variant individually
+      for (const item of validCartItems) {
+        try {
+          const product = await client.fetch(`
+            *[_type == "product" && _id == $productId][0]{
+              _id,
+              name
+            }
+          `, { productId: item.productId });
+
+          const variant = await client.fetch(`
+            *[_type == "variant" && _id == $variantId][0]{
+              _id,
+              sku,
+              price,
+              stock,
+              "color": color->{
+                _id,
+                name,
+                hex
+              },
+              "size": size->{
+                _id,
+                name
+              },
+              "images": images[].asset->url
+            }
+          `, { variantId: item.variantId });
+
+          if (product && variant) {
+            const key = `${item.productId}___${item.variantId}`;
+            details[key] = {
+              product: {
+                _id: product._id,
+                name: product.name || 'Unknown Product'
+              },
+              variant: {
+                _id: variant._id,
+                sku: variant.sku || 'unknown',
+                price: typeof variant.price === 'number' ? variant.price : 0,
+                stock: typeof variant.stock === 'number' ? variant.stock : 0,
+                color: variant.color || { _id: 'default', name: 'Default', hex: '#000000' },
+                size: variant.size?.name || 'One Size',
+                images: Array.isArray(variant.images) ? variant.images : []
+              }
+            };
+          }
+        } catch (err) {
+          console.error(`Error fetching details for item ${item.productId}:${item.variantId}`, err);
+        }
+      }
     }
 
     console.log('Processed details:', Object.keys(details).length);

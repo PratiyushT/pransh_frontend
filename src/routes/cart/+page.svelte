@@ -27,22 +27,61 @@
   let hasSavedItems = false;
   let isMergingCart = false;
 
+  // Keep track of the cart state and loading timeout
+  let lastKnownCartState = JSON.stringify($cart || []);
+  let loadTimeout: any = null;
+
   // Automatically restore saved cart on mount if needed
   onMount(async () => {
-    // Check if there are saved items to restore
-    hasSavedItems = $savedCartCount > 0;
+    try {
+      // Check if there are saved items to restore
+      hasSavedItems = $savedCartCount > 0;
 
-    // Load product details for current cart
-    await loadProductDetails();
-
-    // Also watch for cart changes to update product details
-    const unsubscribe = cart.subscribe(async (cartItems) => {
-      if (cartItems && cartItems.length > 0) {
-        await loadProductDetails();
+      // If cart is empty but we have saved items, wait to see if user wants to restore
+      if ($cart.length === 0 && hasSavedItems) {
+        console.log('Cart is empty but there are saved items. Waiting for user action.');
+        isLoadingProducts = false;
+        return;
       }
-    });
 
-    return unsubscribe;
+      // Load product details for current cart
+      if ($cart.length > 0) {
+        await loadProductDetails();
+      } else {
+        isLoadingProducts = false;
+      }
+
+      // Also watch for cart changes to update product details
+      const unsubscribe = cart.subscribe(async (cartItems) => {
+        if (cartItems && cartItems.length > 0 && !isLoadingProducts) {
+          const cartAsString = JSON.stringify(cartItems);
+
+          // Only reload if the cart actually changed (prevent loops)
+          if (cartAsString !== lastKnownCartState) {
+            lastKnownCartState = cartAsString;
+
+            // Debounce the product details loading
+            clearTimeout(loadTimeout);
+            loadTimeout = setTimeout(() => {
+              loadProductDetails();
+            }, 300);
+          }
+        } else if (cartItems && cartItems.length === 0) {
+          // Clear product details when cart is empty
+          productDetails = {};
+          lastKnownCartState = '[]';
+        }
+      });
+
+      return () => {
+        unsubscribe();
+        clearTimeout(loadTimeout);
+      };
+    } catch (err) {
+      console.error('Error in cart page onMount:', err);
+      isLoadingProducts = false;
+      loadError = true;
+    }
   });
 
   // Calculate subtotal from up-to-date Sanity data
@@ -56,13 +95,67 @@
 
   // Improved function to fetch product data from Sanity
   async function loadProductDetails() {
+    if (!$cart || $cart.length === 0) {
+      productDetails = {};
+      isLoadingProducts = false;
+      return;
+    }
+
     isLoadingProducts = true;
     loadError = false;
 
     try {
-      productDetails = await getCartProductDetails($cart);
+      console.log('Fetching product details for cart with', $cart.length, 'items');
+      console.log('Cart items:', $cart.map(item => `${item.productId}:${item.variantId}`).join(', '));
+
+      // Make a copy of the cart to prevent any concurrent updates issues
+      const currentCart = [...$cart];
+
+      // Only process valid cart items
+      const validCartItems = currentCart.filter(
+        item => item && typeof item.productId === 'string' && typeof item.variantId === 'string'
+      );
+
+      if (validCartItems.length === 0) {
+        console.log('No valid cart items to fetch details for');
+        productDetails = {};
+        return;
+      }
+
+      // Fetch product details for valid items
+      const details = await getCartProductDetails(validCartItems);
+
+      // If no details were found, and we have items in the cart, it might be due to Sanity query issues
+      if (Object.keys(details).length === 0 && validCartItems.length > 0) {
+        console.log('No product details found from Sanity. Retrying with individual fetches...');
+
+        // Try fetching each item individually
+        const individualDetails = {};
+        for (const item of validCartItems) {
+          try {
+            const itemDetails = await getCartProductDetails([item]);
+            if (itemDetails && Object.keys(itemDetails).length > 0) {
+              // Merge into our results
+              Object.assign(individualDetails, itemDetails);
+            }
+          } catch (err) {
+            console.error(`Error fetching details for ${item.productId}:${item.variantId}`, err);
+          }
+        }
+
+        // Update product details with any items we found
+        if (Object.keys(individualDetails).length > 0) {
+          productDetails = individualDetails;
+        } else {
+          productDetails = {};
+          loadError = true;
+        }
+      } else {
+        // Normal case: update product details with what we found
+        productDetails = details;
+      }
     } catch (e) {
-      console.error(e);
+      console.error('Error loading cart product details:', e);
       loadError = true;
     } finally {
       isLoadingProducts = false;

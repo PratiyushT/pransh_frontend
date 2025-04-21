@@ -1,73 +1,164 @@
 import { json } from '@sveltejs/kit'
-import { stripe } from '$lib/stripe/server'
+import { stripe } from '$lib/payments/server'
 import { client } from '$lib/sanity/client'
 
 export const POST = async ({ request }) => {
-  // Extract items from frontend & origin for redirect URLs
-  const { items, origin } = await request.json()
+  try {
+    // Extract items from frontend & origin for redirect URLs
+    const { items, origin, shippingDetails } = await request.json()
 
-  // Loop through every item in the cart
-  for (const item of items) {
-    // Fetch product data from Sanity using its _id
-    const product = await client.fetch(
-      `*[_type == "product" && _id == $id][0]{
-        name,
-        variants[]{
-          sku,
-          price,
-          stock
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return json({ error: 'No items provided' }, { status: 400 })
+    }
+
+    // Validate each item and build verified items array
+    const validatedItems = []
+
+    // Loop through every item in the cart
+    for (const item of items) {
+      // Basic validation
+      if (!item.id || !item.sku || !item.quantity || item.quantity <= 0) {
+        return json({ error: 'Invalid item data' }, { status: 400 })
+      }
+
+      console.log(`Validating item: ${item.id}, SKU: ${item.sku}, Quantity: ${item.quantity}, Price: ${item.price}`)
+
+      // Use a more comprehensive query to get product and variant details
+      const productData = await client.fetch(`
+        *[_type == "product" && _id == $id][0]{
+          _id,
+          name,
+          "variants": *[_type == "variant" && references(^._id) && sku == $sku][0]{
+            _id,
+            sku,
+            price,
+            stock,
+            "color": color->{ name },
+            "size": size->{ name }
+          }
         }
-      }`,
-      { id: item.id }
-    )
+      `, {
+        id: item.id,
+        sku: item.sku
+      })
 
-    // If product doesn't exist, return error
-    if (!product) {
-      return json({ error: 'Invalid Product' }, { status: 400 })
+      // If product doesn't exist, return error
+      if (!productData || !productData._id) {
+        console.error(`Product not found: ${item.id}`)
+        return json({ error: `Product not found: ${item.name || 'Unknown product'}` }, { status: 400 })
+      }
+
+      // If variant doesn't exist in this product
+      if (!productData.variants || !productData.variants._id) {
+        console.error(`Variant not found: ${item.sku} for product ${item.id}`)
+        return json({
+          error: `Product variant not found: ${item.name || 'Unknown variant'}`
+        }, { status: 400 })
+      }
+
+      const variant = productData.variants
+
+      // Check if price sent from frontend matches Sanity price with better precision
+      // Convert both prices to cents and compare as integers to avoid floating point issues
+      const sanityPriceCents = Math.round(variant.price * 100)
+      const clientPriceCents = Math.round(item.price * 100)
+
+      if (sanityPriceCents !== clientPriceCents) {
+        console.error(`Price mismatch for ${item.name}: Sanity=${variant.price}, Client=${item.price}`)
+        return json({
+          error: `Price mismatch detected. Please refresh and try again.`
+        }, { status: 400 })
+      }
+
+      // Check if requested quantity is in stock
+      if (!variant.stock || variant.stock < item.quantity) {
+        console.error(`Insufficient stock for ${item.name}: Available=${variant.stock}, Requested=${item.quantity}`)
+        return json({
+          error: `Not enough stock for ${item.name || 'item'}. Available: ${variant.stock || 0}`
+        }, { status: 400 })
+      }
+
+      // Add to validated items
+      validatedItems.push({
+        id: item.id,
+        sku: item.sku,
+        name: `${productData.name} ${variant.color ? `- ${variant.color.name}` : ''} ${variant.size ? `(${variant.size.name})` : ''}`,
+        price: variant.price,
+        quantity: item.quantity
+      })
     }
 
-    // Find the matching variant inside product by SKU
-    const variant = product.variants.find((v:any) => v.sku === item.sku)
+    console.log('Validated items:', validatedItems)
 
-    // If variant doesn't exist, return error
-    if (!variant) {
-      return json({ error: 'Invalid Product Variant' }, { status: 400 })
-    }
+    // After successful validation of all items → create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'], // Accept card payments
+      mode: 'payment', // One time payment (not subscription)
 
-    // Check if price sent from frontend matches Sanity price
-    if (variant.price * 100 !== item.price * 100) {
-      return json({ error: 'Server and Client Price Mismatch' }, { status: 400 })
-    }
-
-    // Check if requested quantity is in stock
-    if (variant.stock < item.quantity) {
-      return json({ error: 'Not Enough Stock' }, { status: 400 })
-    }
-  }
-
-  // After successful validation of all items → create Stripe Checkout Session
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'], // Accept card payments
-    mode: 'payment', // One time payment (not subscription)
-
-    // Pass verified line_items to Stripe
-    line_items: items.map((item: any) => ({
-      price_data: {
-        currency: 'usd',
-        product_data: {
-          name: item.name // Safe to display user given name
+      // Pass verified line_items to Stripe - using the server-validated data
+      line_items: validatedItems.map((item) => ({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: item.name
+          },
+          unit_amount: Math.round(item.price * 100) // Amount in cents, rounded to ensure integer
         },
-        unit_amount: item.price * 100 // Amount in cents
+        quantity: item.quantity
+      })),
+
+      // Include shipping details if available
+      ...(shippingDetails && {
+        customer_email: shippingDetails.email,
+        shipping_address_collection: {
+          allowed_countries: ['US', 'CA', 'GB', 'AU']
+        },
+        shipping_options: [
+          {
+            shipping_rate_data: {
+              type: 'fixed_amount',
+              fixed_amount: {
+                amount: 1500, // $15.00 in cents
+                currency: 'usd',
+              },
+              display_name: 'Standard Shipping',
+              delivery_estimate: {
+                minimum: {
+                  unit: 'business_day',
+                  value: 5,
+                },
+                maximum: {
+                  unit: 'business_day',
+                  value: 10,
+                },
+              }
+            }
+          }
+        ]
+      }),
+
+      // Store metadata for order processing
+      metadata: {
+        orderId: `order-${Date.now()}`,
+        itemCount: validatedItems.length,
+        orderSummary: JSON.stringify(validatedItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity
+        })))
       },
-      quantity: item.quantity
-    })),
 
-    // Redirect user on success
-    success_url: `${origin}/success`,
-    // Redirect user on cancel
-    cancel_url: `${origin}/cancel`
-  })
+      // Redirect user on success
+      success_url: `${origin}/success`,
+      // Redirect user on cancel
+      cancel_url: `${origin}/cancel`
+    })
 
-  // Return sessionId to frontend
-  return json({ sessionId: session.id })
+    // Return sessionId to frontend
+    return json({ sessionId: session.id })
+  } catch (error) {
+    console.error('Checkout error:', error)
+    return json({
+      error: error instanceof Error ? error.message : 'An unexpected error occurred'
+    }, { status: 500 })
+  }
 }

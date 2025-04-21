@@ -6,6 +6,7 @@
   import { formatPrice } from '$lib/utils/data';
   import AddressSearch from '$lib/components/AddressSearch.svelte';
   import { page } from '$app/stores';
+  import { stripePromise } from '$lib/payments/client';
 
   // DEBUG: Log environment variables to console
   console.log('Environment variables available:', import.meta.env);
@@ -236,7 +237,8 @@
     return emailRegex.test(email);
   }
 
-  function goToPayment() {
+  // UPDATED FUNCTION: goToPayment
+  async function goToPayment() {
     formSubmitted = true;
 
     // Mark all fields as touched for validation
@@ -260,10 +262,72 @@
       return;
     }
 
-    // In a real implementation, you would save shipping details
-    // and redirect to payment processing
-    alert('Proceeding to payment...');
-    // You would implement payment flow here
+    try {
+      // Show loading state
+      isLoadingProducts = true;
+      errorMessage = '';
+
+      // Prepare items data for the checkout session
+      const items = displayedCart.map(item => {
+        const details = productDetails[`${item.productId}___${item.variantId}`];
+        if (!details) {
+          throw new Error(`Product details not found for ${item.productId}___${item.variantId}`);
+        }
+
+        return {
+          id: item.productId,
+          sku: item.variantId,
+          name: `${details.product.name} ${details.variant.color?.name ? `- ${details.variant.color.name}` : ''} ${details.variant.size ? `(${details.variant.size})` : ''}`.trim(),
+          price: details.variant.price,
+          quantity: item.quantity
+        };
+      });
+
+      console.log('Sending items to API:', items);
+
+      // Create a checkout session on the server
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items,
+          origin: window.location.origin,
+          shippingDetails: shippingDetails
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        errorMessage = data.error || 'Error creating checkout session';
+        isLoadingProducts = false;
+        return;
+      }
+
+      // Redirect to Stripe Checkout
+      const stripe = await stripePromise;
+      if (!stripe) {
+        errorMessage = 'Failed to load payment processor';
+        isLoadingProducts = false;
+        return;
+      }
+
+      const { error: stripeError } = await stripe.redirectToCheckout({
+        sessionId: data.sessionId
+      });
+
+      if (stripeError) {
+        console.error('Stripe checkout error:', stripeError);
+        errorMessage = stripeError.message || 'An error occurred during checkout';
+        isLoadingProducts = false;
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      isLoadingProducts = false;
+    }
   }
 
   function handleAddressSelected(event) {
@@ -673,7 +737,18 @@
         <div class="summary-row"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
         <div class="summary-row"><span>Shipping</span><span>{subtotal > 0 ? formatPrice(shippingCost) : '-'}</span></div>
         <div class="summary-row total"><span>Total</span><span>{formatPrice(total)}</span></div>
-        <button disabled={!displayedCart || !displayedCart.length} class="summary-checkout-btn primary-btn" on:click={goToPayment}>Proceed to Payment</button>
+        <button
+          disabled={!displayedCart || !displayedCart.length || isLoadingProducts}
+          class="summary-checkout-btn primary-btn {isLoadingProducts ? 'loading' : ''}"
+          on:click={goToPayment}
+        >
+          {#if isLoadingProducts}
+            <div class="button-spinner"></div>
+            Processing...
+          {:else}
+            Proceed to Payment
+          {/if}
+        </button>
       </div>
     </div>
   {/if}
@@ -793,6 +868,25 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.summary-checkout-btn.loading {
+  position: relative;
+  cursor: not-allowed;
+  background-color: #c4b06b;
+}
+
+.button-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
 .checkout-loading, .checkout-error, .checkout-empty {
   padding: 2.5rem 0;
   text-align: center;

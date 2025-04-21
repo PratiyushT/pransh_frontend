@@ -200,12 +200,17 @@
     }
   };
 
-  // Updated Buy Now logic: just add to cart and go to checkout, cart restoration is now handled automatically
+  // Updated Buy Now logic: properly save cart and handle redirection
   const handleBuyNow = () => {
     if (product && selectedVariant) {
       isBuyingNow = true;
 
-      // Add the current product to cart (no need to clear or save cart, handled server-side)
+      // First save the current cart if there are any items
+      if ($cart && $cart.length > 0) {
+        saveCartAndClearForDirectCheckout();
+      }
+
+      // Then add the current product to cart
       addToCart(product._id, selectedVariant._id, quantity);
 
       // Go to checkout with direct=true parameter
