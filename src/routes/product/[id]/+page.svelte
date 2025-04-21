@@ -1,28 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getProductById, formatPrice, getRandomProducts } from '$lib/utils/data';
+  import { formatPrice } from '$lib/utils/data';
   import { addToCart } from '$lib/stores';
   import ProductCard from '$lib/components/ProductCard.svelte';
   import ColorPieChart from '$lib/components/ColorPieChart.svelte';
-  import type { Product } from '$lib/types.js';
-  import { page } from '$app/stores';
 
-  // Get product ID from route parameter
+  // Get product data from server load function
   export let data;
-  const productId = $page.params.id;
-  const product = getProductById(productId);
+  const { product, relatedProducts, error: productError } = data;
 
-  // If product not found, redirect to 404
-  if (!product) {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/404';
-    }
-  }
+  // If error is defined, display error message
+  $: errorMessage = productError?.message || (product === null ? 'Product not found' : null);
 
-  // Selected variant
+  // Only set up product-related variables if we have a product
   let selectedVariantIndex = 0;
-  let selectedSize = product?.variants[0]?.size || '';
-  let selectedColor = product?.variants[0]?.color || null;
+  let selectedSize = '';
+  let selectedColor = null;
   let quantity = 1;
   let activeImage = 0;
   let isAddingToCart = false;
@@ -30,21 +23,23 @@
   let zoomedImage = false;
   let zoomPosition = { x: 0, y: 0 };
 
-  // Selected variant
   $: selectedVariant = product?.variants[selectedVariantIndex] || null;
+  $: availableSizes = product ? [...new Set(product.variants.map(v => v.size.name))] : [];
+  $: availableColors = product
+    ? [...new Set(product.variants.filter(v =>
+        !selectedSize || v.size.name === selectedSize).map(v => v.color))]
+    : [];
+  $: variantImages = product
+    ? product.variants
+        .filter(v => v.color?.name === selectedVariant?.color?.name)
+        .flatMap(v => v.images.map(url => ({ url })))
+    : [];
 
-  // Filter available sizes and colors
-  $: availableSizes = [...new Set(product?.variants.map(v => v.size) || [])];
-  $: availableColors = [...new Set(product?.variants.filter(v =>
-    !selectedSize || v.size === selectedSize).map(v => v.color) || [])];
-
-  // Combine all images from the selected variant's color
-  $: variantImages = product?.variants
-    .filter(v => v.color.name === selectedVariant?.color.name)
-    .flatMap(v => v.images) || [];
-
-  // Related products
-  const relatedProducts = getRandomProducts(4).filter(p => p._id !== productId);
+  // Initialize selectedSize and selectedColor if product exists
+  $: if (product && product.variants && product.variants.length > 0) {
+    if (!selectedSize) selectedSize = product.variants[0]?.size?.name || '';
+    if (!selectedColor) selectedColor = product.variants[0]?.color || null;
+  }
 
   // Handle size selection
   const selectSize = (size: string) => {
@@ -52,7 +47,7 @@
 
     // Find a variant with the selected size and color
     const variantIndex = product?.variants.findIndex(
-      v => v.size === selectedSize && (selectedColor ? v.color.name === selectedColor.name : true)
+      v => v.size.name === selectedSize && (selectedColor ? v.color.name === selectedColor.name : true)
     );
 
     if (variantIndex !== -1 && variantIndex !== undefined) {
@@ -61,7 +56,7 @@
       activeImage = 0;
     } else {
       // If no variant found with selected size and color, just find one with selected size
-      const sizeVariantIndex = product?.variants.findIndex(v => v.size === selectedSize);
+      const sizeVariantIndex = product?.variants.findIndex(v => v.size.name === selectedSize);
       if (sizeVariantIndex !== -1 && sizeVariantIndex !== undefined) {
         selectedVariantIndex = sizeVariantIndex;
         selectedColor = product?.variants[sizeVariantIndex].color;
@@ -77,7 +72,7 @@
 
       // Find a variant with the selected color and size
       const variantIndex = product?.variants.findIndex(
-        v => v.color.name === color.name && v.size === selectedSize
+        v => v.color.name === color.name && v.size.name === selectedSize
       );
 
       if (variantIndex !== -1 && variantIndex !== undefined) {
@@ -88,7 +83,7 @@
         const colorVariantIndex = product?.variants.findIndex(v => v.color.name === color.name);
         if (colorVariantIndex !== -1 && colorVariantIndex !== undefined) {
           selectedVariantIndex = colorVariantIndex;
-          selectedSize = product?.variants[colorVariantIndex].size;
+          selectedSize = product?.variants[colorVariantIndex].size.name;
           activeImage = 0;
         }
       }
@@ -149,7 +144,6 @@
     }
   };
 
-  // In stock
   $: inStock = selectedVariant && selectedVariant.stock > 0;
   $: lowStock = selectedVariant && selectedVariant.stock <= 3 && selectedVariant.stock > 0;
 
@@ -167,7 +161,13 @@
 
 <section class="section product-detail-section">
   <div class="container">
-    {#if product}
+    {#if errorMessage}
+      <div class="not-found">
+        <h1>{errorMessage}</h1>
+        <p>The product you're looking for could not be found.</p>
+        <a href="/shop" class="btn btn-primary">Back to Shop</a>
+      </div>
+    {:else if product}
       <div class="product-detail">
         <!-- Product Images -->
         <div class="product-images">
@@ -223,7 +223,7 @@
           <div class="breadcrumbs">
             <a href="/" class="breadcrumb-link">Home</a>
             <span class="breadcrumb-separator">/</span>
-            <a href="/shop" class="breadcrumb-link">{product.category}</a>
+            <a href="/shop" class="breadcrumb-link">{product.category?.name || 'Shop'}</a>
             <span class="breadcrumb-separator">/</span>
             <span class="breadcrumb-current">{product.name}</span>
           </div>
@@ -256,12 +256,12 @@
                       aria-label={`Select ${color.name} color`}
                       aria-pressed={selectedColor?.name === color.name}
                     >
-                      {#if color.hex && color.hex.length > 1}
+                      {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
                         <ColorPieChart hexColors={color.hex} size={24} border={true} borderColor={selectedColor?.name === color.name ? 'var(--color-gold)' : '#e2e2e2'} borderWidth={2} />
                       {:else}
                         <span
                           class="color-swatch"
-                          style="background-color: {color.hex[0]}; border-color: {color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0]}"
+                          style="background-color: {Array.isArray(color.hex) ? color.hex[0] : color.hex}; border-color: {Array.isArray(color.hex) ? (color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0]) : (color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex)}"
                         ></span>
                       {/if}
                     </button>
@@ -278,7 +278,7 @@
                     <button
                       class="size-option {selectedSize === size ? 'active' : ''}"
                       on:click={() => selectSize(size)}
-                      disabled={!product.variants.some(v => v.size === size && v.color.name === selectedColor?.name)}
+                      disabled={!product.variants.some(v => v.size.name === size && v.color.name === selectedColor?.name)}
                       aria-label={`Select size ${size}`}
                       aria-pressed={selectedSize === size}
                     >
@@ -376,31 +376,27 @@
             </div>
             <div class="meta-item">
               <span class="meta-label">Category:</span>
-              <span class="meta-value">{product.category}</span>
+              <span class="meta-value">{product.category?.name || 'Uncategorized'}</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Related Products -->
-      <div class="related-products-section">
-        <div class="section-title">
-          <h2>You May Also Like</h2>
-          <div class="title-underline"></div>
-        </div>
+      {#if relatedProducts && relatedProducts.length > 0}
+        <div class="related-products-section">
+          <div class="section-title">
+            <h2>You May Also Like</h2>
+            <div class="title-underline"></div>
+          </div>
 
-        <div class="product-grid">
-          {#each relatedProducts as relatedProduct}
-            <ProductCard product={relatedProduct} />
-          {/each}
+          <div class="product-grid">
+            {#each relatedProducts as relatedProduct}
+              <ProductCard product={relatedProduct} />
+            {/each}
+          </div>
         </div>
-      </div>
-    {:else}
-      <div class="not-found">
-        <h1>Product Not Found</h1>
-        <p>The product you're looking for could not be found.</p>
-        <a href="/shop" class="btn btn-primary">Back to Shop</a>
-      </div>
+      {/if}
     {/if}
   </div>
 </section>
@@ -456,6 +452,10 @@
 
   .product-main-image-container:hover .zoom-instruction {
     opacity: 1;
+  }
+
+  .zoom-instruction.hidden {
+    display: none;
   }
 
   .product-thumbnails {

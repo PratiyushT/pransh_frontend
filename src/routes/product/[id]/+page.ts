@@ -1,7 +1,5 @@
-import type { PageLoad } from './$types';
+// We'll use +page.server.ts for SSR
+export const prerender = false;
 
-export const load: PageLoad = ({ params }) => {
-  return {
-    id: params.id
-  };
-};
+// Turn off preloading for this route to avoid errors during navigation
+export const preload = false;

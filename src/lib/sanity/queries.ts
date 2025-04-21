@@ -9,7 +9,7 @@ export const allCategoriesQuery = `
     }
   }
 }
-`
+`;
 
 // Get all colors
 export const allColorsQuery = `
@@ -18,9 +18,10 @@ export const allColorsQuery = `
   name,
   hex
 }
-`
-  // Get all feature
-  export const allFeaturedProductsQuery = `
+`;
+
+// Get all feature
+export const allFeaturedProductsQuery = `
   *[_type == "product" && isFeatured == true] | order(_createdAt desc) {
     _id,
     name,
@@ -50,7 +51,7 @@ export const allColorsQuery = `
       "images": images[].asset->url
     }
   }
-`
+`;
 
 // Get all sizes
 export const allSizesQuery = `
@@ -58,10 +59,10 @@ export const allSizesQuery = `
   _id,
   name
 }
-`
+`;
 
 // Count Total Products
-export const totalProductCountQuery = 'count(*[_type == "product"])'
+export const totalProductCountQuery = 'count(*[_type == "product"])';
 
 // Get paginated products
 export const paginatedProductsQuery = (start: number, end: number) => `
@@ -85,33 +86,73 @@ export const paginatedProductsQuery = (start: number, end: number) => `
       }
     }
   }
-`
+`;
 
-// Get single product by its slug. 
+// Get single product by its slug.
 export const singleProductBySlugQuery = (slug: string) => `
-  *[_type == "product" && slug.current == "${slug}"] {
+  *[_type == "product" && slug.current == "${slug}"][0] {
     _id,
     name,
     description,
-    price,
-    category->{
+    "slug": slug.current,
+    rating,
+    isFeatured,
+    "category": category->{
       _id,
       name
     },
-    colors[]->{
+    "variants": variants[]-> {
       _id,
-      name,
-      hex
-    },
-    images[]{
-      asset->{
-        url
-      }
+      sku,
+      price,
+      stock,
+      "color": color->{
+        _id,
+        name,
+        hex
+      },
+      "size": size->{
+        _id,
+        name
+      },
+      "images": images[].asset->url
     }
-  }[0]
-`
+  }
+`;
 
-// Get Products in cart page. 
+// Get single product by ID
+export const singleProductByIdQuery = (id: string) => `
+  *[_type == "product" && _id == "${id}"][0] {
+    _id,
+    name,
+    description,
+    "slug": slug.current,
+    rating,
+    isFeatured,
+    "category": category->{
+      _id,
+      name
+    },
+    "variants": variants[]-> {
+      _id,
+      sku,
+      price,
+      stock,
+      "color": color->{
+        _id,
+        name,
+        hex
+      },
+      "size": size->{
+        _id,
+        name
+      },
+      "images": images[].asset->url
+    }
+  }
+`;
+
+// Get Products in cart page.
 // ProductIds and VariantIds needs to be passed as param.
 export const cartProductsQuery = `
 *[
@@ -132,5 +173,4 @@ export const cartProductsQuery = `
     "productName": ^.name
   }
 }[].variants[]
-
 `;

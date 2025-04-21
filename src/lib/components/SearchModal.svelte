@@ -66,9 +66,6 @@
   let globalMinPrice = 0;
   let globalMaxPrice = 1000;
 
-  // Make sure filter data is initialized
-  initializeFilterData();
-
   // Recalculate tooltip positions when price changes
   $: {
     minTooltipPosition = `${(filterState.minPrice / 1000) * 100}%`;
@@ -427,15 +424,12 @@
   };
 
   onMount(() => {
-    // Load filters from URL when component mounts
+    // Load filters from URL when component mounts (only once)
     loadFiltersFromURL();
 
     // Focus input when search modal opens
     const unsubscribe = isSearchOpen.subscribe(value => {
       if (value) {
-        // Load filters from URL each time the modal opens
-        loadFiltersFromURL();
-
         // Apply opening animations
         setTimeout(() => {
           if (searchInput) searchInput.focus();
