@@ -4,6 +4,7 @@
   import { addToCart, isInWishlist, toggleWishlist } from '$lib/stores';
   import ProductCard from '$lib/components/ProductCard.svelte';
   import ColorPieChart from '$lib/components/ColorPieChart.svelte';
+  import { goto } from '$app/navigation';
 
   let accordionStates = {
     features: true,
@@ -26,6 +27,7 @@
   let zoomedImage = false;
   let zoomPosition = { x: 0, y: 0 };
   let isWishlisted = product ? isInWishlist(product._id) : false;
+  let isBuyingNow = false; // New state for Buy Now loading
 
   $: selectedVariant = product?.variants[selectedVariantIndex] || null;
 
@@ -193,6 +195,16 @@
         setTimeout(() => {
           addedToCart = false;
         }, 2000);
+      }, 600);
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (product && selectedVariant) {
+      isBuyingNow = true;
+      addToCart(product._id, selectedVariant._id, quantity);
+      setTimeout(() => {
+        goto('/checkout?direct=true');
       }, 600);
     }
   };
@@ -416,25 +428,44 @@
             <button
               class="btn-add-to-cart {isAddingToCart ? 'adding' : ''} {addedToCart ? 'added' : ''}"
               on:click={handleAddToCart}
-              disabled={!inStock || isAddingToCart}
+              disabled={!inStock || isAddingToCart || isBuyingNow}
             >
               {#if isAddingToCart}
                 <svg class="spinner" viewBox="0 0 50 50">
                   <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
                 </svg>
-                <span>Adding to Cart</span>
+                <span>Adding...</span>
               {:else if addedToCart}
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                <span>Added to Cart</span>
+                <span>Added</span>
               {:else}
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="9" cy="21" r="1"></circle>
                   <circle cx="20" cy="21" r="1"></circle>
                   <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                 </svg>
-                <span>{inStock ? 'Add to Cart' : 'Out of Stock'}</span>
+                <span>Add to Cart</span>
+              {/if}
+            </button>
+
+            <button
+              class="btn-buy-now {isBuyingNow ? 'buying' : ''}"
+              on:click={handleBuyNow}
+              disabled={!inStock || isAddingToCart || isBuyingNow}
+            >
+              {#if isBuyingNow}
+                <svg class="spinner" viewBox="0 0 50 50">
+                  <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                </svg>
+                <span>Processing...</span>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span>Buy Now</span>
               {/if}
             </button>
 
@@ -994,9 +1025,10 @@
 
   .product-actions {
     display: flex;
-    gap: 1rem;
+    gap: 0.6rem;
     margin: 2rem 0;
     align-items: center;
+    flex-wrap: nowrap;
   }
 
   .btn-add-to-cart {
@@ -1004,12 +1036,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     background-color: var(--color-gold);
     color: var(--color-white);
     border: none;
-    padding: 1rem 2rem;
-    font-size: 1rem;
+    padding: 0.875rem 0.75rem;
+    font-size: 0.95rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(.77,0,.18,1);
@@ -1019,6 +1051,8 @@
     min-width: 0;
     min-height: 0;
     outline: none;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .btn-add-to-cart::before {
@@ -1087,6 +1121,62 @@
       stroke-dasharray: 90, 150;
       stroke-dashoffset: -124;
     }
+  }
+
+  .btn-buy-now {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background-color: var(--color-charcoal);
+    color: var(--color-white);
+    border: none;
+    padding: 0.875rem 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(.77,0,.18,1);
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    min-width: 0;
+    min-height: 0;
+    outline: none;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .btn-buy-now::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: translateX(-100%);
+    transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+    z-index: 0;
+  }
+
+  .btn-buy-now:hover:not([disabled])::before {
+    transform: translateX(0);
+  }
+
+  .btn-buy-now:hover:not([disabled]) {
+    background-color: var(--color-charcoal-dark, #1a1a1a);
+  }
+
+  .btn-buy-now:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background-color: var(--color-charcoal-light);
+  }
+
+  .btn-buy-now.buying {
+    background-color: var(--color-charcoal);
+    opacity: 0.9;
   }
 
   .btn-wishlist {
@@ -1326,6 +1416,20 @@
     .product-main-image {
       min-height: 220px;
       max-height: 320px;
+    }
+    .product-actions {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .btn-add-to-cart,
+    .btn-buy-now {
+      flex: 1 1 calc(50% - 0.5rem);
+      padding: 0.75rem 0.5rem;
+      font-size: 0.9rem;
+    }
+    .btn-wishlist {
+      flex: 0 0 auto;
     }
   }
 

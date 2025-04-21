@@ -4,6 +4,7 @@
   import type { Product, Variant } from "$lib/types";
   import { onMount, createEventDispatcher } from "svelte";
   import ColorPieChart from "$lib/components/ColorPieChart.svelte";
+  import { goto } from "$app/navigation";
 
   export let product: Product | null = null;
   export let open = false;
@@ -97,6 +98,22 @@
         addedToCart = false;
         handleClose();
       }, 1000);
+    }, 600);
+  }
+
+  // Buy now functionality - add to cart and go to checkout
+  function handleBuyNow() {
+    if (!product || !selectedVariant) return;
+
+    isAddingToCart = true;
+
+    // Add to cart first
+    addToCart(product._id, selectedVariant._id, quantity);
+
+    // Navigate to checkout
+    setTimeout(() => {
+      handleClose();
+      goto('/checkout');
     }, 600);
   }
 
@@ -350,7 +367,7 @@
                     stroke-width="5"
                   ></circle>
                 </svg>
-                <span>Adding to Cart</span>
+                <span>Adding...</span>
               {:else if addedToCart}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -365,7 +382,7 @@
                 >
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                <span>Added to Cart</span>
+                <span>Added</span>
               {:else}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -384,12 +401,34 @@
                     d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
                   ></path>
                 </svg>
-                <span>{inStock ? "Add to Cart" : "Out of Stock"}</span>
+                <span>Add to Cart</span>
               {/if}
             </button>
 
+            <button
+              class="btn-buy-now"
+              on:click={handleBuyNow}
+              disabled={!inStock || isAddingToCart}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span>Buy Now</span>
+            </button>
+
             <a href={`/product/${product.slug}`} class="btn-view-details" data-sveltekit-preload-data="off">
-              View Full Details
+              View Details
             </a>
           </div>
         </div>
@@ -721,26 +760,32 @@
 
   .product-actions {
     display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    flex-direction: row;
+    gap: 0.6rem;
     margin-top: 1.5rem;
+    flex-wrap: nowrap;
   }
 
   .btn-add-to-cart {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     background-color: var(--color-gold);
     color: var(--color-white);
     border: none;
-    padding: 0.75rem 1.5rem;
-    font-size: 0.95rem;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+    border-radius: 4px;
   }
 
   .btn-add-to-cart::before {
@@ -810,19 +855,70 @@
     }
   }
 
+  .btn-buy-now {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background-color: var(--color-charcoal);
+    color: var(--color-white);
+    border: none;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+    border-radius: 4px;
+  }
+
+  .btn-buy-now::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: translateX(-100%);
+    transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+
+  .btn-buy-now:hover:not([disabled])::before {
+    transform: translateX(0);
+  }
+
+  .btn-buy-now:hover:not([disabled]) {
+    background-color: var(--color-charcoal-dark, #1a1a1a);
+  }
+
+  .btn-buy-now:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background-color: var(--color-charcoal-light);
+  }
+
   .btn-view-details {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 0.75rem;
     background-color: transparent;
     border: 1px solid var(--color-charcoal-light);
     color: var(--color-charcoal);
     text-align: center;
     text-decoration: none;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.3s ease;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-radius: 4px;
   }
 
   .btn-view-details:hover {
@@ -839,17 +935,21 @@
     .product-title {
       font-size: 2.25rem;
     }
+  }
 
+  @media (max-width: 767px) {
     .product-actions {
-      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
-    .btn-add-to-cart {
-      flex: 1;
+    .btn-add-to-cart,
+    .btn-buy-now {
+      flex: 1 1 calc(50% - 0.5rem);
     }
 
     .btn-view-details {
-      flex: 0 0 auto;
+      flex: 0 0 100%;
     }
   }
 </style>
