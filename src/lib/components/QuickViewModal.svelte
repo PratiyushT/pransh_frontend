@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatPrice } from "$lib/utils/data";
-  import { addToCart } from "$lib/stores";
+  import { addToCart, clearCart } from "$lib/stores";
   import type { Product, Variant } from "$lib/types";
   import { onMount, createEventDispatcher } from "svelte";
   import ColorPieChart from "$lib/components/ColorPieChart.svelte";
@@ -107,10 +107,13 @@
 
     isAddingToCart = true;
 
-    // Add to cart first
+    // Clear cart first to ensure only this product is processed
+    clearCart();
+
+    // Add to cart
     addToCart(product._id, selectedVariant._id, quantity);
 
-    // Navigate to checkout with direct=true parameter, matching product detail page
+    // Navigate to checkout with direct=true parameter
     setTimeout(() => {
       handleClose();
       goto('/checkout?direct=true');

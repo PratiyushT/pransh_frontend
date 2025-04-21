@@ -43,7 +43,7 @@ export function buildProductsQuery(opts: ProductFilterOptions = {}) {
       _id,
       name,
       description,
-      slug,
+      "slug": slug.current,
       "image": mainImage.asset->url,
       "category": category->{ _id, name },
       isFeatured,

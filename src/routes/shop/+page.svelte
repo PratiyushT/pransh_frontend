@@ -76,29 +76,22 @@
       </p>
       <div class="hero-line"></div>
     </div>
-    <div>
     {#if !data.products || data.products.length === 0}
       <div class="col-span-full text-center py-12">
         <p class="text-xl text-gray-500">No products found.</p>
       </div>
     {:else}
-      <!-- Product count indicator at the top -->
       <div class="product-count-indicator">
         Showing {startItem}-{endItem} of {data.totalCount} products
       </div>
-
       <div class="products-grid">
         {#each data.products as product (product._id)}
-          <div class="product-card-wrapper">
-            <ProductCard {product} on:quickView={handleQuickView} />
-          </div>
+          <ProductCard {product} on:quickView={handleQuickView} />
         {/each}
       </div>
-
       {#if totalPages > 1}
-        <div class="pagination-bar mt-8">
+        <nav class="pagination-bar mt-8" aria-label="Pagination">
           <div class="pagination-controls">
-            <!-- Previous page button -->
             {#if page > 1}
               <a
                 class="pagination-btn prev"
@@ -111,14 +104,13 @@
                 </svg>
               </a>
             {:else}
-              <span class="pagination-btn prev disabled">
+              <span class="pagination-btn prev disabled" aria-disabled="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
               </span>
             {/if}
 
-            <!-- First page and ellipsis if needed -->
             {#if startPage > 1}
               <a
                 class="pagination-page"
@@ -132,7 +124,6 @@
               {/if}
             {/if}
 
-            <!-- Page numbers -->
             {#each Array(endPage - startPage + 1) as _, i}
               {#if startPage + i === page}
                 <span class="pagination-page active">{startPage + i}</span>
@@ -147,7 +138,6 @@
               {/if}
             {/each}
 
-            <!-- Last page and ellipsis if needed -->
             {#if endPage < totalPages}
               {#if endPage < totalPages - 1}
                 <span class="pagination-ellipsis">…</span>
@@ -161,7 +151,6 @@
               </a>
             {/if}
 
-            <!-- Next page button -->
             {#if page < totalPages}
               <a
                 class="pagination-btn next"
@@ -174,17 +163,16 @@
                 </svg>
               </a>
             {:else}
-              <span class="pagination-btn next disabled">
+              <span class="pagination-btn next disabled" aria-disabled="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
               </span>
             {/if}
           </div>
-        </div>
+        </nav>
       {/if}
     {/if}
-    </div>
   </div>
 </section>
 
@@ -195,12 +183,12 @@
 <style>
   .products-grid {
     display: grid;
-    grid-template-columns: repeat(1, 1fr);
+    grid-template-columns: 1fr;
     gap: 1.5rem;
     margin-top: 1.5rem;
+    width: 100%;
   }
 
-  /* Product count indicator at the top */
   .product-count-indicator {
     font-size: 0.95rem;
     color: var(--color-charcoal-light);
@@ -213,13 +201,18 @@
   }
 
   @media (min-width: 640px) {
-    .products-grid { grid-template-columns: repeat(2, 1fr); }
+    .products-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+    }
   }
   @media (min-width: 1024px) {
-    .products-grid { grid-template-columns: repeat(3, 1fr); }
+    .products-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2.5rem;
+    }
   }
 
-  /* Improved pagination styles */
   .pagination-bar {
     margin-top: 3rem;
     display: flex;
@@ -227,8 +220,6 @@
     align-items: center;
     gap: 1rem;
   }
-
-  /* Remove pagination-top and pagination-info styles */
 
   .pagination-controls {
     display: flex;
@@ -315,6 +306,10 @@
   }
 
   @media (max-width: 640px) {
+    .products-grid {
+      grid-template-columns: 1fr;
+      gap: 1.2rem;
+    }
     .pagination-page, .pagination-btn {
       min-width: 2.2rem;
       height: 2.2rem;

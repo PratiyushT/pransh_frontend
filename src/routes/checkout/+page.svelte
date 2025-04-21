@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { cart } from '$lib/stores';
+  import { cart, keepOnlyLastCartItem } from '$lib/stores';
   import { getCartProductDetails } from '$lib/sanity/sanityData';
   import { formatPrice } from '$lib/utils/data';
   import AddressSearch from '$lib/components/AddressSearch.svelte';
+  import { page } from '$app/stores';
 
   // DEBUG: Log environment variables to console
   console.log('Environment variables available:', import.meta.env);
@@ -15,6 +16,10 @@
   let subtotal = 0;
   let shippingCost = 15.0;
   let total = 0;
+
+  // Check if this is a direct checkout (Buy Now functionality)
+  let isDirectCheckout = false;
+  let directCheckoutItem = null;
 
   // Form validation
   let formSubmitted = false;
@@ -51,7 +56,24 @@
   let mapboxLoadError = false;
   let addressFromMapbox = false; // Track if address came from Mapbox
 
-  $: subtotal = $cart.reduce((sum, item) => {
+  // Watch for direct checkout param and handle it
+  $: {
+    const url = $page.url || (typeof window !== 'undefined' && new URL(window.location.href));
+    if (url) {
+      const params = url.searchParams;
+      isDirectCheckout = params.get('direct') === 'true';
+
+      // If this is a direct checkout, keep only the last item (most recently added)
+      if (isDirectCheckout && $cart.length > 1) {
+        keepOnlyLastCartItem();
+      }
+    }
+  }
+
+  // Compute the cart items to display
+  $: displayedCart = $cart;
+
+  $: subtotal = displayedCart.reduce((sum, item) => {
     const details = productDetails[`${item.productId}___${item.variantId}`];
     if (!details) return sum;
     return sum + details.variant.price * item.quantity;
@@ -92,7 +114,7 @@
     isLoadingProducts = true;
     loadError = false;
     try {
-      productDetails = await getCartProductDetails($cart);
+      productDetails = await getCartProductDetails(displayedCart);
     } catch (e) {
       loadError = true;
     } finally {
@@ -100,8 +122,9 @@
     }
   }
 
+  // Fetch product details on mount and whenever displayedCart changes
   onMount(fetchDetails);
-  $: if ($cart) fetchDetails();
+  $: if (displayedCart) fetchDetails();
 
   function validateEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -127,7 +150,7 @@
       return;
     }
 
-    if (!$cart.length) {
+    if (!displayedCart.length) {
       errorMessage = 'Your cart is empty';
       return;
     }
@@ -251,7 +274,7 @@
     <div class="checkout-loading">Loading cart details…</div>
   {:else if loadError}
     <div class="checkout-error">Failed to load cart. Please try again.</div>
-  {:else if $cart.length === 0}
+  {:else if displayedCart.length === 0}
     <div class="checkout-empty">Your cart is empty.</div>
   {:else}
     <!-- Error message -->
@@ -266,7 +289,7 @@
       <div class="checkout-left">
         <h2 class="section-title">Your Items</h2>
         <div class="checkout-items">
-          {#each $cart as item}
+          {#each displayedCart as item}
             {#key item.productId + '-' + item.variantId}
               {#if productDetails[`${item.productId}___${item.variantId}`]}
                 <div class="checkout-item">
@@ -516,7 +539,7 @@
         <div class="summary-row"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
         <div class="summary-row"><span>Shipping</span><span>{subtotal > 0 ? formatPrice(shippingCost) : '-'}</span></div>
         <div class="summary-row total"><span>Total</span><span>{formatPrice(total)}</span></div>
-        <button disabled={!$cart.length} class="summary-checkout-btn primary-btn" on:click={goToPayment}>Proceed to Payment</button>
+        <button disabled={!displayedCart.length} class="summary-checkout-btn primary-btn" on:click={goToPayment}>Proceed to Payment</button>
       </div>
     </div>
   {/if}

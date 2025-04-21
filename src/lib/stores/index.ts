@@ -81,7 +81,15 @@ export const updateCartItemQuantity = (productId: string, variantId: string, qua
   );
 };
 
-// Clear cart
+// Keep only the most recent cart item (for direct checkout)
+export const keepOnlyLastCartItem = () => {
+  cart.update(items => {
+    if (items.length === 0) return items;
+    return [items[items.length - 1]];
+  });
+};
+
+// Clear cart completely
 export const clearCart = () => {
   cart.set([]);
 };

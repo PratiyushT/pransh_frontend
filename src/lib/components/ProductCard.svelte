@@ -8,6 +8,11 @@
 
   export let product: Product;
 
+  // Get product slug correctly, handling both string and object formats
+  $: productSlug = typeof product.slug === 'string'
+    ? product.slug
+    : product.slug?.current || '';
+
   const dispatch = createEventDispatcher();
 
   // Check if product is in wishlist initially
@@ -314,7 +319,7 @@
 </script>
 
 <a
-  href={`/product/${product.slug}`}
+  href={`/product/${productSlug}`}
   class="product-card-wrapper"
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}

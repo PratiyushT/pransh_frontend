@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { formatPrice } from '$lib/utils/data';
-  import { addToCart, isInWishlist, toggleWishlist } from '$lib/stores';
+  import { addToCart, isInWishlist, toggleWishlist, clearCart } from '$lib/stores';
   import ProductCard from '$lib/components/ProductCard.svelte';
   import ColorPieChart from '$lib/components/ColorPieChart.svelte';
   import { goto } from '$app/navigation';
@@ -202,7 +202,14 @@
   const handleBuyNow = () => {
     if (product && selectedVariant) {
       isBuyingNow = true;
+
+      // Clear cart first to ensure only this product is in the cart
+      clearCart();
+
+      // Add the current product to cart
       addToCart(product._id, selectedVariant._id, quantity);
+
+      // Go to checkout with direct=true parameter
       setTimeout(() => {
         goto('/checkout?direct=true');
       }, 600);

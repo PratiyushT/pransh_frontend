@@ -33,10 +33,10 @@ export interface Variant {
 export interface Product {
   _id: string;
   name: string;
-  slug:string;
-  image:Image;
+  slug: string | { current: string }; // Update to handle both string and object formats
+  image: string | Image;
   description: string;
-  category: string;
+  category: string | Category;
   variants: Variant[];
   rating: number;
   isFeatured: boolean;
@@ -59,7 +59,6 @@ export interface ProductFilterOptions {
   maxPrice?: number;
   featuredOnly?: boolean;
 }
-
 
 export interface ProductDetails {
   [key: string]: {
