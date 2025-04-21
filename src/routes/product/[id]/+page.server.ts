@@ -20,65 +20,44 @@ export const load: PageServerLoad = async ({ params }) => {
       };
     }
 
-    // Get some related products
-    try {
-      const relatedQuery = `
-        *[_type == "product" && _id != "${product._id}"] | order(rating desc) [0...4] {
+    // Fetch related products based on same category
+    let relatedProducts = [];
+
+    if (product.category && product.category._id) {
+      // Get related products query: same category, not the same product, limit 4
+      const relatedProductsQuery = `*[_type == "product" && category._ref == "${product.category._id}" && slug.current != "${slug}"][0...4] {
+        _id,
+        name,
+        slug,
+        "image": image.asset->url,
+        price,
+        rating,
+        "category": category->name,
+        "variants": variants[] {
+          _key,
           _id,
-          name,
-          description,
-          "slug": slug.current,
-          rating,
-          isFeatured,
-          "category": category->{
-            _id,
-            name
-          },
-          "variants": variants[]-> {
-            _id,
-            sku,
-            price,
-            stock,
-            "color": color->{
-              _id,
-              name,
-              hex
-            },
-            "size": size->{
-              _id,
-              name
-            },
-            "images": images[].asset->url
-          }
-        }
-      `;
+          size->{name},
+          color->{name, hex},
+          price,
+          stock,
+          "images": images[]
+        },
+        isFeatured
+      }`;
 
-      const relatedProducts = await client.fetch(relatedQuery);
-
-      return {
-        product,
-        relatedProducts
-      };
-    } catch (relatedErr) {
-      console.error('Error fetching related products:', relatedErr);
-      // Still return the main product even if related products fail
-      return {
-        product,
-        relatedProducts: []
-      };
+      relatedProducts = await client.fetch(relatedProductsQuery);
     }
+
+    return {
+      product,
+      relatedProducts
+    };
   } catch (err) {
     console.error('Error fetching product:', err);
-
-    // Instead of throwing an error that breaks preloading, return null
-    // This allows the page component to handle the missing product
     return {
+      error: { message: 'Error loading product. Please try again later.' },
       product: null,
-      relatedProducts: [],
-      error: {
-        message: 'Error fetching product',
-        status: 500
-      }
+      relatedProducts: []
     };
   }
 };

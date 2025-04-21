@@ -13,9 +13,7 @@
   import { getCartProductDetails } from "$lib/sanity/sanityData";
   import ColorPieChart from "$lib/components/ColorPieChart.svelte";
 
-
-
-let shippingCost = 15.0;
+  let shippingCost = 15.0;
   let subtotal = 0;
   let total = 0;
   let isRemoving = false;
@@ -34,8 +32,7 @@ let shippingCost = 15.0;
   $: total = subtotal + (subtotal > 0 ? shippingCost : 0);
 
   // Improved function to fetch product data from Sanity
- // Improved function to fetch product data from Sanity
- async function loadProductDetails() {
+  async function loadProductDetails() {
     isLoadingProducts = true;
     loadError = false;
 
@@ -619,7 +616,7 @@ let shippingCost = 15.0;
         </div>
       {:else}
         <div
-          class="bg-white p-16 sm:p-20 text-center max-w-2xl mx-auto shadow-xl rounded-md border border-gray-300"
+          class="bg-white p-16 sm:p-20 text-center max-w-2xl mx-auto shadow-xl rounded-md border border-gray-300 xl:col-span-3"
         >
           <div class="flex justify-center mb-16">
             <div
@@ -650,11 +647,11 @@ let shippingCost = 15.0;
           </p>
           <a
             href="/shop"
-            class="btn btn-primary transform transition-transform hover:translate-y-[-2px] inline-flex items-center shadow-md text-lg py-5 px-10"
+            class="btn btn-gold rounded-md inline-flex items-center py-3 px-6 text-white font-medium shadow-md text-base whitespace-nowrap"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5 mr-3"
+              class="h-5 w-5 mr-2"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -677,6 +674,22 @@ let shippingCost = 15.0;
 <style>
   .cart-page {
     background-color: var(--color-cream);
+  }
+
+  .btn-gold {
+    display: inline-block;
+    background-color: var(--color-gold);
+    color: white;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 10px rgba(212, 175, 55, 0.2);
+  }
+
+  .btn-gold:hover {
+    background-color: var(--color-gold-dark);
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
+    transform: translateY(-2px);
   }
 
   .btn-primary {

@@ -101,7 +101,7 @@
     }, 600);
   }
 
-  // Buy now functionality - add to cart and go to checkout
+  // Buy now functionality - add to cart and go to checkout with direct=true parameter, matching product detail page
   function handleBuyNow() {
     if (!product || !selectedVariant) return;
 
@@ -110,10 +110,10 @@
     // Add to cart first
     addToCart(product._id, selectedVariant._id, quantity);
 
-    // Navigate to checkout
+    // Navigate to checkout with direct=true parameter, matching product detail page
     setTimeout(() => {
       handleClose();
-      goto('/checkout');
+      goto('/checkout?direct=true');
     }, 600);
   }
 
