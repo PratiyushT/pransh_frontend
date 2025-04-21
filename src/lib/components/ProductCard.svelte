@@ -314,12 +314,13 @@
 </script>
 
 <a
-  href={`/product/${product._id}`}
+  href={`/product/${product.slug}`}
   class="product-card-wrapper"
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
   on:touchstart={handleTouchStart}
   bind:this={cardElement}
+  data-sveltekit-preload-data="off"
 >
   <div class="product-card {isLoaded ? 'loaded' : ''} {isHovered ? 'hovered' : ''}">
     <div class="product-card-image-container" bind:this={imageContainer}>

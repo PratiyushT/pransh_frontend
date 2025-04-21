@@ -16,7 +16,6 @@
   // Use the server‑rendered products directly
   let featuredProducts: Product[] = data.featuredProducts;
 
-
   let quickViewProduct: Product | null = null;
   let quickViewOpen = false;
   let heroSection: HTMLElement;
@@ -143,6 +142,7 @@
   }
 
   function initTouchInteractions() {
+    if (!heroSection) return;
     const heroImage = heroSection.querySelector('.hero');
     if (!heroImage) return;
 
@@ -182,7 +182,10 @@
     }, { passive: true });
   }
 
-  onMount(() => {
+  // Svelte 5: use onMount instead of afterPaint
+  function initialize() {
+    if (typeof window === 'undefined') return;
+
     isMobile = window.innerWidth < 768;
     window.addEventListener('resize', () => {
       isMobile = window.innerWidth < 768;
@@ -244,7 +247,9 @@
     return () => {
       window.removeEventListener('scroll', handleScrollAnimations);
     };
-  });
+  }
+
+  onMount(initialize);
 </script>
 
 <svelte:head>

@@ -388,7 +388,7 @@
               {/if}
             </button>
 
-            <a href={`/product/${product._id}`} class="btn-view-details">
+            <a href={`/product/${product.slug}`} class="btn-view-details" data-sveltekit-preload-data="off">
               View Full Details
             </a>
           </div>

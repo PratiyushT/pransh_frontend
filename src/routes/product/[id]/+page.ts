@@ -2,4 +2,6 @@
 export const prerender = false;
 
 // Turn off preloading for this route to avoid errors during navigation
-export const preload = false;
+export const config = {
+  preload: false
+};
