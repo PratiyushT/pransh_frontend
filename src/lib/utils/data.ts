@@ -19,12 +19,14 @@ const sizes: Size[] = [
 
 // Mock data for colors
 const colors: Color[] = [
-  { _id: '1', name: 'Black', hex: '#000000' },
-  { _id: '2', name: 'White', hex: '#FFFFFF' },
-  { _id: '3', name: 'Gold', hex: '#D4AF37' },
-  { _id: '4', name: 'Navy', hex: '#000080' },
-  { _id: '5', name: 'Beige', hex: '#F5F5DC' },
-  { _id: '6', name: 'Red', hex: '#FF0000' }
+  { _id: '1', name: 'Black', hex: ['#000000'] },
+  { _id: '2', name: 'White', hex: ['#FFFFFF'] },
+  { _id: '3', name: 'Gold', hex: ['#D4AF37'] },
+  { _id: '4', name: 'Navy', hex: ['#000080'] },
+  { _id: '5', name: 'Beige', hex: ['#F5F5DC'] },
+  { _id: '6', name: 'Red', hex: ['#FF0000'] },
+  { _id: '7', name: 'Red/Blue', hex: ['#E32D2D', '#0048A5'] },
+  { _id: '8', name: 'Tricolor', hex: ['#E32D2D', '#0048A5', '#FFD500'] }
 ];
 
 // Mock data for products
@@ -294,4 +296,3 @@ export function formatPrice(amount?: number, currency = 'USD'): string {
     currency
   }).format(amount);
 }
-

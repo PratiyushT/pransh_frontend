@@ -1,7 +1,7 @@
 import { client } from '$lib/sanity/client';
-import { 
-  allFeaturedProductsQuery, 
-  allCategoriesQuery, 
+import {
+  allFeaturedProductsQuery,
+  allCategoriesQuery,
   allColorsQuery,
   allSizesQuery,
   paginatedProductsQuery,
@@ -13,10 +13,10 @@ import type { Size, Color, Category, Product, Variant, Image, CartItem, ProductD
 // Helper function to transform Sanity data to match our app's data structure
 function transformSanityProduct(sanityProduct: any): Product {
   // Extract the first variant's price as the product price
-  const firstVariant = sanityProduct.variants && sanityProduct.variants.length > 0 
-    ? sanityProduct.variants[0] 
+  const firstVariant = sanityProduct.variants && sanityProduct.variants.length > 0
+    ? sanityProduct.variants[0]
     : null;
-  
+
   // Transform variants
   const variants: Variant[] = sanityProduct.variants?.map((variant: any) => ({
     _id: variant._id,
@@ -96,11 +96,19 @@ export async function getSizes(): Promise<Size[]> {
 export async function getColors(): Promise<Color[]> {
   try {
     const sanityColors = await client.fetch(allColorsQuery);
-    return sanityColors.map((color: any) => ({
-      _id: color._id,
-      name: color.name,
-      hex: color.hex
-    }));
+    console.log('Sanity colors data:', sanityColors);
+
+    return sanityColors.map((color: any) => {
+      // Check if hex is an array - if not, make it an array with a single value
+      const hexValue = color.hex ? color.hex : '#000000';
+      const hexArray = Array.isArray(hexValue) ? hexValue : [hexValue];
+
+      return {
+        _id: color._id,
+        name: color.name,
+        hex: hexArray
+      };
+    });
   } catch (error) {
     console.error('Error fetching colors:', error);
     return [];
@@ -135,11 +143,11 @@ export async function getProductsByCategory(categoryName: string): Promise<Produ
     // First, find the category ID by name
     const categories = await getCategories();
     const category = categories.find(c => c.name === categoryName);
-    
+
     if (!category) {
       return [];
     }
-    
+
     // Use a custom query for category products
     const query = `
       *[_type == "product" && category._ref == "${category._id}"] | order(_createdAt desc) [0...100] {
@@ -172,7 +180,7 @@ export async function getProductsByCategory(categoryName: string): Promise<Produ
         }
       }
     `;
-    
+
     const products = await client.fetch(query);
     return products.map(transformSanityProduct);
   } catch (error) {
@@ -201,7 +209,7 @@ export function formatPrice(price: number): string {
     currency: 'USD',
     minimumFractionDigits: 2
   }).format(price);
-} 
+}
 
 
 export async function getProductBySlug(slug: string) {

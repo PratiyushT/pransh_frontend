@@ -4,6 +4,7 @@
   import { categoriesStore, colorsStore, sizesStore, isLoadingFilters, filtersError, initializeFilterData } from '$lib/stores/filters';
   import gsap from 'gsap';
   import { page } from '$app/stores';
+  import ColorPieChart from '$lib/components/ColorPieChart.svelte';
 
   // DOM references
   let searchInput: HTMLInputElement;
@@ -728,10 +729,18 @@
                     <button
                       type="button"
                       class="color-chip {filterState.colors.includes(color.name.toLowerCase()) ? 'active' : ''}"
-                      style="--color-dot: {color.hex};"
                       on:click={() => toggleColor(color.name.toLowerCase())}
                     >
-                      <span class="color-dot"></span>
+                      {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
+                        <span class="color-dot">
+                          <ColorPieChart hexColors={color.hex} size={18} border={true} borderWidth={1} />
+                        </span>
+                      {:else}
+                        <span
+                          class="color-dot"
+                          style="background-color: {Array.isArray(color.hex) ? color.hex[0] : (typeof color.hex === 'string' ? color.hex : '#ccc')};"
+                        ></span>
+                      {/if}
                       <span class="color-name">{color.name}</span>
                     </button>
                   {/each}
@@ -1422,12 +1431,14 @@
   }
 
   .color-dot {
-    width: 1.2rem;
-    height: 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background-color: var(--color-dot);
+    margin-right: 6px;
     border: 1px solid rgba(0, 0, 0, 0.1);
-    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
   }
 
   /* Size Chips */

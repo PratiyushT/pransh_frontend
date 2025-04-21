@@ -3,6 +3,7 @@
   import { getProductById, formatPrice, getRandomProducts } from '$lib/utils/data';
   import { addToCart } from '$lib/stores';
   import ProductCard from '$lib/components/ProductCard.svelte';
+  import ColorPieChart from '$lib/components/ColorPieChart.svelte';
   import type { Product } from '$lib/types.js';
   import { page } from '$app/stores';
 
@@ -251,11 +252,19 @@
                   {#each availableColors as color}
                     <button
                       class="color-option {selectedColor?.name === color.name ? 'active' : ''}"
-                      style="background-color: {color.hex}; border-color: {color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex}"
                       on:click={() => selectColor(color)}
                       aria-label={`Select ${color.name} color`}
                       aria-pressed={selectedColor?.name === color.name}
-                    ></button>
+                    >
+                      {#if color.hex && color.hex.length > 1}
+                        <ColorPieChart hexColors={color.hex} size={24} border={true} borderColor={selectedColor?.name === color.name ? 'var(--color-gold)' : '#e2e2e2'} borderWidth={2} />
+                      {:else}
+                        <span
+                          class="color-swatch"
+                          style="background-color: {color.hex[0]}; border-color: {color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0]}"
+                        ></span>
+                      {/if}
+                    </button>
                   {/each}
                 </div>
               </div>
@@ -586,6 +595,9 @@
     transition: all 0.3s ease;
     padding: 0;
     background: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .color-option:hover {
@@ -594,6 +606,14 @@
 
   .color-option.active {
     box-shadow: 0 0 0 2px var(--color-white), 0 0 0 4px var(--color-gold);
+  }
+
+  .color-swatch {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid;
   }
 
   .size-options {

@@ -4,6 +4,7 @@
   import { onMount, createEventDispatcher } from 'svelte';
   import gsap from 'gsap';
   import { isInWishlist, toggleWishlist } from '$lib';
+  import ColorPieChart from '$lib/components/ColorPieChart.svelte';
 
   export let product: Product;
 
@@ -383,12 +384,22 @@
       {#if uniqueColors.length > 0}
         <div class="product-card-colors" aria-label="Available colors">
           {#each uniqueColors as color}
-            <span
-              class="color-swatch"
-              title={color.name || 'Color'}
-              style="background-color: {color.hex || color.hexCode || color.colorCode || color.color || '#ccc'}"
-              aria-label={color.name || 'Color swatch'}
-            ></span>
+            {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
+              <div class="color-swatch-container" title={color.name || 'Color'}>
+                <ColorPieChart hexColors={color.hex} size={18} border={true} borderWidth={1} borderColor="#e2e2e2" />
+              </div>
+            {:else}
+              <div
+                class="color-swatch-container"
+                title={color.name || 'Color'}
+              >
+                <span
+                  class="color-swatch"
+                  style="background-color: {Array.isArray(color.hex) && color.hex[0] ? color.hex[0] : (typeof color.hex === 'string' ? color.hex : '#ccc')}"
+                  aria-label={color.name || 'Color swatch'}
+                ></span>
+              </div>
+            {/if}
           {/each}
         </div>
       {/if}
@@ -656,20 +667,38 @@
     -webkit-box-orient: vertical;
   }
 
-  /* Color swatches container */
+  /* Improved Color swatches container */
   .product-card-colors {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+    margin-bottom: 5px;
   }
-  .color-swatch {
+
+  .color-swatch-container {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: 1px solid rgba(0,0,0,0.1);
-    box-shadow: 0 0 2px rgba(0,0,0,0.1);
-    cursor: default;
-    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+  }
+
+  .color-swatch-container:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .color-swatch {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
   }
 
   .product-card-price {

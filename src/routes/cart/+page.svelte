@@ -11,9 +11,10 @@
   import { formatPrice } from "$lib/utils/data";
   import gsap from "gsap";
   import { getCartProductDetails } from "$lib/sanity/sanityData";
-  
-  
-  
+  import ColorPieChart from "$lib/components/ColorPieChart.svelte";
+
+
+
 let shippingCost = 15.0;
   let subtotal = 0;
   let total = 0;
@@ -314,10 +315,21 @@ let shippingCost = 15.0;
                           <span
                             class="flex items-center gap-2 inline-flex ml-1"
                           >
-                            <span
-                              class="inline-block w-4 h-4 rounded-full border border-gray-300"
-                              style={`background-color: ${productDetails[productKey].variant.color?.hex || "#888888"};`}
-                            ></span>
+                            {#if productDetails[productKey].variant.color?.hex && Array.isArray(productDetails[productKey].variant.color.hex) && productDetails[productKey].variant.color.hex.length > 1}
+                              <ColorPieChart
+                                hexColors={productDetails[productKey].variant.color.hex}
+                                size={16}
+                                border={true}
+                                borderWidth={1}
+                              />
+                            {:else}
+                              <span
+                                class="inline-block w-4 h-4 rounded-full border border-gray-300"
+                                style={`background-color: ${Array.isArray(productDetails[productKey].variant.color?.hex)
+                                  ? productDetails[productKey].variant.color.hex[0]
+                                  : productDetails[productKey].variant.color?.hex || "#888888"};`}
+                              ></span>
+                            {/if}
                             <span class="text-gray-600"
                               >{productDetails[productKey].variant.color
                                 ?.name || "N/A"}</span

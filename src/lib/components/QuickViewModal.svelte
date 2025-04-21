@@ -3,6 +3,7 @@
   import { addToCart } from "$lib/stores";
   import type { Product, Variant } from "$lib/types";
   import { onMount, createEventDispatcher } from "svelte";
+  import ColorPieChart from "$lib/components/ColorPieChart.svelte";
 
   export let product: Product | null = null;
   export let open = false;
@@ -22,7 +23,7 @@
   }
 
   // Get deduplicated color options from variants
-  $: colorOptions = product 
+  $: colorOptions = product
     ? [...new Map(product.variants.map(v => [v.color._id, v.color])).values()]
     : [];
 
@@ -44,7 +45,7 @@
   // Handle color selection
   function selectColor(colorId: string) {
     if (!product) return;
-    
+
     // Find first variant with the selected color
     const newVariant = product.variants.find(v => v.color._id === colorId);
     if (newVariant) {
@@ -56,12 +57,12 @@
   // Handle size selection
   function selectSize(sizeName: string) {
     if (!product || !selectedVariant) return;
-    
+
     // Find variant with current color and the selected size
     const newVariant = product.variants.find(
       v => v.color._id === selectedVariant.color._id && v.size.name === sizeName
     );
-    
+
     if (newVariant) {
       selectedVariant = newVariant;
     }
@@ -84,14 +85,14 @@
   // Add to cart functionality
   function handleAddToCart() {
     if (!product || !selectedVariant) return;
-    
+
     isAddingToCart = true;
-    
+
     setTimeout(() => {
       addToCart(product._id, selectedVariant._id, quantity);
       isAddingToCart = false;
       addedToCart = true;
-      
+
       setTimeout(() => {
         addedToCart = false;
         handleClose();
@@ -229,16 +230,24 @@
 
           {#if colorOptions.length > 1}
             <div class="option-group">
-              <h3 class="option-title">Color</h3>
+              <h3 class="option-title">Color: <span class="selected-option">{selectedVariant?.color.name}</span></h3>
               <div class="color-options">
                 {#each colorOptions as color}
                   <button
                     class="color-option {selectedVariant?.color._id === color._id ? 'active' : ''}"
-                    style="background-color: {color.hex}; border-color: {color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex}"
                     on:click={() => selectColor(color._id)}
                     aria-label={`Select ${color.name} color`}
                     aria-pressed={selectedVariant?.color._id === color._id}
-                  ></button>
+                  >
+                    {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
+                      <ColorPieChart hexColors={color.hex} size={24} border={true} borderColor={selectedVariant?.color._id === color._id ? 'var(--color-gold)' : '#e2e2e2'} borderWidth={2} />
+                    {:else}
+                      <span
+                        class="color-swatch"
+                        style="background-color: {Array.isArray(color.hex) ? color.hex[0] : color.hex}; border-color: {Array.isArray(color.hex) ? (color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0]) : (color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex)}"
+                      ></span>
+                    {/if}
+                  </button>
                 {/each}
               </div>
             </div>
@@ -595,24 +604,38 @@
   }
 
   .color-option {
-    width: 26px;
-    height: 26px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    border: 2px solid;
-    cursor: pointer;
-    transition: all 0.3s ease;
     padding: 0;
+    margin: 0 8px 8px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: visible;
     background: none;
-  }
-
-  .color-option:hover {
-    transform: scale(1.1);
+    border: none;
   }
 
   .color-option.active {
-    box-shadow:
-      0 0 0 2px var(--color-white),
-      0 0 0 3px var(--color-gold);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--color-white), 0 0 0 4px var(--color-gold);
+  }
+
+  .color-swatch {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid;
+  }
+
+  .selected-option {
+    font-weight: normal;
+    color: var(--color-gold);
+    margin-left: 5px;
   }
 
   .size-options {
