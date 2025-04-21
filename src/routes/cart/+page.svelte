@@ -27,6 +27,24 @@
   let hasSavedItems = false;
   let isMergingCart = false;
 
+  // Automatically restore saved cart on mount if needed
+  onMount(async () => {
+    // Check if there are saved items to restore
+    hasSavedItems = $savedCartCount > 0;
+
+    // Load product details for current cart
+    await loadProductDetails();
+
+    // Also watch for cart changes to update product details
+    const unsubscribe = cart.subscribe(async (cartItems) => {
+      if (cartItems && cartItems.length > 0) {
+        await loadProductDetails();
+      }
+    });
+
+    return unsubscribe;
+  });
+
   // Calculate subtotal from up-to-date Sanity data
   $: subtotal = $cart.reduce((sum, item) => {
     const details = productDetails[`${item.productId}___${item.variantId}`];
@@ -170,49 +188,6 @@
     }, 1000);
   }
 
-  // Initialize data fetching when the component mounts
-  onMount(() => {
-    // Fetch data on mount if cart has items
-    if ($cart.length > 0) {
-      loadProductDetails();
-    } else {
-      isLoadingProducts = false;
-    }
-
-    // Add animations
-    const cartItems = document.querySelectorAll(".cart-item");
-    const summaryElement = document.querySelector(".order-summary");
-
-    gsap.from(cartItems, {
-      opacity: 0,
-      y: 20,
-      stagger: 0.1,
-      duration: 0.6,
-      ease: "power2.out",
-    });
-
-    if (summaryElement) {
-      gsap.from(summaryElement, {
-        opacity: 0,
-        x: 20,
-        duration: 0.8,
-        delay: 0.3,
-        ease: "power2.out",
-      });
-    }
-  });
-
-  // Watch for cart changes and fetch data when needed
-  $: {
-    if ($cart.length > 0) {
-      loadProductDetails();
-    } else {
-      // Clear product details and loading state when cart is empty
-      productDetails = {};
-      isLoadingProducts = false;
-    }
-  }
-
   // Watch for saved cart items to show restore notification
   $: hasSavedItems =
     $cart.length === 0 && $savedCartCount > 0 && Array.isArray($savedCart) && $savedCart.length > 0;
@@ -246,20 +221,17 @@
           on:click={handleRestoreSavedCart}
           disabled={isMergingCart}
         >
-          {isMergingCart
-            ? (
-              <>
-                <span class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
-                Restoring...
-              </>
-            )
-            : (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h7V3m0 0l-9 9 9 9m4-7h7v7m0 0l-9-9 9-9" /></svg>
-                Restore Cart
-              </>
-            )
-          }
+          {#if isMergingCart}
+            <div class="flex items-center gap-2">
+              <span class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+              Restoring...
+            </div>
+          {:else}
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h7V3m0 0l-9 9 9 9m4-7h7v7m0 0l-9-9 9-9" /></svg>
+              Restore Cart
+            </div>
+          {/if}
         </button>
       </div>
     {/if}

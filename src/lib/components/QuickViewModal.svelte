@@ -103,21 +103,21 @@
   }
 
   // Buy now functionality - add to cart and go to checkout with direct=true parameter, matching product detail page
-  function handleBuyNow() {
+  async function handleBuyNow() {
     if (!product || !selectedVariant) return;
 
     isAddingToCart = true;
 
     // Save current cart items and clear cart for Buy Now
-    saveCartAndClearForDirectCheckout();
+    await saveCartAndClearForDirectCheckout();
 
-    // Add to cart
-    addToCart(product._id, selectedVariant._id, quantity);
+    // Add to cart (wait for it if async)
+    await addToCart(product._id, selectedVariant._id, quantity);
 
     // Show tooltip/notification
     showBuyNowTooltip = true;
 
-    // Navigate to checkout with direct=true parameter
+    // Wait a bit for animation/UX
     setTimeout(() => {
       handleClose();
       goto('/checkout?direct=true');

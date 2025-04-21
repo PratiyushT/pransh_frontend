@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { cart, keepOnlyLastCartItem, savedCart, savedCartCount, restoreSavedCart } from '$lib/stores';
   import { getCartProductDetails } from '$lib/sanity/sanityData';
@@ -21,10 +21,9 @@
   let isDirectCheckout = false;
   let directCheckoutItem = null;
 
-  // Saved cart notification state
-  let showSavedCartNotification = false;
-  let savedCartInfo = { itemCount: 0, totalPrice: 0 };
-  let isMergingCart = false;
+  // Use the $page store to detect when direct checkout is active
+  // and handle restoration when component is destroyed
+  let isDirectCheckoutActive = false;
 
   // Form validation
   let formSubmitted = false;
@@ -61,65 +60,69 @@
   let mapboxLoadError = false;
   let addressFromMapbox = false; // Track if address came from Mapbox
 
-  // Watch for direct checkout param and handle it
+  // For storing the buy now product (if any)
+  let buyNowProduct = null;
+
+  // Compute the cart items to display
+  $: displayedCart = $cart;
+
+  // Watch for direct checkout param and track it
   $: {
-    const url = $page.url || (typeof window !== 'undefined' && new URL(window.location.href));
+    const url = $page.url || (typeof window !== 'undefined' && window.location ? new URL(window.location.href) : null);
     if (url) {
       const params = url.searchParams;
       isDirectCheckout = params.get('direct') === 'true';
 
+      // Set active flag for restoration on destroy
+      if (isDirectCheckout) {
+        isDirectCheckoutActive = true;
+      }
+
       // If this is a direct checkout, keep only the last item (most recently added)
-      if (isDirectCheckout && $cart.length > 1) {
+      if (isDirectCheckout && $cart && $cart.length > 0) {
+        // Save the buy now product so we can restore it later
+        buyNowProduct = $cart[$cart.length - 1];
         keepOnlyLastCartItem();
       }
     }
   }
 
-  // Compute the cart items to display
-  $: displayedCart = $cart;
+  // Add an onDestroy hook to ensure cart restoration when component is unmounted
+  onDestroy(() => {
+    try {
+      if (isDirectCheckoutActive && $savedCartCount > 0) {
+        // Auto restore saved cart and merge with current items
+        restoreSavedCart();
 
-  // Check if there are saved items to restore
-  $: hasSavedItems = $savedCartCount > 0;
-
-  // Update saved cart notification info
-  $: {
-    if ($savedCartCount > 0) {
-      showSavedCartNotification = true;
-      savedCartInfo.itemCount = $savedCartCount;
-      // Calculate total price for saved items if not already set
-      if ($savedCart && Array.isArray($savedCart)) {
-        // If productDetails for savedCart items are loaded, show price
-        let total = 0;
-        for (const item of $savedCart) {
-          const details = productDetails[`${item.productId}___${item.variantId}`];
-          if (details) {
-            total += details.variant.price * item.quantity;
+        // If there was a buy now product, re-add it
+        if (buyNowProduct) {
+          const found = $cart && $cart.find(
+            (item) =>
+              item.productId === buyNowProduct.productId &&
+              item.variantId === buyNowProduct.variantId
+          );
+          if (!found) {
+            cart.update((items) => [...items, buyNowProduct]);
           }
         }
-        savedCartInfo.totalPrice = total;
       }
-    } else {
-      showSavedCartNotification = false;
+    } catch (error) {
+      console.error('Error during component unmount cart restoration:', error);
     }
-  }
+  });
 
-  // Handler to restore saved cart items
-  function handleRestoreSavedCart() {
-    isMergingCart = true;
-    restoreSavedCart();
-
-    // After a short delay, hide the notification and reset the loading state
-    setTimeout(() => {
-      showSavedCartNotification = false;
-      isMergingCart = false;
-    }, 1000);
-  }
-
-  $: subtotal = displayedCart.reduce((sum, item) => {
-    const details = productDetails[`${item.productId}___${item.variantId}`];
-    if (!details) return sum;
-    return sum + details.variant.price * item.quantity;
-  }, 0);
+  // Update subtotal and total
+  $: subtotal = (displayedCart && Array.isArray(displayedCart))
+    ? displayedCart.reduce((sum, item) => {
+      const details = productDetails[`${item.productId}___${item.variantId}`];
+      if (!details) {
+        // Use a fallback price if details aren't available
+        console.log(`No details for item: ${item.productId}___${item.variantId}`);
+        return sum + 0; // Could set a fallback price here if needed
+      }
+      return sum + details.variant.price * item.quantity;
+    }, 0)
+    : 0;
   $: total = subtotal + (subtotal > 0 ? shippingCost : 0);
 
   // Form validation
@@ -152,21 +155,81 @@
     isPostalCodeValid &&
     isCountryValid;
 
-  async function fetchDetails() {
+  // Automatically restore saved cart on mount if not direct checkout
+  onMount(async () => {
+    try {
+      isLoadingProducts = true;
+
+      // Automatically restore saved cart items when the page loads
+      // but only if this is not a direct checkout (to avoid conflicts)
+      if ($savedCartCount > 0 && !isDirectCheckout) {
+        restoreSavedCart();
+      }
+
+      // Only fetch product details if there are items in the cart
+      if ($cart && $cart.length > 0) {
+        productDetails = await getCartProductDetails($cart);
+      }
+
+      // Always set loading to false, even if cart is empty
+      isLoadingProducts = false;
+    } catch (error) {
+      console.error('Error loading product details:', error);
+      loadError = true;
+      isLoadingProducts = false;
+    }
+  });
+
+  // We need to track the cart to avoid infinite refetching
+  let previousCartJson = '';
+
+  // Only update when cart actually changes
+  $: {
+    if ($cart && Array.isArray($cart)) {
+      const currentCartJson = JSON.stringify($cart);
+
+      // Only update if the cart has actually changed
+      if (currentCartJson !== previousCartJson) {
+        previousCartJson = currentCartJson;
+
+        // Set displayedCart from cart store
+        displayedCart = [...$cart];
+
+        // Only fetch if there are items and we're not already loading
+        if (!isLoadingProducts && displayedCart.length > 0) {
+          // Load product details (with debounce)
+          const loadTimeout = setTimeout(() => {
+            loadProductDetails();
+          }, 300);
+
+          // Clean up timeout if component is destroyed
+          onDestroy(() => {
+            clearTimeout(loadTimeout);
+          });
+        }
+      }
+    }
+  }
+
+  // Improve the loadProductDetails function to handle empty carts better
+  async function loadProductDetails() {
+    // Skip if already loading or cart is empty
+    if (isLoadingProducts || !displayedCart || displayedCart.length === 0) {
+      return;
+    }
+
     isLoadingProducts = true;
     loadError = false;
+
     try {
       productDetails = await getCartProductDetails(displayedCart);
-    } catch (e) {
+    } catch (error) {
+      console.error('Error loading product details:', error);
       loadError = true;
     } finally {
       isLoadingProducts = false;
     }
   }
-
-  // Fetch product details on mount and whenever displayedCart changes
-  onMount(fetchDetails);
-  $: if (displayedCart) fetchDetails();
 
   function validateEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -192,7 +255,7 @@
       return;
     }
 
-    if (!displayedCart.length) {
+    if (!displayedCart || !displayedCart.length) {
       errorMessage = 'Your cart is empty';
       return;
     }
@@ -307,38 +370,26 @@
     }
     resetFieldError();
   };
+
+  // Fallback image handler for product images
+  function handleImageError(event) {
+    event.target.src = '/static/images/product-placeholder.jpg';
+    event.target.onerror = null;
+  }
 </script>
 
 <section class="checkout-wrapper section">
   <h1 class="checkout-title">Checkout</h1>
 
-  {#if showSavedCartNotification}
-    <div class="saved-cart-notification">
-      <div class="saved-cart-text">
-        <span>
-          {isMergingCart
-            ? 'Restoring saved items...'
-            : `You have ${savedCartInfo.itemCount} saved item${savedCartInfo.itemCount === 1 ? '' : 's'} in your cart.`}
-        </span>
-        {#if savedCartInfo.totalPrice > 0}
-          <span class="saved-cart-total">({formatPrice(savedCartInfo.totalPrice)})</span>
-        {/if}
-      </div>
-      <button
-        class="restore-saved-cart-btn"
-        on:click={handleRestoreSavedCart}
-        disabled={isMergingCart}
-      >
-        {isMergingCart ? 'Restoring...' : 'Restore Items'}
-      </button>
-    </div>
-  {/if}
-
   {#if isLoadingProducts}
-    <div class="checkout-loading">Loading cart details…</div>
+    <div class="checkout-loading">
+      <div class="loading-spinner"></div>
+      <p>Loading cart details...</p>
+      <p class="loading-text-small">This may take a moment if you have many items</p>
+    </div>
   {:else if loadError}
     <div class="checkout-error">Failed to load cart. Please try again.</div>
-  {:else if displayedCart.length === 0}
+  {:else if !displayedCart || displayedCart.length === 0}
     <div class="checkout-empty">Your cart is empty.</div>
   {:else}
     <!-- Error message -->
@@ -355,16 +406,35 @@
         <div class="checkout-items">
           {#each displayedCart as item}
             {#key item.productId + '-' + item.variantId}
-              {#if productDetails[`${item.productId}___${item.variantId}`]}
+              {#if productDetails && productDetails[`${item.productId}___${item.variantId}`]}
                 <div class="checkout-item">
-                  <img class="checkout-item-img" src={productDetails[`${item.productId}___${item.variantId}`].variant.images?.[0] ?? '/images/no-image.png'} alt={productDetails[`${item.productId}___${item.variantId}`].product.name} />
+                  <img
+                    class="checkout-item-img"
+                    src={productDetails[`${item.productId}___${item.variantId}`].variant.images?.[0] ?? '/static/images/product-placeholder.jpg'}
+                    alt={productDetails[`${item.productId}___${item.variantId}`].product.name}
+                    on:error={handleImageError}
+                  />
                   <div class="checkout-item-info">
                     <div class="checkout-item-title">{productDetails[`${item.productId}___${item.variantId}`].product.name}</div>
                     <div class="checkout-item-meta">
-                      <span>Color: {productDetails[`${item.productId}___${item.variantId}`].variant.color?.name}</span>
-                      <span>Size: {productDetails[`${item.productId}___${item.variantId}`].variant.size}</span>
+                      <span>Color: {productDetails[`${item.productId}___${item.variantId}`].variant.color?.name ?? '—'}</span>
+                      <span>Size: {productDetails[`${item.productId}___${item.variantId}`].variant.size ?? '—'}</span>
                     </div>
                     <div class="checkout-item-price">{formatPrice(productDetails[`${item.productId}___${item.variantId}`].variant.price)}</div>
+                    <div class="checkout-item-qty">Qty: {item.quantity}</div>
+                  </div>
+                </div>
+              {:else}
+                <!-- Fallback for missing product details -->
+                <div class="checkout-item">
+                  <img class="checkout-item-img" src="/static/images/product-placeholder.jpg" alt="Product image unavailable" />
+                  <div class="checkout-item-info">
+                    <div class="checkout-item-title">Product details unavailable</div>
+                    <div class="checkout-item-meta">
+                      <span>Color: —</span>
+                      <span>Size: —</span>
+                    </div>
+                    <div class="checkout-item-price">—</div>
                     <div class="checkout-item-qty">Qty: {item.quantity}</div>
                   </div>
                 </div>
@@ -603,7 +673,7 @@
         <div class="summary-row"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
         <div class="summary-row"><span>Shipping</span><span>{subtotal > 0 ? formatPrice(shippingCost) : '-'}</span></div>
         <div class="summary-row total"><span>Total</span><span>{formatPrice(total)}</span></div>
-        <button disabled={!displayedCart.length} class="summary-checkout-btn primary-btn" on:click={goToPayment}>Proceed to Payment</button>
+        <button disabled={!displayedCart || !displayedCart.length} class="summary-checkout-btn primary-btn" on:click={goToPayment}>Proceed to Payment</button>
       </div>
     </div>
   {/if}
@@ -730,6 +800,33 @@
   color: var(--color-gold, #ad974f);
 }
 
+/* Enhanced loading spinner */
+.checkout-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 220px;
+  justify-content: center;
+}
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid var(--color-gold, #ad974f);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  animation: spin 1.1s linear infinite;
+  margin-bottom: 1.1rem;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg);}
+  100% { transform: rotate(360deg);}
+}
+.loading-text-small {
+  font-size: 0.93rem;
+  color: #b3a26a;
+  margin-top: 0.35rem;
+}
+
 /* Error message styles */
 .checkout-error-message {
   background-color: #fef2f2;
@@ -738,47 +835,6 @@
   border-radius: 0.375rem;
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
-}
-
-/* Saved cart notification styles */
-.saved-cart-notification {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #f6f7eb;
-  border: 1px solid #e8e3c1;
-  border-radius: 0.5rem;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
-  font-size: 1rem;
-  animation: fadeIn 0.3s;
-  gap: 1.5rem;
-}
-.saved-cart-text {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  font-size: 1rem;
-  color: #927d3c;
-}
-.saved-cart-total {
-  color: #ad974f;
-  font-weight: 600;
-}
-.restore-saved-cart-btn {
-  background: var(--color-gold, #ad974f);
-  color: #fff;
-  border: none;
-  border-radius: 0.375rem;
-  padding: 0.55rem 1.2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.restore-saved-cart-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* Shipping form styles */

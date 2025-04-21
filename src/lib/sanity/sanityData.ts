@@ -189,7 +189,6 @@ export async function getProductsByCategory(categoryName: string): Promise<Produ
   }
 }
 
-
 // Get random products
 export async function getRandomProducts(count: number): Promise<Product[]> {
   try {
@@ -211,7 +210,6 @@ export function formatPrice(price: number): string {
   }).format(price);
 }
 
-
 export async function getProductBySlug(slug: string) {
   try {
     const product = await client.fetch(singleProductBySlugQuery(slug));
@@ -225,34 +223,64 @@ export async function getProductBySlug(slug: string) {
 export async function getCartProductDetails(
   cartItems: CartItem[]
 ): Promise<ProductDetails> {
-  if (!cartItems?.length) {
+  // Add defensive checks
+  if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
+    console.log('No cart items to fetch details for');
     return {};
   }
 
-  const productIds = cartItems.map(i => i.productId);
-  const variantIds = cartItems.map(i => i.variantId);
+  try {
+    console.log('Fetching details for cart items:', cartItems.length);
 
-  const raw: any[] = await client.fetch(cartProductsQuery, { productIds, variantIds });
+    // Filter out any invalid items
+    const validCartItems = cartItems.filter(
+      item => item && typeof item.productId === 'string' && typeof item.variantId === 'string'
+    );
 
-  const details: ProductDetails = {};
-  for (const v of raw) {
-    const key = `${v.productId}___${v._id}`;
-    details[key] = {
-      product: {
-        _id: v.productId,
-        name: v.productName
-      },
-      variant: {
-        _id:    v._id,
-        sku:    v.sku,
-        price:  v.price,
-        stock:  v.stock,
-        color:  v.color,
-        size:   v.size.name,
-        images: v.images
+    if (validCartItems.length === 0) {
+      console.log('No valid cart items to fetch details for');
+      return {};
+    }
+
+    const productIds = validCartItems.map(i => i.productId);
+    const variantIds = validCartItems.map(i => i.variantId);
+
+    console.log('Product IDs:', productIds);
+    console.log('Variant IDs:', variantIds);
+
+    const raw: any[] = await client.fetch(cartProductsQuery, { productIds, variantIds });
+    console.log('Raw response from Sanity:', raw);
+
+    const details: ProductDetails = {};
+    for (const v of raw) {
+      if (!v || !v.productId || !v._id) {
+        console.warn('Invalid item in Sanity response:', v);
+        continue;
       }
-    };
-  }
 
-  return details;
+      const key = `${v.productId}___${v._id}`;
+      details[key] = {
+        product: {
+          _id: v.productId,
+          name: v.productName || 'Unknown Product'
+        },
+        variant: {
+          _id:    v._id,
+          sku:    v.sku || 'unknown',
+          price:  typeof v.price === 'number' ? v.price : 0,
+          stock:  typeof v.stock === 'number' ? v.stock : 0,
+          color:  v.color || { _id: 'default', name: 'Default', hex: '#000000' },
+          size:   v.size?.name || 'One Size',
+          images: Array.isArray(v.images) ? v.images : []
+        }
+      };
+    }
+
+    console.log('Processed details:', Object.keys(details).length);
+    return details;
+  } catch (error) {
+    console.error('Error fetching cart product details:', error);
+    // Return an empty object on error instead of throwing
+    return {};
+  }
 }
