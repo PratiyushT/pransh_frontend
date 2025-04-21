@@ -5,19 +5,30 @@
   import gsap from 'gsap';
   import { page } from '$app/stores';
 
+  // DOM references
   let searchInput: HTMLInputElement;
   let searchModalContent: HTMLElement;
+
+  // Search state
   let searchValue = '';
   let showFilters = false;
-  let showFeaturedOnly = false; // New state for featured products filter
 
-  // Filter states
-  let selectedCategories: string[] = [];
-  let selectedColors: string[] = [];
-  let selectedSizes: string[] = [];
-  let minPrice = 0;
-  let maxPrice = 1000;
-  let sortBy = 'featured';
+  // Filter states - wrapped in objects to maintain reference stability
+  const filterState = {
+    categories: [] as string[],
+    colors: [] as string[],
+    sizes: [] as string[],
+    minPrice: 0,
+    maxPrice: 1000,
+    sortBy: 'featured',
+    featuredOnly: false
+  };
+
+  // Tracking states for price range slider
+  let isDraggingMinSlider = false;
+  let isDraggingMaxSlider = false;
+  let minTooltipPosition = "0%";
+  let maxTooltipPosition = "100%";
 
   // Get filter options from data
   const categories = getCategories();
@@ -29,50 +40,50 @@
   const globalMinPrice = Math.floor(Math.min(...allPrices));
   const globalMaxPrice = Math.ceil(Math.max(...allPrices));
 
-  // Price range slider state - no longer need priceRangeValue
-  let prevPriceRange = [minPrice, maxPrice]; // Store previous values for comparison
-
-  // Slider is being dragged state
-  let isDraggingMinSlider = false;
-  let isDraggingMaxSlider = false;
-
-  // Tooltip positions
-  let minTooltipPosition = "0%";
-  let maxTooltipPosition = "100%";
-
-  // Add a state to track if we're currently changing a filter
-  let isFilterChanging = false;
-
-  // Update min/max tooltip positions whenever values change
+  // Recalculate tooltip positions when price changes
   $: {
-    // Calculate position as percentage
-    minTooltipPosition = `${(minPrice / 1000) * 100}%`;
-    maxTooltipPosition = `${(maxPrice / 1000) * 100}%`;
+    minTooltipPosition = `${(filterState.minPrice / 1000) * 100}%`;
+    maxTooltipPosition = `${(filterState.maxPrice / 1000) * 100}%`;
   }
 
   // Ensure that min doesn't exceed max and max doesn't go below min
   $: {
-    if (minPrice > maxPrice) minPrice = maxPrice;
-    if (maxPrice < minPrice) maxPrice = minPrice;
+    if (filterState.minPrice > filterState.maxPrice) filterState.minPrice = filterState.maxPrice;
+    if (filterState.maxPrice < filterState.minPrice) filterState.maxPrice = filterState.minPrice;
   }
 
-  // Handle slider drag start
-  const handleSliderDragStart = (type) => {
+  // Handle slider drag start with improved tooltip display
+  const handleSliderDragStart = (type: 'min' | 'max') => {
     if (type === 'min') {
       isDraggingMinSlider = true;
-    } else if (type === 'max') {
+      // Immediately show the tooltip
+      const tooltip = document.querySelector('.min-tooltip');
+      if (tooltip) {
+        tooltip.classList.add('active');
+      }
+    } else {
       isDraggingMaxSlider = true;
+      // Immediately show the tooltip
+      const tooltip = document.querySelector('.max-tooltip');
+      if (tooltip) {
+        tooltip.classList.add('active');
+      }
     }
   };
 
-  // Handle slider drag end
+  // Handle slider drag end with smooth tooltip hiding
   const handleSliderDragEnd = () => {
-    isDraggingMinSlider = false;
-    isDraggingMaxSlider = false;
+    // Add a tiny delay before hiding tooltips for better UX
+    setTimeout(() => {
+      isDraggingMinSlider = false;
+      isDraggingMaxSlider = false;
+    }, 150);
   };
 
   // Initialize filters from URL parameters
   const loadFiltersFromURL = () => {
+    if (typeof window === 'undefined') return;
+
     // Current URL parameters
     const url = new URL(window.location.href);
     const params = url.searchParams;
@@ -85,129 +96,221 @@
     // Get category filter
     if (params.has('category')) {
       const categoryParam = params.get('category') || '';
-      selectedCategories = categoryParam.split(',').map(c => c.toLowerCase());
+      filterState.categories = categoryParam.split(',').map(c => c.toLowerCase());
       // Show filters if categories are present
-      if (selectedCategories.length > 0) {
+      if (filterState.categories.length > 0) {
         showFilters = true;
       }
+    } else {
+      filterState.categories = [];
     }
 
     // Get color filter
     if (params.has('color')) {
       const colorParam = params.get('color') || '';
-      selectedColors = colorParam.split(',').map(c => c.toLowerCase());
+      filterState.colors = colorParam.split(',').map(c => c.toLowerCase());
       // Show filters if colors are present
-      if (selectedColors.length > 0) {
+      if (filterState.colors.length > 0) {
         showFilters = true;
       }
+    } else {
+      filterState.colors = [];
     }
 
     // Get size filter
     if (params.has('size')) {
       const sizeParam = params.get('size') || '';
-      selectedSizes = sizeParam.split(',');
+      filterState.sizes = sizeParam.split(',');
       // Show filters if sizes are present
-      if (selectedSizes.length > 0) {
+      if (filterState.sizes.length > 0) {
         showFilters = true;
       }
+    } else {
+      filterState.sizes = [];
     }
 
     // Get price range
     if (params.has('minPrice')) {
-      minPrice = parseInt(params.get('minPrice') || '0');
+      filterState.minPrice = parseInt(params.get('minPrice') || '0');
       // Show filters if min price is set
-      if (minPrice > 0) {
+      if (filterState.minPrice > 0) {
         showFilters = true;
       }
+    } else {
+      filterState.minPrice = 0;
     }
 
     if (params.has('maxPrice')) {
-      maxPrice = parseInt(params.get('maxPrice') || '1000');
+      filterState.maxPrice = parseInt(params.get('maxPrice') || '1000');
       // Show filters if max price is not default
-      if (maxPrice < globalMaxPrice) {
+      if (filterState.maxPrice < globalMaxPrice) {
         showFilters = true;
       }
+    } else {
+      filterState.maxPrice = 1000;
     }
 
     // Get sort order
     if (params.has('sort')) {
-      sortBy = params.get('sort') || 'featured';
+      filterState.sortBy = params.get('sort') || 'featured';
       // Show filters if sort is not default
-      if (sortBy !== 'featured') {
+      if (filterState.sortBy !== 'featured') {
         showFilters = true;
       }
+    } else {
+      filterState.sortBy = 'featured';
     }
 
     // Get featured filter
     if (params.has('featured')) {
-      showFeaturedOnly = params.get('featured') === 'true';
-      if (showFeaturedOnly) {
+      filterState.featuredOnly = params.get('featured') === 'true';
+      if (filterState.featuredOnly) {
         showFilters = true;
       }
+    } else {
+      filterState.featuredOnly = false;
     }
 
     // Ensure the searchValue is updated in the store
     searchQuery.set(searchValue);
   };
 
-  // Modified animation for applied filters to check the flag
-  const animateAppliedFilters = () => {
-    if (typeof document !== 'undefined' && !isFilterChanging) {
-      const filterChips = document.querySelectorAll('.filter-chip');
+  // Animation functions
+  const animateOpeningElements = () => {
+    if (!searchModalContent) return;
 
-      filterChips.forEach((chip, index) => {
-        gsap.fromTo(chip,
-          { scale: 0.8, opacity: 0 },
-          {
-            scale: 1,
-            opacity: 1,
-            duration: 0.3,
-            delay: index * 0.05,
-            ease: "back.out(1.7)"
-          }
-        );
-      });
+    // Enhanced opening animation for the modal
+    gsap.fromTo(searchModalContent,
+      { opacity: 0, y: -30, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }
+    );
+
+    // Animate search input with a slight delay
+    const searchInputContainer = searchModalContent.querySelector('.search-input-container');
+    if (searchInputContainer) {
+      gsap.fromTo(searchInputContainer,
+        { opacity: 0, y: -10 },
+        { opacity: 1, y: 0, duration: 0.4, delay: 0.1, ease: "power2.out" }
+      );
+    }
+
+    // Animate search actions with a slight delay
+    const searchActions = searchModalContent.querySelector('.search-actions');
+    if (searchActions) {
+      gsap.fromTo(searchActions,
+        { opacity: 0, y: -10 },
+        { opacity: 1, y: 0, duration: 0.4, delay: 0.2, ease: "power2.out" }
+      );
     }
   };
 
-  // Enhance the filter animation when opening/toggling filters
-  const animateFilterSection = (show) => {
-    if (showFilters && searchModalContent && !isFilterChanging) {
-      const filterSection = searchModalContent.querySelector('.search-filters');
-      if (filterSection) {
-        if (show) {
-          gsap.fromTo(filterSection,
-            { opacity: 0, y: -20 },
-            {
-              opacity: 1,
-              y: 0,
-              duration: 0.5,
-              ease: "power3.out"
-            }
-          );
+  const animateFilterSection = (show: boolean) => {
+    if (!showFilters || !searchModalContent) return;
 
-          // Animate filter groups with staggered effect
-          const filterGroups = filterSection.querySelectorAll('.filter-group');
-          gsap.fromTo(filterGroups,
-            { opacity: 0, y: -10 },
-            {
-              opacity: 1,
-              y: 0,
-              duration: 0.4,
-              stagger: 0.08,
-              ease: "power2.out"
-            }
-          );
-        } else {
-          gsap.to(filterSection, {
-            opacity: 0,
-            y: -10,
-            duration: 0.3,
-            ease: "power2.in"
-          });
-        }
+    const filterSection = searchModalContent.querySelector('.search-filters');
+    if (filterSection) {
+      if (show) {
+        gsap.fromTo(filterSection,
+          { opacity: 0, y: -20 },
+          { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }
+        );
+
+        // Animate filter groups with staggered effect
+        const filterGroups = filterSection.querySelectorAll('.filter-group');
+        gsap.fromTo(filterGroups,
+          { opacity: 0, y: -10 },
+          { opacity: 1, y: 0, duration: 0.4, stagger: 0.08, ease: "power2.out" }
+        );
+      } else {
+        gsap.to(filterSection, {
+          opacity: 0,
+          y: -10,
+          duration: 0.3,
+          ease: "power2.in"
+        });
       }
     }
+  };
+
+  // Reset all filters
+  const resetFilters = () => {
+    filterState.categories = [];
+    filterState.colors = [];
+    filterState.sizes = [];
+    filterState.minPrice = 0;
+    filterState.maxPrice = 1000;
+    filterState.sortBy = 'featured';
+    filterState.featuredOnly = false;
+  };
+
+  // Filter toggles - optimized to prevent UI refreshes
+  const toggleCategory = (category: string) => {
+    const index = filterState.categories.indexOf(category);
+    if (index >= 0) {
+      // Remove category
+      filterState.categories = filterState.categories.filter(c => c !== category);
+    } else {
+      // Add category
+      filterState.categories = [...filterState.categories, category];
+    }
+  };
+
+  const toggleColor = (color: string) => {
+    const index = filterState.colors.indexOf(color);
+    if (index >= 0) {
+      // Remove color
+      filterState.colors = filterState.colors.filter(c => c !== color);
+    } else {
+      // Add color
+      filterState.colors = [...filterState.colors, color];
+    }
+  };
+
+  const toggleSize = (size: string) => {
+    const index = filterState.sizes.indexOf(size);
+    if (index >= 0) {
+      // Remove size
+      filterState.sizes = filterState.sizes.filter(s => s !== size);
+    } else {
+      // Add size
+      filterState.sizes = [...filterState.sizes, size];
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = (e: Event) => {
+    e.preventDefault();
+
+    // Create filters object with all the current filter values
+    const filters = {
+      categories: filterState.categories.length > 0 ? filterState.categories : undefined,
+      colors: filterState.colors.length > 0 ? filterState.colors : undefined,
+      sizes: filterState.sizes.length > 0 ? filterState.sizes : undefined,
+      minPrice: filterState.minPrice > 0 ? filterState.minPrice : undefined,
+      maxPrice: filterState.maxPrice < 1000 ? filterState.maxPrice : undefined,
+      sort: filterState.sortBy !== 'featured' ? filterState.sortBy : undefined,
+      featured: filterState.featuredOnly ? true : undefined
+    };
+
+    // Use the performSearch function from the store
+    performSearch(searchValue, filters);
+  };
+
+  // Toggle filter visibility
+  const toggleFilters = () => {
+    showFilters = !showFilters;
+    animateFilterSection(showFilters);
+  };
+
+  // Reset price range
+  const resetPriceRange = () => {
+    filterState.minPrice = 0;
+    filterState.maxPrice = 1000;
+  };
+
+  // Reset sort selection
+  const resetSort = () => {
+    filterState.sortBy = 'featured';
   };
 
   onMount(() => {
@@ -216,9 +319,19 @@
 
     // Focus input when search modal opens
     const unsubscribe = isSearchOpen.subscribe(value => {
-      if (value && searchInput) {
+      if (value) {
+        // Load filters from URL each time the modal opens
+        loadFiltersFromURL();
+
+        // Apply opening animations
         setTimeout(() => {
-          searchInput.focus();
+          if (searchInput) searchInput.focus();
+          animateOpeningElements();
+
+          // Animate filter section if it should be shown
+          if (showFilters) {
+            setTimeout(() => animateFilterSection(true), 300);
+          }
         }, 100);
       }
     });
@@ -247,9 +360,10 @@
     window.addEventListener('mousedown', handleClickOutside);
 
     // If any filters are active, show the filters section
-    if (selectedCategories.length > 0 || selectedColors.length > 0 ||
-        selectedSizes.length > 0 || minPrice > 0 || maxPrice < 1000 ||
-        sortBy !== 'featured' || showFeaturedOnly) {
+    if (filterState.categories.length > 0 || filterState.colors.length > 0 ||
+        filterState.sizes.length > 0 || filterState.minPrice > 0 ||
+        filterState.maxPrice < 1000 || filterState.sortBy !== 'featured' ||
+        filterState.featuredOnly) {
       showFilters = true;
     }
 
@@ -261,156 +375,6 @@
       window.removeEventListener('mousedown', handleClickOutside);
     };
   });
-
-  // Animation effects when modal opens/closes
-  $: if ($isSearchOpen && searchModalContent) {
-    // Reload filters from URL each time the modal opens
-    loadFiltersFromURL();
-
-    // Enhanced opening animation
-    gsap.fromTo(searchModalContent,
-      { opacity: 0, y: -30, scale: 0.98 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }
-    );
-
-    // Animate search input with a slight delay
-    const searchInputContainer = searchModalContent.querySelector('.search-input-container');
-    if (searchInputContainer) {
-      gsap.fromTo(searchInputContainer,
-        { opacity: 0, y: -10 },
-        { opacity: 1, y: 0, duration: 0.4, delay: 0.1, ease: "power2.out" }
-      );
-    }
-
-    // Animate search actions with a slight delay
-    const searchActions = searchModalContent.querySelector('.search-actions');
-    if (searchActions) {
-      gsap.fromTo(searchActions,
-        { opacity: 0, y: -10 },
-        { opacity: 1, y: 0, duration: 0.4, delay: 0.2, ease: "power2.out" }
-      );
-    }
-
-    // If filters are shown, animate them with a slight delay
-    if (showFilters) {
-      setTimeout(() => {
-        animateFilterSection(true);
-      }, 300);
-    }
-
-    // Animate the current filters if they exist
-    if (selectedCategories.length > 0 || selectedColors.length > 0 ||
-        selectedSizes.length > 0 || minPrice > 0 || maxPrice < 1000 ||
-        sortBy !== 'featured' || showFeaturedOnly) {
-      setTimeout(() => {
-        animateAppliedFilters();
-      }, 400);
-    }
-  }
-
-  // Toggle category selection
-  const toggleCategory = (category: string) => {
-    isFilterChanging = true;
-    if (selectedCategories.includes(category)) {
-      selectedCategories = selectedCategories.filter(c => c !== category);
-    } else {
-      selectedCategories = [...selectedCategories, category];
-    }
-    // Set a timeout to reset the flag after the filter change is processed
-    setTimeout(() => {
-      isFilterChanging = false;
-      animateAppliedFilters();
-    }, 10);
-  };
-
-  // Toggle color selection
-  const toggleColor = (color: string) => {
-    isFilterChanging = true;
-    if (selectedColors.includes(color)) {
-      selectedColors = selectedColors.filter(c => c !== color);
-    } else {
-      selectedColors = [...selectedColors, color];
-    }
-    // Set a timeout to reset the flag after the filter change is processed
-    setTimeout(() => {
-      isFilterChanging = false;
-      animateAppliedFilters();
-    }, 10);
-  };
-
-  // Toggle size selection
-  const toggleSize = (size: string) => {
-    isFilterChanging = true;
-    if (selectedSizes.includes(size)) {
-      selectedSizes = selectedSizes.filter(s => s !== size);
-    } else {
-      selectedSizes = [...selectedSizes, size];
-    }
-    // Set a timeout to reset the flag after the filter change is processed
-    setTimeout(() => {
-      isFilterChanging = false;
-      animateAppliedFilters();
-    }, 10);
-  };
-
-  // Reset all filters
-  const resetFilters = () => {
-    isFilterChanging = true;
-    selectedCategories = [];
-    selectedColors = [];
-    selectedSizes = [];
-    minPrice = 0;
-    maxPrice = 1000;
-    sortBy = 'featured';
-    showFeaturedOnly = false;
-
-    // Set a timeout to reset the flag after filters are reset
-    setTimeout(() => {
-      isFilterChanging = false;
-    }, 10);
-  };
-
-  // Handle price change to set filter changing flag
-  const handlePriceChange = () => {
-    isFilterChanging = true;
-    // Use a timeout to allow the UI to update before clearing the flag
-    setTimeout(() => {
-      isFilterChanging = false;
-    }, 100);
-  };
-
-  // Handle search submit with filters
-  const handleSubmit = (e: Event) => {
-    e.preventDefault();
-
-    console.log("Submitting search with query:", searchValue);
-
-    // Create filters object with all the current filter values
-    const filters = {
-      categories: selectedCategories,
-      colors: selectedColors,
-      sizes: selectedSizes,
-      minPrice: minPrice > 0 ? minPrice : undefined,
-      maxPrice: maxPrice < 1000 ? maxPrice : undefined,
-      sort: sortBy !== 'featured' ? sortBy : undefined,
-      featured: showFeaturedOnly ? true : undefined // Add featured filter
-    };
-
-    // Use the performSearch function from the store instead of manually building URL
-    performSearch(searchValue, filters);
-
-    // Close the search modal (handled by performSearch already)
-  };
-
-  // Toggle filter visibility
-  const toggleFilters = () => {
-    showFilters = !showFilters;
-
-    // Only animate if we're not in the middle of a filter change
-    if (!isFilterChanging) {
-      animateFilterSection(showFilters);
-    }
-  };
 </script>
 
 <div class="search-modal-overlay" class:open={$isSearchOpen}>
@@ -466,17 +430,17 @@
           <button type="submit" class="search-button">Search</button>
         </div>
 
-        <!-- Always display currently applied filters summary if any filters are active -->
-        {#if (selectedCategories.length > 0 || selectedColors.length > 0 || selectedSizes.length > 0 || minPrice > 0 || maxPrice < 1000 || sortBy !== 'featured' || showFeaturedOnly)}
+        <!-- Applied filters summary -->
+        {#if (filterState.categories.length > 0 || filterState.colors.length > 0 || filterState.sizes.length > 0 || filterState.minPrice > 0 || filterState.maxPrice < 1000 || filterState.sortBy !== 'featured' || filterState.featuredOnly)}
           <div class="current-filters-container">
             <h3 class="filter-title">Currently Applied Filters:</h3>
             <div class="current-filters-list">
               <!-- Categories -->
-              {#if selectedCategories.length > 0}
+              {#if filterState.categories.length > 0}
                 <div class="current-filter-group">
                   <span class="filter-label">Categories:</span>
                   <div class="filter-chips">
-                    {#each selectedCategories as category}
+                    {#each filterState.categories as category}
                       <div class="filter-chip">
                         {category.charAt(0).toUpperCase() + category.slice(1)}
                         <button
@@ -492,11 +456,11 @@
               {/if}
 
               <!-- Colors -->
-              {#if selectedColors.length > 0}
+              {#if filterState.colors.length > 0}
                 <div class="current-filter-group">
                   <span class="filter-label">Colors:</span>
                   <div class="filter-chips">
-                    {#each selectedColors as color}
+                    {#each filterState.colors as color}
                       <div class="filter-chip">
                         {color.charAt(0).toUpperCase() + color.slice(1)}
                         <button
@@ -512,11 +476,11 @@
               {/if}
 
               <!-- Sizes -->
-              {#if selectedSizes.length > 0}
+              {#if filterState.sizes.length > 0}
                 <div class="current-filter-group">
                   <span class="filter-label">Sizes:</span>
                   <div class="filter-chips">
-                    {#each selectedSizes as size}
+                    {#each filterState.sizes as size}
                       <div class="filter-chip">
                         {size}
                         <button
@@ -532,19 +496,16 @@
               {/if}
 
               <!-- Price Range -->
-              {#if minPrice > 0 || maxPrice < 1000}
+              {#if filterState.minPrice > 0 || filterState.maxPrice < 1000}
                 <div class="current-filter-group">
                   <span class="filter-label">Price:</span>
                   <div class="filter-chips">
                     <div class="filter-chip">
-                      ${minPrice} - ${maxPrice}
+                      ${filterState.minPrice} - ${filterState.maxPrice}
                       <button
                         type="button"
                         class="remove-filter"
-                        on:click={() => {
-                          minPrice = 0;
-                          maxPrice = 1000;
-                        }}
+                        on:click={resetPriceRange}
                         aria-label="Reset price range"
                       >×</button>
                     </div>
@@ -553,21 +514,19 @@
               {/if}
 
               <!-- Sort -->
-              {#if sortBy !== 'featured'}
+              {#if filterState.sortBy !== 'featured'}
                 <div class="current-filter-group">
                   <span class="filter-label">Sort:</span>
                   <div class="filter-chips">
                     <div class="filter-chip">
-                      {sortBy === 'price-asc' ? 'Price: Low to High' :
-                       sortBy === 'price-desc' ? 'Price: High to Low' :
-                       sortBy === 'rating' ? 'Customer Rating' :
-                       sortBy === 'newest' ? 'Newest Arrivals' : sortBy}
+                      {filterState.sortBy === 'price-asc' ? 'Price: Low to High' :
+                       filterState.sortBy === 'price-desc' ? 'Price: High to Low' :
+                       filterState.sortBy === 'rating' ? 'Customer Rating' :
+                       filterState.sortBy === 'newest' ? 'Newest Arrivals' : filterState.sortBy}
                       <button
                         type="button"
                         class="remove-filter"
-                        on:click={() => {
-                          sortBy = 'featured';
-                        }}
+                        on:click={resetSort}
                         aria-label="Reset sort order"
                       >×</button>
                     </div>
@@ -576,7 +535,7 @@
               {/if}
 
               <!-- Featured Filter -->
-              {#if showFeaturedOnly}
+              {#if filterState.featuredOnly}
                 <div class="current-filter-group">
                   <span class="filter-label">Featured:</span>
                   <div class="filter-chips">
@@ -586,11 +545,7 @@
                         type="button"
                         class="remove-filter"
                         on:click={() => {
-                          isFilterChanging = true;
-                          showFeaturedOnly = false;
-                          setTimeout(() => {
-                            isFilterChanging = false;
-                          }, 10);
+                          filterState.featuredOnly = false;
                         }}
                         aria-label="Reset featured filter"
                       >×</button>
@@ -611,7 +566,7 @@
                 {#each categories as category}
                   <button
                     type="button"
-                    class="category-chip {selectedCategories.includes(category.name.toLowerCase()) ? 'active' : ''}"
+                    class="category-chip {filterState.categories.includes(category.name.toLowerCase()) ? 'active' : ''}"
                     on:click={() => toggleCategory(category.name.toLowerCase())}
                   >
                     {category.name}
@@ -627,7 +582,7 @@
                 {#each colors as color}
                   <button
                     type="button"
-                    class="color-chip {selectedColors.includes(color.name.toLowerCase()) ? 'active' : ''}"
+                    class="color-chip {filterState.colors.includes(color.name.toLowerCase()) ? 'active' : ''}"
                     style="--color-dot: {color.hex};"
                     on:click={() => toggleColor(color.name.toLowerCase())}
                   >
@@ -645,7 +600,7 @@
                 {#each sizes as size}
                   <button
                     type="button"
-                    class="size-chip {selectedSizes.includes(size.name) ? 'active' : ''}"
+                    class="size-chip {filterState.sizes.includes(size.name) ? 'active' : ''}"
                     on:click={() => toggleSize(size.name)}
                   >
                     {size.name}
@@ -669,7 +624,17 @@
                 <div class="slider-track">
                   <div
                     class="slider-fill"
-                    style="left: {(minPrice / 1000) * 100}%; right: {100 - (maxPrice / 1000) * 100}%;"
+                    style="left: {(filterState.minPrice / 1000) * 100}%; right: {100 - (filterState.maxPrice / 1000) * 100}%;"
+                  ></div>
+
+                  <!-- Thumb indicators that are always visible -->
+                  <div
+                    class="slider-thumb min-thumb {isDraggingMinSlider ? 'active' : ''}"
+                    style="left: {(filterState.minPrice / 1000) * 100}%;"
+                  ></div>
+                  <div
+                    class="slider-thumb max-thumb {isDraggingMaxSlider ? 'active' : ''}"
+                    style="left: {(filterState.maxPrice / 1000) * 100}%;"
                   ></div>
                 </div>
 
@@ -680,13 +645,17 @@
                     min="0"
                     max="1000"
                     step="10"
-                    bind:value={minPrice}
+                    bind:value={filterState.minPrice}
                     on:mousedown={() => handleSliderDragStart('min')}
                     on:touchstart={() => handleSliderDragStart('min')}
                     on:mouseup={handleSliderDragEnd}
                     on:touchend={handleSliderDragEnd}
                     on:mouseleave={handleSliderDragEnd}
-                    on:input={handlePriceChange}
+                    on:input={() => {
+                      // Update tooltips while dragging
+                      minTooltipPosition = `${(filterState.minPrice / 1000) * 100}%`;
+                    }}
+                    aria-label="Minimum price"
                   />
                   <input
                     type="range"
@@ -694,13 +663,17 @@
                     min="0"
                     max="1000"
                     step="10"
-                    bind:value={maxPrice}
+                    bind:value={filterState.maxPrice}
                     on:mousedown={() => handleSliderDragStart('max')}
                     on:touchstart={() => handleSliderDragStart('max')}
                     on:mouseup={handleSliderDragEnd}
                     on:touchend={handleSliderDragEnd}
                     on:mouseleave={handleSliderDragEnd}
-                    on:input={handlePriceChange}
+                    on:input={() => {
+                      // Update tooltips while dragging
+                      maxTooltipPosition = `${(filterState.maxPrice / 1000) * 100}%`;
+                    }}
+                    aria-label="Maximum price"
                   />
                 </div>
 
@@ -710,14 +683,19 @@
                     class="tooltip min-tooltip {isDraggingMinSlider ? 'active' : ''}"
                     style="left: {minTooltipPosition};"
                   >
-                    ${minPrice}
+                    ${filterState.minPrice}
                   </div>
                   <div
                     class="tooltip max-tooltip {isDraggingMaxSlider ? 'active' : ''}"
                     style="left: {maxTooltipPosition};"
                   >
-                    ${maxPrice}
+                    ${filterState.maxPrice}
                   </div>
+                </div>
+
+                <!-- Current range display - always visible -->
+                <div class="price-range-display">
+                  <span>Current range: <strong>${filterState.minPrice} - ${filterState.maxPrice}</strong></span>
                 </div>
 
                 <!-- Direct input for prices -->
@@ -729,16 +707,15 @@
                       <input
                         type="number"
                         id="min-price"
-                        bind:value={minPrice}
+                        bind:value={filterState.minPrice}
                         min="0"
-                        max={maxPrice}
+                        max={filterState.maxPrice}
                         step="10"
                         on:input={(e) => {
                           let val = parseInt(e.target.value);
                           if (isNaN(val) || val < 0) val = 0;
-                          if (val > maxPrice) val = maxPrice;
-                          minPrice = val;
-                          handlePriceChange();
+                          if (val > filterState.maxPrice) val = filterState.maxPrice;
+                          filterState.minPrice = val;
                         }}
                       />
                     </div>
@@ -751,16 +728,15 @@
                       <input
                         type="number"
                         id="max-price"
-                        bind:value={maxPrice}
-                        min={minPrice}
+                        bind:value={filterState.maxPrice}
+                        min={filterState.minPrice}
                         max="10000"
                         step="10"
                         on:input={(e) => {
                           let val = parseInt(e.target.value);
                           if (isNaN(val) || val > 10000) val = 10000;
-                          if (val < minPrice) val = minPrice;
-                          maxPrice = val;
-                          handlePriceChange();
+                          if (val < filterState.minPrice) val = filterState.minPrice;
+                          filterState.maxPrice = val;
                         }}
                       />
                     </div>
@@ -773,7 +749,10 @@
             <div class="filter-group">
               <h3 class="filter-title">Sort By</h3>
               <div class="sort-options">
-                <select bind:value={sortBy} class="sort-select">
+                <select
+                  bind:value={filterState.sortBy}
+                  class="sort-select"
+                >
                   <option value="featured">Featured</option>
                   <option value="price-asc">Price: Low to High</option>
                   <option value="price-desc">Price: High to Low</option>
@@ -789,14 +768,7 @@
               <label class="featured-toggle-label">
                 <input
                   type="checkbox"
-                  bind:checked={showFeaturedOnly}
-                  on:change={() => {
-                    isFilterChanging = true;
-                    setTimeout(() => {
-                      isFilterChanging = false;
-                      animateAppliedFilters();
-                    }, 10);
-                  }}
+                  bind:checked={filterState.featuredOnly}
                 />
                 Show Featured Only
               </label>
@@ -1255,6 +1227,7 @@
     position: relative;
   }
 
+  /* Added back slider-labels CSS */
   .slider-labels {
     display: flex;
     justify-content: space-between;
@@ -1263,13 +1236,14 @@
     font-size: 0.75rem;
   }
 
+  /* Price Range Slider Enhancements */
   .slider-track {
     position: relative;
     width: 100%;
     height: 8px;
     background: linear-gradient(to right, #e6e6e6, #f0f0f0, #e6e6e6);
     border-radius: 5px;
-    margin: 0.75rem 0 1.75rem;
+    margin: 0.75rem 0 2.25rem; /* Increased margin to accommodate the thumbs */
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 
@@ -1282,8 +1256,10 @@
     transition: left 0.1s ease-out, right 0.1s ease-out;
   }
 
+  /* Range inputs need higher z-index than thumbs */
   .range-inputs {
     position: relative;
+    z-index: 10; /* Ensure inputs are above thumbs */
   }
 
   .price-range-slider {
@@ -1292,9 +1268,40 @@
     -webkit-appearance: none;
     height: 8px;
     opacity: 0;
-    z-index: 2;
+    z-index: 10; /* Higher than the visible thumbs */
     top: -2.5rem;
     cursor: pointer;
+  }
+
+  /* Visible thumbs with lower z-index */
+  .slider-thumb {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid var(--color-gold);
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-width 0.2s ease;
+    z-index: 4; /* Lower than range inputs */
+    pointer-events: none; /* Don't intercept pointer events */
+  }
+
+  .slider-thumb.min-thumb {
+    background: linear-gradient(to bottom right, white, #f0f0f0);
+  }
+
+  .slider-thumb.max-thumb {
+    background: linear-gradient(to bottom right, var(--color-gold), #c29d2e);
+    border-color: white;
+  }
+
+  .slider-thumb.active {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+    border-width: 3px;
   }
 
   .price-range-slider.min-slider {
@@ -1354,11 +1361,11 @@
 
   .tooltip {
     position: absolute;
-    top: -40px;
+    top: -36px;
     transform: translateX(-50%);
     background: var(--color-gold);
     color: white;
-    padding: 4px 8px;
+    padding: 4px 10px;
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -1369,6 +1376,14 @@
     opacity: 0;
     transition: opacity 0.15s ease, transform 0.15s ease;
     z-index: 5;
+  }
+
+  .tooltip.min-tooltip {
+    background: #777;
+  }
+
+  .tooltip.max-tooltip {
+    background: var(--color-gold);
   }
 
   .tooltip.active {
@@ -1384,6 +1399,13 @@
     transform: translateX(-50%);
     border-width: 6px 6px 0 6px;
     border-style: solid;
+  }
+
+  .tooltip.min-tooltip::after {
+    border-color: #777 transparent transparent transparent;
+  }
+
+  .tooltip.max-tooltip::after {
     border-color: var(--color-gold) transparent transparent transparent;
   }
 
@@ -1444,6 +1466,19 @@
     color: #777;
     font-weight: 300;
     font-size: 1.2rem;
+  }
+
+  /* Price range current display */
+  .price-range-display {
+    text-align: center;
+    margin: 1.25rem 0 1rem;
+    font-size: 0.9rem;
+    color: #555;
+  }
+
+  .price-range-display strong {
+    color: var(--color-gold);
+    font-weight: 600;
   }
 
   /* Featured Products Filter */
@@ -1624,23 +1659,50 @@
   /* Mobile styles for price range */
   @media (max-width: 480px) {
     .price-slider-container {
-      padding: 1rem 0.25rem 0.5rem;
+      padding: 1.5rem 0.25rem 0.5rem; /* Increased padding for better touch area */
+    }
+
+    .slider-track {
+      height: 10px; /* Thicker track for easier mobile targeting */
+      margin: 1rem 0 2.5rem; /* More vertical space for touch */
+    }
+
+    .slider-thumb {
+      width: 22px; /* Larger thumbs on mobile */
+      height: 22px;
     }
 
     .tooltip {
-      top: -35px;
-      font-size: 0.7rem;
-      padding: 3px 6px;
+      top: -40px; /* Position tooltips higher on mobile */
+      font-size: 0.8rem;
+      padding: 5px 8px;
+    }
+
+    .price-range-display {
+      font-size: 1rem; /* Larger font for the current range display */
+      margin: 1.5rem 0 1.2rem;
     }
 
     .price-inputs {
-      margin-top: 1.25rem;
+      margin-top: 1.5rem;
     }
 
     .price-input-wrapper input {
-      font-size: 14px;
-      padding: 0.7rem 0.7rem 0.7rem 1.8rem;
-      min-height: 42px;
+      font-size: 16px; /* Larger font to prevent iOS zoom */
+      padding: 0.8rem 0.8rem 0.8rem 1.9rem;
+      min-height: 48px; /* Larger touch targets */
+    }
+
+    /* Make price inputs stack on very small screens */
+    @media (max-width: 360px) {
+      .price-inputs {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .price-range-divider {
+        display: none;
+      }
     }
   }
 </style>
