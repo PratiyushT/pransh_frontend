@@ -130,9 +130,25 @@ export const POST = async ({ request }) => {
 
     // After successful validation of all items → create Stripe Checkout Session
     try {
+      // Convert country name to country code for Stripe
+      const getCountryCode = (countryName) => {
+        switch (countryName) {
+          case 'United States': return 'US';
+          case 'Canada': return 'CA';
+          case 'United Kingdom': return 'GB';
+          case 'Australia': return 'AU';
+          case 'New Zealand': return 'NZ';
+          default: return 'US'; // Default fallback
+        }
+      };
+
+      // Format shipping name from first and last name
+      const shippingName = `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim();
+
+      // Create session with payment_intent_data.shipping to pass address directly
       const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'], // Accept card payments
-        mode: 'payment', // One time payment (not subscription)
+        payment_method_types: ['card'],
+        mode: 'payment',
 
         // Pass verified line_items to Stripe - using the server-validated data
         line_items: validatedItems.map((item) => ({
@@ -146,12 +162,10 @@ export const POST = async ({ request }) => {
           quantity: item.quantity
         })),
 
-        // Include shipping details if available
+        // Include shipping details via payment_intent_data
         ...(shippingDetails && {
           customer_email: shippingDetails.email,
-          shipping_address_collection: {
-            allowed_countries: ['US', 'CA', 'GB', 'AU']
-          },
+          // No shipping_address_collection here
           shipping_options: [
             {
               shipping_rate_data: {
@@ -173,18 +187,32 @@ export const POST = async ({ request }) => {
                 }
               }
             }
-          ]
+          ],
+          // Pass shipping details to payment intent
+          payment_intent_data: {
+            shipping: {
+              name: shippingName,
+              phone: shippingDetails.phone,
+              address: {
+                line1: shippingDetails.addressLine1,
+                line2: shippingDetails.addressLine2 || '',
+                city: shippingDetails.city,
+                state: shippingDetails.state,
+                postal_code: shippingDetails.postalCode,
+                country: getCountryCode(shippingDetails.country)
+              }
+            }
+          },
+          // Store original order data in metadata
+          metadata: {
+            orderId: `order-${Date.now()}`,
+            itemCount: validatedItems.length,
+            orderSummary: JSON.stringify(validatedItems.map(item => ({
+              name: item.name,
+              quantity: item.quantity
+            })))
+          }
         }),
-
-        // Store metadata for order processing
-        metadata: {
-          orderId: `order-${Date.now()}`,
-          itemCount: validatedItems.length,
-          orderSummary: JSON.stringify(validatedItems.map(item => ({
-            name: item.name,
-            quantity: item.quantity
-          })))
-        },
 
         // Redirect user on success
         success_url: `${origin}/success`,
