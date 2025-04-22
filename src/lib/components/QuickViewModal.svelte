@@ -5,6 +5,7 @@
   import { onMount, createEventDispatcher } from "svelte";
   import ColorPieChart from "$lib/components/ColorPieChart.svelte";
   import { goto } from "$app/navigation";
+  import { browser } from "$app/environment";
 
   export let product: Product | null = null;
   export let open = false;
@@ -172,12 +173,12 @@
 
   // Modal scroll lock management
   $: {
-    if (open) {
+    if (browser && open) {
       document.body.style.overflow = "hidden";
       document.body.style.height = "100vh";
       document.documentElement.style.overflow = "hidden";
       document.documentElement.style.height = "100vh";
-    } else {
+    } else if (browser && !open) {
       document.body.style.overflow = "";
       document.body.style.height = "";
       document.documentElement.style.overflow = "";
@@ -187,14 +188,17 @@
 
   // Lifecycle management
   onMount(() => {
-    document.addEventListener("keydown", handleKeydown);
-    return () => {
-      document.removeEventListener("keydown", handleKeydown);
-      document.body.style.overflow = "";
-      document.body.style.height = "";
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.height = "";
-    };
+    if (browser) {
+      document.addEventListener("keydown", handleKeydown);
+      return () => {
+        document.removeEventListener("keydown", handleKeydown);
+        document.body.style.overflow = "";
+        document.body.style.height = "";
+        document.documentElement.style.overflow = "";
+        document.documentElement.style.height = "";
+      };
+    }
+    return () => {}; // Empty function for server-side
   });
 </script>
 
