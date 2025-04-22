@@ -6,7 +6,7 @@
   import { formatPrice } from '$lib/utils/data';
   import AddressSearch from '$lib/components/AddressSearch.svelte';
   import { page } from '$app/stores';
-  import { stripePromise } from '$lib/payments/client';
+  import { getStripePromise } from '$lib/payments/client';
 
   // DEBUG: Log environment variables to console
   console.log('Environment variables available:', import.meta.env);
@@ -29,6 +29,11 @@
   // Form validation
   let formSubmitted = false;
   let errorMessage = '';
+  let errorDetails = '';
+  let checkoutError = false;
+
+  // Stripe instance
+  let stripeInstance: any = null;
 
   // Shipping form fields
   let shippingDetails = {
@@ -59,7 +64,7 @@
   let showManualEntryForm = false;
   let addressSelected = false;
   let mapboxLoadError = false;
-  let addressFromMapbox = false; // Track if address came from Mapbox
+  let addressFromMapbox = false;
 
   // For storing the buy now product (if any)
   let buyNowProduct = null;
@@ -81,7 +86,6 @@
 
       // If this is a direct checkout, keep only the last item (most recently added)
       if (isDirectCheckout && $cart && $cart.length > 0) {
-        // Save the buy now product so we can restore it later
         buyNowProduct = $cart[$cart.length - 1];
         keepOnlyLastCartItem();
       }
@@ -92,10 +96,8 @@
   onDestroy(() => {
     try {
       if (isDirectCheckoutActive && $savedCartCount > 0) {
-        // Auto restore saved cart and merge with current items
         restoreSavedCart();
 
-        // If there was a buy now product, re-add it
         if (buyNowProduct) {
           const found = $cart && $cart.find(
             (item) =>
@@ -117,9 +119,8 @@
     ? displayedCart.reduce((sum, item) => {
       const details = productDetails[`${item.productId}___${item.variantId}`];
       if (!details) {
-        // Use a fallback price if details aren't available
         console.log(`No details for item: ${item.productId}___${item.variantId}`);
-        return sum + 0; // Could set a fallback price here if needed
+        return sum + 0;
       }
       return sum + details.variant.price * item.quantity;
     }, 0)
@@ -159,20 +160,22 @@
   // Automatically restore saved cart on mount if not direct checkout
   onMount(async () => {
     try {
+      // Initialize Stripe instance
+      stripeInstance = await getStripePromise();
+      if (!stripeInstance) {
+        console.warn('Stripe.js failed to initialize on page load');
+      }
+
       isLoadingProducts = true;
 
-      // Automatically restore saved cart items when the page loads
-      // but only if this is not a direct checkout (to avoid conflicts)
       if ($savedCartCount > 0 && !isDirectCheckout) {
         restoreSavedCart();
       }
 
-      // Only fetch product details if there are items in the cart
       if ($cart && $cart.length > 0) {
         productDetails = await getCartProductDetails($cart);
       }
 
-      // Always set loading to false, even if cart is empty
       isLoadingProducts = false;
     } catch (error) {
       console.error('Error loading product details:', error);
@@ -189,21 +192,16 @@
     if ($cart && Array.isArray($cart)) {
       const currentCartJson = JSON.stringify($cart);
 
-      // Only update if the cart has actually changed
       if (currentCartJson !== previousCartJson) {
         previousCartJson = currentCartJson;
 
-        // Set displayedCart from cart store
         displayedCart = [...$cart];
 
-        // Only fetch if there are items and we're not already loading
         if (!isLoadingProducts && displayedCart.length > 0) {
-          // Load product details (with debounce)
           const loadTimeout = setTimeout(() => {
             loadProductDetails();
           }, 300);
 
-          // Clean up timeout if component is destroyed
           onDestroy(() => {
             clearTimeout(loadTimeout);
           });
@@ -212,9 +210,7 @@
     }
   }
 
-  // Improve the loadProductDetails function to handle empty carts better
   async function loadProductDetails() {
-    // Skip if already loading or cart is empty
     if (isLoadingProducts || !displayedCart || displayedCart.length === 0) {
       return;
     }
@@ -240,6 +236,7 @@
   // UPDATED FUNCTION: goToPayment
   async function goToPayment() {
     formSubmitted = true;
+    checkoutError = false;
 
     // Mark all fields as touched for validation
     firstNameTouched = true;
@@ -263,21 +260,23 @@
     }
 
     try {
-      // Show loading state
       isLoadingProducts = true;
       errorMessage = '';
+      errorDetails = '';
+      checkoutError = false;
 
-      // Prepare items data for the checkout session
       const items = displayedCart.map(item => {
         const details = productDetails[`${item.productId}___${item.variantId}`];
         if (!details) {
           throw new Error(`Product details not found for ${item.productId}___${item.variantId}`);
         }
 
+        const formattedName = `${details.product.name}${details.variant.color?.name ? ` - ${details.variant.color.name}` : ''}${details.variant.size ? ` (${details.variant.size})` : ''}`.trim();
+
         return {
           id: item.productId,
           sku: item.variantId,
-          name: `${details.product.name} ${details.variant.color?.name ? `- ${details.variant.color.name}` : ''} ${details.variant.size ? `(${details.variant.size})` : ''}`.trim(),
+          name: formattedName,
           price: details.variant.price,
           quantity: item.quantity
         };
@@ -285,7 +284,6 @@
 
       console.log('Sending items to API:', items);
 
-      // Create a checkout session on the server
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -301,31 +299,44 @@
       const data = await response.json();
 
       if (!response.ok) {
+        checkoutError = true;
         errorMessage = data.error || 'Error creating checkout session';
+        errorDetails = `Status: ${response.status}. Please try again or contact support if the problem persists.`;
+        console.error('Checkout error response:', data);
         isLoadingProducts = false;
         return;
       }
 
       // Redirect to Stripe Checkout
-      const stripe = await stripePromise;
-      if (!stripe) {
+      if (!stripeInstance) {
+        // Try to initialize Stripe again if it failed during page load
+        stripeInstance = await getStripePromise();
+      }
+
+      if (!stripeInstance) {
         errorMessage = 'Failed to load payment processor';
+        errorDetails = 'Check your internet connection and try again, or contact support if the problem persists.';
+        checkoutError = true;
         isLoadingProducts = false;
         return;
       }
 
-      const { error: stripeError } = await stripe.redirectToCheckout({
+      const { error: stripeError } = await stripeInstance.redirectToCheckout({
         sessionId: data.sessionId
       });
 
       if (stripeError) {
         console.error('Stripe checkout error:', stripeError);
         errorMessage = stripeError.message || 'An error occurred during checkout';
+        errorDetails = 'Your payment provider encountered an error. Please try again.';
+        checkoutError = true;
         isLoadingProducts = false;
       }
     } catch (error) {
       console.error('Checkout error:', error);
       errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      errorDetails = 'There was a problem processing your checkout. Please try again later.';
+      checkoutError = true;
       isLoadingProducts = false;
     }
   }
@@ -333,7 +344,6 @@
   function handleAddressSelected(event) {
     const address = event.detail;
 
-    // Populate address fields
     shippingDetails = {
       ...shippingDetails,
       addressLine1: address.addressLine1,
@@ -343,7 +353,6 @@
       country: address.country
     };
 
-    // Mark fields as touched for validation
     addressLine1Touched = true;
     cityTouched = true;
     stateTouched = true;
@@ -351,31 +360,28 @@
     countryTouched = true;
 
     addressSelected = true;
-    addressFromMapbox = true; // Flag that address was selected from Mapbox
+    addressFromMapbox = true;
 
-    // Reset any error message
     resetFieldError();
   }
 
   function handleAddressCleared() {
     addressSelected = false;
-    addressFromMapbox = false; // Reset the flag when address is cleared
+    addressFromMapbox = false;
   }
 
-  // Add a function to edit manually
   function enableManualEdit() {
     addressFromMapbox = false;
   }
 
   function handleShowManualEntry() {
     showManualEntryForm = true;
-    errorMessage = ''; // Clear any existing error messages
+    errorMessage = '';
   }
 
   function toggleManualEntry() {
     showManualEntryForm = !showManualEntryForm;
     if (!showManualEntryForm) {
-      // If switching back to address search, clear address fields
       shippingDetails.addressLine1 = '';
       shippingDetails.addressLine2 = '';
       shippingDetails.city = '';
@@ -394,14 +400,14 @@
     showManualEntryForm = true;
   }
 
-  // Reset form error when fields change
   const resetFieldError = () => {
     if (formSubmitted) {
       errorMessage = '';
+      errorDetails = '';
+      checkoutError = false;
     }
   };
 
-  // Mark fields as touched
   const touchField = (field: string) => {
     switch(field) {
       case 'firstName':
@@ -435,7 +441,6 @@
     resetFieldError();
   };
 
-  // Fallback image handler for product images
   function handleImageError(event) {
     event.target.src = '/static/images/product-placeholder.jpg';
     event.target.onerror = null;
@@ -456,15 +461,30 @@
   {:else if !displayedCart || displayedCart.length === 0}
     <div class="checkout-empty">Your cart is empty.</div>
   {:else}
-    <!-- Error message -->
     {#if errorMessage}
-      <div class="checkout-error-message">
-        {errorMessage}
+      <div class="checkout-error-message {checkoutError ? 'checkout-error-alert' : ''}">
+        <div class="error-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="error-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>{errorMessage}</span>
+        </div>
+        {#if errorDetails}
+          <div class="error-details">{errorDetails}</div>
+        {/if}
+        {#if checkoutError}
+          <div class="error-suggestions">
+            <p>Suggestions:</p>
+            <ul>
+              <li>Check that your cart items are still in stock</li>
+              <li>Refresh the page and try again</li>
+              <li>Ensure your browser has cookies enabled</li>
+              <li>Try again in a few minutes</li>
+            </ul>
+          </div>
+        {/if}
       </div>
     {/if}
 
     <div class="checkout-content">
-      <!-- Items in cart display -->
       <div class="checkout-left">
         <h2 class="section-title">Your Items</h2>
         <div class="checkout-items">
@@ -489,7 +509,6 @@
                   </div>
                 </div>
               {:else}
-                <!-- Fallback for missing product details -->
                 <div class="checkout-item">
                   <img class="checkout-item-img" src="/static/images/product-placeholder.jpg" alt="Product image unavailable" />
                   <div class="checkout-item-info">
@@ -507,7 +526,6 @@
           {/each}
         </div>
 
-        <!-- Shipping details form -->
         <div class="shipping-form">
           <h2 class="section-title">Shipping Details</h2>
 
@@ -577,11 +595,9 @@
             </div>
           </div>
 
-          <!-- Address Section -->
           <div class="form-group full-width address-section">
             <h3 class="address-section-title">Shipping Address</h3>
 
-            <!-- Address Search Component - only show if no error -->
             {#if !showManualEntryForm && !mapboxLoadError}
               <div class="form-group full-width address-search-wrapper">
                 <AddressSearch
@@ -606,7 +622,6 @@
               {/if}
             {/if}
 
-            <!-- Address fields - always visible when in manual mode -->
             <div class="address-fields {addressSelected || showManualEntryForm || mapboxLoadError ? 'visible' : 'hidden'}">
 
               {#if addressFromMapbox}
@@ -731,7 +746,6 @@
         </div>
       </div>
 
-      <!-- Order Summary (now at the bottom) -->
       <div class="checkout-summary">
         <h2>Order Summary</h2>
         <div class="summary-row"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
@@ -894,7 +908,6 @@
   color: var(--color-gold, #ad974f);
 }
 
-/* Enhanced loading spinner */
 .checkout-loading {
   display: flex;
   flex-direction: column;
@@ -921,7 +934,6 @@
   margin-top: 0.35rem;
 }
 
-/* Error message styles */
 .checkout-error-message {
   background-color: #fef2f2;
   color: #b91c1c;
@@ -929,9 +941,57 @@
   border-radius: 0.375rem;
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
+  border-left: 4px solid #ef4444;
 }
 
-/* Shipping form styles */
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.error-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.error-details {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.error-suggestions {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  border-top: 1px solid rgba(185, 28, 28, 0.2);
+  padding-top: 0.5rem;
+}
+
+.error-suggestions p {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.error-suggestions ul {
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+
+.checkout-error-alert {
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-left: 4px solid #ef4444;
+  animation: errorPulse 2s 1;
+}
+
+@keyframes errorPulse {
+  0% { background-color: #fecaca; }
+  100% { background-color: #fef2f2; }
+}
+
 .shipping-form {
   background: var(--color-white, #fff);
   border-radius: 12px;
@@ -978,7 +1038,6 @@
   margin-top: 0.35rem;
 }
 
-/* Address fields visibility */
 .address-fields.hidden {
   display: none;
 }
@@ -987,7 +1046,6 @@
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Address search container styling */
 .address-search-wrapper {
   margin-bottom: 1.5rem;
 }

@@ -16,6 +16,7 @@
   let quantity = 1;
   let activeImageIndex = 0;
   let isAddingToCart = false;
+  let isBuyingNow = false; // Add new state for Buy Now loading
   let addedToCart = false;
   let showBuyNowTooltip = false;
 
@@ -107,24 +108,32 @@
     if (!product || !selectedVariant) return;
 
     isAddingToCart = true;
+    isBuyingNow = true; // Set Buy Now loading state
 
-    // Save current cart items and clear cart for Buy Now
-    await saveCartAndClearForDirectCheckout();
+    try {
+      // Save current cart items and clear cart for Buy Now
+      await saveCartAndClearForDirectCheckout();
 
-    // Add to cart (wait for it if async)
-    await addToCart(product._id, selectedVariant._id, quantity);
+      // Add to cart (wait for it if async)
+      await addToCart(product._id, selectedVariant._id, quantity);
 
-    // Show tooltip/notification
-    showBuyNowTooltip = true;
+      // Show tooltip/notification
+      showBuyNowTooltip = true;
 
-    // Wait a bit for animation/UX
-    setTimeout(() => {
-      handleClose();
-      goto('/checkout?direct=true');
+      // Wait a bit for animation/UX
       setTimeout(() => {
-        showBuyNowTooltip = false;
-      }, 3000);
-    }, 600);
+        handleClose();
+        goto('/checkout?direct=true');
+        setTimeout(() => {
+          showBuyNowTooltip = false;
+          isBuyingNow = false; // Reset Buy Now loading state
+        }, 3000);
+      }, 600);
+    } catch (error) {
+      console.error("Error processing Buy Now:", error);
+      isBuyingNow = false; // Reset on error
+      isAddingToCart = false;
+    }
   }
 
   // Modal controls
@@ -135,6 +144,7 @@
       quantity = 1;
       activeImageIndex = 0;
       isAddingToCart = false;
+      isBuyingNow = false; // Reset Buy Now state
       addedToCart = false;
       showBuyNowTooltip = false;
       // Don't reset selectedVariant here to maintain selection between opens
@@ -160,11 +170,30 @@
     img.src = "/images/product-placeholder.jpg";
   }
 
+  // Modal scroll lock management
+  $: {
+    if (open) {
+      document.body.style.overflow = "hidden";
+      document.body.style.height = "100vh";
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100vh";
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.height = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
+    }
+  }
+
   // Lifecycle management
   onMount(() => {
     document.addEventListener("keydown", handleKeydown);
     return () => {
       document.removeEventListener("keydown", handleKeydown);
+      document.body.style.overflow = "";
+      document.body.style.height = "";
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.height = "";
     };
   });
 </script>
@@ -203,34 +232,36 @@
 
       <div class="modal-body">
         <!-- Product Images -->
-        <div class="product-images">
-          <div class="product-main-image-container">
-            <img
-              src={variantImages[activeImageIndex] || "/images/product-placeholder.jpg"}
-              alt={product.name}
-              class="product-main-image"
-              on:error={handleImageError}
-            />
-          </div>
-
-          {#if variantImages.length > 1}
-            <div class="product-thumbnails">
-              {#each variantImages as imageUrl, index}
-                <button
-                  class="product-thumbnail-btn {activeImageIndex === index ? 'active' : ''}"
-                  on:click={() => setActiveImage(index)}
-                  aria-label={`View product image ${index + 1}`}
-                >
-                  <img
-                    src={imageUrl || "/images/product-placeholder.jpg"}
-                    alt={`${product.name} - Image ${index + 1}`}
-                    class="product-thumbnail"
-                    on:error={handleImageError}
-                  />
-                </button>
-              {/each}
+        <div class="product-images-container">
+          <div class="product-images">
+            <div class="product-main-image-container">
+              <img
+                src={variantImages[activeImageIndex] || "/images/product-placeholder.jpg"}
+                alt={product.name}
+                class="product-main-image"
+                on:error={handleImageError}
+              />
             </div>
-          {/if}
+
+            {#if variantImages.length > 1}
+              <div class="product-thumbnails">
+                {#each variantImages as imageUrl, index}
+                  <button
+                    class="product-thumbnail-btn {activeImageIndex === index ? 'active' : ''}"
+                    on:click={() => setActiveImage(index)}
+                    aria-label={`View product image ${index + 1}`}
+                  >
+                    <img
+                      src={imageUrl || "/images/product-placeholder.jpg"}
+                      alt={`${product.name} - Image ${index + 1}`}
+                      class="product-thumbnail"
+                      on:error={handleImageError}
+                    />
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
         </div>
 
         <!-- Product Info -->
@@ -365,9 +396,9 @@
             <button
               class="btn-add-to-cart {isAddingToCart ? 'adding' : ''} {addedToCart ? 'added' : ''}"
               on:click={handleAddToCart}
-              disabled={!inStock || isAddingToCart}
+              disabled={!inStock || isAddingToCart || isBuyingNow}
             >
-              {#if isAddingToCart}
+              {#if isAddingToCart && !isBuyingNow}
                 <svg class="spinner" viewBox="0 0 50 50">
                   <circle
                     class="path"
@@ -420,32 +451,47 @@
               <button
                 class="btn-buy-now"
                 on:click={handleBuyNow}
-                disabled={!inStock || isAddingToCart}
+                disabled={!inStock || isAddingToCart || isBuyingNow}
                 on:mouseenter={() => (showBuyNowTooltip = true)}
                 on:mouseleave={() => (showBuyNowTooltip = false)}
                 aria-describedby="buynow-tooltip"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                <span>Buy Now</span>
+                {#if isBuyingNow}
+                  <svg class="spinner" viewBox="0 0 50 50">
+                    <circle
+                      class="path"
+                      cx="25"
+                      cy="25"
+                      r="20"
+                      fill="none"
+                      stroke-width="5"
+                    ></circle>
+                  </svg>
+                  <span>Processing...</span>
+                {:else}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <span>Buy Now</span>
+                {/if}
               </button>
               {#if showBuyNowTooltip}
                 <div class="buynow-tooltip" id="buynow-tooltip" role="tooltip">
                   <span>
-                    <b>Buy Now</b> temporarily clears your cart and checks out only this item.<br />
-                    Your previous cart will be restored after checkout.
+                    <b>Buy Now</b> will check out <u>only this item</u> and temporarily clear your cart.<br />
+                    <br />
+                    <b>Your previous cart will be restored after checkout</b> or if you come back later.
                   </span>
                 </div>
               {/if}
@@ -462,6 +508,12 @@
 {/if}
 
 <style>
+  html,
+  body {
+    overscroll-behavior: none !important;
+    touch-action: none !important;
+  }
+
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -479,6 +531,10 @@
     transition:
       opacity 0.3s ease,
       visibility 0.3s ease;
+    overscroll-behavior: contain;
+    width: 100vw;
+    height: 100vh;
+    /* Prevent background scroll on mobile as well */
   }
 
   .modal-overlay.open {
@@ -502,6 +558,8 @@
       transform 0.3s ease,
       opacity 0.3s ease;
     animation: modalFadeIn 0.3s forwards;
+    height: 90vh;
+    /* Force the modal to take up the available vertical space and fix scrolling inside */
   }
 
   @keyframes modalFadeIn {
@@ -537,15 +595,47 @@
   }
 
   .modal-body {
+    flex: 1 1 auto;
     display: grid;
     grid-template-columns: 1fr;
     gap: 2rem;
     padding: 2rem;
     overflow-y: auto;
+    max-height: 100%;
+    min-height: 0;
+    min-width: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-gold) transparent;
+    box-sizing: border-box;
+    overscroll-behavior: contain;
+  }
+
+  /* Custom scrollbar for WebKit browsers */
+  .modal-body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .modal-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .modal-body::-webkit-scrollbar-thumb {
+    background-color: var(--color-gold);
+    border-radius: 3px;
+  }
+
+  .product-images-container {
+    max-height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
   }
 
   .product-images {
     position: relative;
+    max-height: 100%;
+    overflow: hidden;
   }
 
   .product-main-image-container {
@@ -553,6 +643,7 @@
     overflow: hidden;
     background-color: var(--color-cream-dark);
     aspect-ratio: 1;
+    max-height: calc(70vh - 6rem);
   }
 
   .product-main-image {
@@ -597,6 +688,7 @@
   .product-info {
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .product-title {
@@ -997,10 +1089,26 @@
     font-weight: 600;
   }
 
+  .buynow-tooltip u {
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+  }
+
   @media (min-width: 768px) {
     .modal-body {
       grid-template-columns: 1fr 1fr;
       padding: 2.5rem;
+      max-height: 100%;
+      align-items: start;
+    }
+
+    .product-images-container {
+      position: sticky;
+      top: 0;
+    }
+
+    .product-main-image-container {
+      max-height: calc(70vh - 8rem);
     }
 
     .product-title {
