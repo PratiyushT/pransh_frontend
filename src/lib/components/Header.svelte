@@ -60,7 +60,7 @@
   <div class="container">
     <div class="header-inner">
       <a href="/" class="brand-logo">
-        <img src="/images/pransh-logo.svg" alt="Pransh Logo" height="30" class="logo-image">
+        <img src="/images/header_logo.png" alt="Pransh Logo" height="30" class="logo-image">
       </a>
 
       <nav class="hidden md:block">
