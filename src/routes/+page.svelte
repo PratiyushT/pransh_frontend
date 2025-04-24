@@ -11,10 +11,13 @@
     featuredProducts: Product[];
     categories:       any[];
     totalProductCount: number;
+    featuredProductsCount: number; // Add the new count property
   };
 
   // Use the server‑rendered products directly
   let featuredProducts: Product[] = data.featuredProducts;
+  let totalFeaturedCount: number = data.featuredProductsCount; // Store the total count
+  let showViewAllButton: boolean = totalFeaturedCount > 4; // Display button if more than 4 featured products
 
   let quickViewProduct: Product | null = null;
   let quickViewOpen = false;
@@ -315,6 +318,13 @@
           </div>
         {/each}
       </div>
+      {#if showViewAllButton}
+        <div class="flex justify-center mt-8">
+          <a href="/shop?featured=true" class="view-all-btn">
+            View All Featured Products
+          </a>
+        </div>
+      {/if}
     {/if}
   </div>
 </div>
@@ -632,5 +642,23 @@
   }
   @media (min-width: 480px) and (max-width:767px) {
     .product-grid { grid-template-columns: repeat(2,1fr); gap: 1rem; }
+  }
+  .view-all-btn {
+    display: inline-block;
+    border: 1px solid var(--color-gold-dark);
+    color: var(--color-gold-dark);
+    background: transparent;
+    font-size: 1.1rem;
+    padding: 0.85rem 2.5rem;
+    font-weight: 500;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+  }
+  .view-all-btn:hover {
+    background: var(--color-gold-dark);
+    color: var(--color-white);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
   }
 </style>
