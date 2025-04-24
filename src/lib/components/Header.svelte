@@ -60,7 +60,7 @@
   <div class="container">
     <div class="header-inner">
       <a href="/" class="brand-logo">
-        <img src="/images/header_logo.png" alt="Pransh Logo" height="30" class="logo-image">
+        <img src="/images/header_logo.png" alt="Pransh Logo" height="40" style="aspect-ratio: 5/2; object-fit: contain; max-width: 160px; width: auto; display: block; margin: 0; padding: 0;" class="logo-image">
       </a>
 
       <nav class="hidden md:block">
@@ -130,9 +130,133 @@
 <SearchModal />
 
 <style>
+  :root {
+    --header-bg: #fffdfa;
+    --header-shadow: 0 4px 28px 0 rgba(60,50,35,0.07);
+    --header-border: 1px solid #ece6db;
+    --header-link-hover: var(--color-gold);
+  }
+  .header {
+    position: relative;
+    z-index: 25;
+    background-color: var(--header-bg);
+    box-shadow: var(--header-shadow);
+    border-bottom: var(--header-border);
+    width: 100%;
+    padding: 1.1rem 0 1.1rem 0;
+    transition: box-shadow 0.24s cubic-bezier(.7,0,.3,1), background-color 0.22s, padding 0.17s;
+  }
+  .header.scrolled {
+    position: fixed;
+    top: 0;
+    left: 0;
+    box-shadow: 0 4px 21px 0 rgba(100,88,38,.13);
+    padding: 0.55rem 0;
+    background: rgba(255, 253, 250, 0.98);
+    border-bottom: 1px solid #e2dcc1;
+    backdrop-filter: blur(10px);
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 26px;
+    width: 100%;
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    gap: 1.2rem;
+  }
+  .brand-logo {
+    margin: 0 1.1rem 0 0;
+    padding: 0;
+    line-height: 0;
+    display: flex;
+    align-items: center;
+    max-height: 45px;
+  }
+  .logo-image {
+    height: 40px !important;
+    max-width: 150px;
+    aspect-ratio: 5/2;
+    object-fit: contain;
+    display: block;
+  }
+  nav ul.nav-links {
+    display: flex;
+    gap: 2.2rem;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .nav-link {
+    position: relative;
+    color: #624b19;
+    font-size: 1.13rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: color .18s;
+    padding: 2px 3px;
+    border-radius: 3px;
+  }
+  .nav-link:after {
+    content: '';
+    position: absolute;
+    width: 0%;
+    height: 2.4px;
+    left: 0;
+    bottom: -5px;
+    background: linear-gradient(90deg,#F8CA57 50%,#e6b82c 100%);
+    border-radius: 1px;
+    transition: width 0.33s cubic-bezier(.7,0,.3,1);
+  }
+  .nav-link:hover, .nav-link:focus {
+    color: var(--header-link-hover);
+    background-color: #fcf6e7;
+  }
+  .nav-link:hover:after, .nav-link:focus:after {
+    width: 100%;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+  }
+  .header-action-icon {
+    color: #7a663c;
+    transition: color 0.22s, transform 0.20s;
+    padding: 0.15rem 0.21rem;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .header-action-icon:hover, .header-action-icon:focus {
+    color: var(--header-link-hover);
+    background: #f5e6bb52;
+    transform: translateY(-2px) scale(1.08);
+  }
+  .cart-count, .wishlist-count {
+    background: linear-gradient(90deg,#f2c651 35%,#f7d785 100%);
+    color: #624b19 !important;
+    border-radius: 50%;
+    font-size: .82rem;
+    border: 1.5px solid #ffeab4;
+    font-weight: 700;
+    padding: 1px 0;
+  }
+
   .hamburger-menu {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.3rem;
+    height: 2.3rem;
     position: relative;
     cursor: pointer;
     display: flex;
@@ -140,154 +264,42 @@
     justify-content: center;
     z-index: 101;
     border-radius: 50%;
-    transition: transform 0.3s ease, background-color 0.3s ease;
-    background-color: transparent;
+    transition: transform .21s, background .22s;
+    background-color: #ffd97214;
+    border: 1.5px solid #ffeab4;
+    box-shadow: 0 2px 10px #F8CA5714;
   }
-
-  .hamburger-menu:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-
   .hamburger-menu.open {
-    background-color: transparent;
+    background: #fbe9b1;
+    border-color: #fad87d;
   }
-
-  .hamburger-lines {
-    width: 1.4rem;
-    height: 1.4rem;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-
-  .hamburger-menu span {
-    display: block;
-    position: absolute;
-    height: 1.5px;
-    width: 100%;
-    background-color: var(--color-charcoal);
-    border-radius: 3px;
-    opacity: 1;
-    left: 0;
-    transform: rotate(0deg);
-    transition: transform 0.5s cubic-bezier(0.7, 0, 0.3, 1),
-                opacity 0.25s ease-in-out;
-  }
-
-  .hamburger-menu span:nth-child(1) {
-    top: 0.3rem;
-    transform-origin: left center;
-  }
-
-  .hamburger-menu span:nth-child(2) {
-    top: 0.7rem;
-    transform-origin: left center;
-  }
-
-  .hamburger-menu span:nth-child(3) {
-    top: 1.1rem;
-    transform-origin: left center;
-  }
-
-  .hamburger-menu.open span:nth-child(1) {
-    transform: rotate(45deg);
-    top: 0.25rem;
-    left: 0.3rem;
-    width: 100%;
-    background-color: var(--color-gold);
-  }
-
-  .hamburger-menu.open span:nth-child(2) {
-    width: 0%;
-    opacity: 0;
-  }
-
-  .hamburger-menu.open span:nth-child(3) {
-    transform: rotate(-45deg);
-    top: 1.15rem;
-    left: 0.3rem;
-    width: 100%;
-    background-color: var(--color-gold);
-  }
-
-  .header {
-    position: relative;
-    z-index: 20;
-    background-color: var(--color-white);
-    width: 100%;
-    padding: 1.5rem 0;
-  }
-
-  .header.scrolled {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    padding: 1rem 0;
-    background-color: rgba(250, 249, 246, 0.98);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    z-index: 25;
-  }
-
-  .header-action-icon {
-    position: relative;
-    transition: transform 0.3s ease, color 0.3s ease;
-    transform-origin: center;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    color: inherit;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .header-action-icon:hover {
-    color: var(--color-gold);
-    transform: translateY(-2px);
-  }
-
-  .cart-count, .wishlist-count {
-    background-color: var(--color-gold);
-  }
-
-  .nav-link {
-    position: relative;
-    transition: color 0.3s ease;
-  }
-
-  .nav-link:after {
-    content: '';
-    position: absolute;
-    width: 0%;
+  .hamburger-lines span {
     height: 2px;
-    bottom: -4px;
-    left: 0;
-    background-color: var(--color-gold);
-    transition: width 0.3s ease;
+    background: #af961c;
+    border-radius: 2.5px;
+    margin: 3px 0;
+    transition: all 0.33s cubic-bezier(.7,0,.3,1);
   }
-
-  .nav-link:hover:after {
-    width: 100%;
+  .hamburger-menu.open span:nth-child(1) {
+    transform: rotate(40deg) translateY(6.2px);
+    background: #e6b82c;
   }
-
+  .hamburger-menu.open span:nth-child(2) {
+    opacity: 0;
+    width: 0;
+  }
+  .hamburger-menu.open span:nth-child(3) {
+    transform: rotate(-40deg) translateY(-6.1px);
+    background: #e6b82c;
+  }
+  @media (max-width: 900px) {
+    .container { max-width: 97vw; }
+    nav ul.nav-links { gap: 1.1rem; }
+  }
   @media (max-width: 768px) {
-    .header-inner {
-      justify-content: space-between; /* Ensure space between logo and actions */
-    }
-
-    .brand-logo {
-      margin-right: auto; /* Push logo to the left */
-      flex: 0 0 auto; /* Prevent logo from stretching */
-      margin-left: -10px; /* Reduce left margin to bring logo closer to edge */
-    }
-
-    .container {
-      padding-left: 10px; /* Reduce container padding on left side for mobile */
-    }
+    .brand-logo { margin-right: 1rem; margin-left: -3px; }
+    .container { padding-left: 5px; padding-right: 9px; }
+    .header-inner { min-height: 43px; gap: 0.71rem; }
+    .header { padding: 0.7rem 0; }
   }
 </style>
