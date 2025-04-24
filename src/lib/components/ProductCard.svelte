@@ -8,36 +8,29 @@
 
   export let product: Product;
 
-  // Get product slug correctly, handling both string and object formats
   $: productSlug = typeof product.slug === 'string'
     ? product.slug
     : product.slug?.current || '';
 
   const dispatch = createEventDispatcher();
 
-  // Check if product is in wishlist initially
   let isWishlisted = isInWishlist(product._id);
 
-  // Calculate lowest and highest price
   const prices = product.variants.map(variant => variant.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
 
-  // Get primary image
   const primaryImage = product.image;
   const secondaryImage = product.variants[0]?.images?.[1]?.url || primaryImage;
 
-  // Extract unique colors from variants
   const uniqueColors = Array.from(new Set(product.variants.map(variant =>
     variant.color && variant.color._id ? JSON.stringify(variant.color) : null
   ))).filter(color => color !== null).map(color => JSON.parse(color));
 
-  // Format price range
   const priceDisplay = minPrice === maxPrice
     ? formatPrice(minPrice)
     : `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}`;
 
-  // Animation state
   let cardElement: HTMLElement;
   let imageContainer: HTMLElement;
   let isHovered = false;
@@ -47,20 +40,17 @@
   let mainCartIcon: HTMLElement;
   let wishlistButton: HTMLElement;
 
-  // Fallback for images that fail to load
   function handleImageError(event) {
     event.currentTarget.src = '/images/product-placeholder.jpg';
   }
 
-  // Create intersection observer for lazy loading
   let primaryImageRef: HTMLImageElement;
   let secondaryImageRef: HTMLImageElement;
 
   function setupLazyLoading() {
-    // Create intersection observer for lazy loading images
     if (typeof IntersectionObserver !== 'undefined') {
       const options = {
-        rootMargin: '200px 0px',  // Start loading when image is 200px from viewport
+        rootMargin: '200px 0px',
         threshold: 0.01
       };
 
@@ -69,7 +59,6 @@
         if (src) {
           img.src = src;
           img.removeAttribute('data-src');
-          // Apply fade-in effect
           gsap.fromTo(img,
             { opacity: 0 },
             { duration: 0.3, opacity: 1, ease: "power2.out" }
@@ -86,13 +75,11 @@
         });
       }, options);
 
-      // Observe images once they're mounted
       if (primaryImageRef) observer.observe(primaryImageRef);
       if (secondaryImageRef) observer.observe(secondaryImageRef);
     }
   }
 
-  // Add to wishlist handler
   const handleToggleWishlist = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -100,10 +87,8 @@
     toggleWishlist(product._id);
     isWishlisted = isInWishlist(product._id);
 
-    // Add visual feedback with animation
     const btn = e.currentTarget;
 
-    // Create ripple effect
     const ripple = document.createElement('div');
     ripple.classList.add('wishlist-ripple');
     ripple.style.position = 'absolute';
@@ -118,13 +103,11 @@
     ripple.style.pointerEvents = 'none';
     btn.appendChild(ripple);
 
-    // Animate the heart with a beat effect
     gsap.fromTo(btn,
       { scale: 1 },
       { scale: 1.2, duration: 0.15, ease: "power1.out", yoyo: true, repeat: 1 }
     );
 
-    // Animate the ripple
     gsap.to(ripple, {
       duration: 0.5,
       scale: 15,
@@ -141,40 +124,34 @@
   onMount(() => {
     if (!cardElement || !imageContainer) return;
 
-    // Check if device supports touch
     isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 ||
                    (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 
-    // Set up lazy loading for images
     setupLazyLoading();
 
-    // Initialize GSAP timeline
     timeline = gsap.timeline({ paused: true });
 
     try {
-      // Setup animations - FASTER AND SMOOTHER
       timeline
         .to(cardElement, {
-          y: -15,
-          duration: 0.3,
+          y: -10,
+          duration: 0.25,
           ease: "power2.out",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1), 0 0 20px rgba(212, 175, 55, 0.4), 0 0 30px rgba(212, 175, 55, 0.2)"
+          boxShadow: "0 10px 20px rgba(0, 0, 0, 0.09), 0 0 10px rgba(212, 175, 55, 0.25), 0 0 15px rgba(212, 175, 55, 0.12)"
         }, 0)
         .to(imageContainer.querySelector('.primary-image'), {
-          scale: 1.08,
-          duration: 0.4,
+          scale: 1.05,
+          duration: 0.3,
           ease: "power1.out"
         }, 0);
 
-      // Add a glow effect around the card
       const cardGlow = document.createElement('div');
       cardGlow.classList.add('card-glow-effect');
       cardElement.appendChild(cardGlow);
 
-      // Add the glow animation to the timeline
       timeline.to(cardGlow, {
         opacity: 1,
-        duration: 0.3,
+        duration: 0.25,
         ease: "power1.out"
       }, 0);
 
@@ -182,8 +159,8 @@
       if (secondaryImg) {
         timeline.to(secondaryImg, {
           opacity: 1,
-          scale: 1.08,
-          duration: 0.4,
+          scale: 1.05,
+          duration: 0.3,
           ease: "power1.out"
         }, 0);
       }
@@ -192,7 +169,7 @@
       if (overlay) {
         timeline.to(overlay, {
           opacity: 1,
-          duration: 0.3,
+          duration: 0.25,
           ease: "power1.out"
         }, 0);
       }
@@ -202,9 +179,9 @@
         timeline.to(actions, {
           y: 0,
           opacity: 1,
-          duration: 0.3,
+          duration: 0.25,
           ease: "back.out(1.7)"
-        }, 0.05);
+        }, 0.03);
       }
 
       const cta = cardElement.querySelector('.product-card-cta');
@@ -212,16 +189,16 @@
         timeline.to(cta, {
           y: 0,
           opacity: 1,
-          duration: 0.3,
+          duration: 0.25,
           ease: "back.out(1.7)"
-        }, 0.1);
+        }, 0.07);
       }
 
       const title = cardElement.querySelector('.product-card-title');
       if (title) {
         timeline.to(title, {
           color: "var(--color-gold)",
-          duration: 0.25,
+          duration: 0.2,
           ease: "power1.out"
         }, 0);
       }
@@ -229,28 +206,24 @@
       console.error("Error setting up animations:", error);
     }
 
-    // Add loaded class after Page is mounted for fade-in effect - FASTER INITIAL LOAD
     gsap.to(cardElement, {
       opacity: 1,
       y: 0,
-      duration: 0.5,
+      duration: 0.4,
       ease: "power2.out",
-      delay: Math.random() * 0.2,
+      delay: Math.random() * 0.15,
       onComplete: () => {
         isLoaded = true;
       }
     });
 
-    // Find the cart icon in the header for add-to-cart animation
     mainCartIcon = document.querySelector('.header .header-action-icon[aria-label="Cart"]');
     if (!mainCartIcon) {
       mainCartIcon = document.querySelector('.header-sticky .header-action-icon[aria-label="Cart"]');
     }
 
-    // Get reference to the wishlist button and update status
     wishlistButton = cardElement.querySelector('.product-card-action.wishlist');
 
-    // Make sure the initial wishlist state is correct and synced with the store
     setTimeout(() => {
       isWishlisted = isInWishlist(product._id);
     }, 100);
@@ -270,26 +243,22 @@
     }
   };
 
-  // Mobile-specific touch handling
   const handleTouchStart = (e) => {
     if (isTouchDevice && timeline) {
-      // On mobile, toggle the hover state on tap
       isHovered= !isHovered;
       if (isHovered) {
         timeline.play();
-        // Add event listener for touch outside to close
         setTimeout(() => {
           document.addEventListener('touchstart', handleTouchOutside);
         }, 10);
       } else {
         timeline.reverse();
       }
-      e.preventDefault(); // Prevent immediate navigation on first tap
+      e.preventDefault();
     }
   };
 
   const handleTouchOutside = (e) => {
-    // If user taps outside the card, close it
     if (cardElement && !cardElement.contains(e.target)) {
       isHovered = false;
       timeline?.reverse();
@@ -297,25 +266,17 @@
     }
   };
 
-  // Quick view handler
   const handleQuickView = (e) => {
     e.preventDefault();
     e.stopPropagation();
     dispatch('quickView',  { product });
-
   };
 
-  // Add to cart handler with animation
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // Instead of adding directly to cart, open the QuickView modal
-    // so the user can select size
     dispatch('quickView',  { product });
-
   };
-
 </script>
 
 <a
@@ -355,14 +316,14 @@
             aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             on:click={handleToggleWishlist}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
             </svg>
           </button>
           <button class="product-card-action add-to-cart"
             aria-label="Add to cart"
             on:click={handleQuickView}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="21" r="1"></circle>
               <circle cx="20" cy="21" r="1"></circle>
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
@@ -371,7 +332,7 @@
         </div>
         <div class="product-card-cta">
           <span>View Details</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="5" y1="12" x2="19" y2="12"></line>
             <polyline points="12 5 19 12 12 19"></polyline>
           </svg>
@@ -392,7 +353,7 @@
           {#each uniqueColors as color}
             {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
               <div class="color-swatch-container" title={color.name || 'Color'}>
-                <ColorPieChart hexColors={color.hex} size={18} border={true} borderWidth={1} borderColor="#e2e2e2" />
+                <ColorPieChart hexColors={color.hex} size={14} border={true} borderWidth={1} borderColor="#e2e2e2" />
               </div>
             {:else}
               <div
@@ -421,7 +382,7 @@
 
       <button class="add-to-cart-button" on:click={handleAddToCart}>
         <span>Add to Cart</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
           <circle cx="20" cy="21" r="1"></circle>
           <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
@@ -435,7 +396,7 @@
   .product-card-wrapper {
     display: block;
     position: relative;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     height: 100%;
     perspective: 1200px;
     transform-style: preserve-3d;
@@ -454,10 +415,9 @@
     border-radius: 2px;
     overflow: hidden;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-    transition: all 0.25s ease; /* Faster transition from 0.3s */
+    transition: all 0.25s ease;
   }
 
-  /* Add glow effect styling */
   .card-glow-effect {
     position: absolute;
     top: -10px;
@@ -476,7 +436,7 @@
     opacity: 0;
     filter: blur(15px);
     will-change: opacity;
-    transition: opacity 0.25s ease; /* Added transition */
+    transition: opacity 0.25s ease;
   }
 
   .product-card.hovered {
@@ -507,7 +467,7 @@
   .product-card-image-container {
     position: relative;
     overflow: hidden;
-    padding-bottom: 130%;
+    padding-bottom: 110%;
     background-color: var(--color-cream-dark);
   }
 
@@ -520,7 +480,7 @@
     object-fit: cover;
     z-index: 1;
     will-change: transform, opacity;
-    transition: transform 0.25s ease; /* Added transition for hover without GSAP */
+    transition: transform 0.25s ease;
   }
 
   .primary-image {
@@ -530,7 +490,7 @@
   .secondary-image {
     opacity: 0;
     z-index: 2;
-    transition: opacity 0.25s ease; /* Added transition */
+    transition: opacity 0.25s ease;
   }
 
   .product-card-overlay {
@@ -545,25 +505,25 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 1.25rem;
+    padding: 1rem;
     will-change: opacity;
-    transition: opacity 0.25s ease; /* Added transition for fallback when GSAP fails */
+    transition: opacity 0.25s ease;
   }
 
   .product-card-actions {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.5rem;
     justify-content: flex-end;
-    transform: translateY(-15px);
+    transform: translateY(-10px);
     opacity: 0;
     will-change: transform, opacity;
-    transition: transform 0.25s ease, opacity 0.25s ease; /* Added transition for fallback */
-    z-index: 4; /* Ensure buttons are clickable */
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    z-index: 4;
   }
 
   .product-card-action {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2rem;
+    height: 2rem;
     border-radius: 50%;
     background-color: var(--color-white);
     border: none;
@@ -571,16 +531,23 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: all 0.25s ease; /* Faster from 0.3s */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.13);
+    transition: all 0.25s ease;
     color: var(--color-charcoal);
+    font-size: 1rem;
+    padding: 0;
+  }
+
+  .product-card-action svg {
+    width: 14px;
+    height: 14px;
   }
 
   .product-card-action:hover {
     background-color: var(--color-gold);
     color: var(--color-white);
-    transform: scale(1.1) translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    transform: scale(1.07) translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
   }
 
   .product-card-action.add-to-cart {
@@ -590,59 +557,59 @@
 
   .product-card-action.add-to-cart:hover {
     background-color: var(--color-gold-dark);
-    transform: scale(1.15) translateY(-3px);
+    transform: scale(1.11) translateY(-2px);
   }
 
   .product-card-cta {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    background-color: var(--color-gold);
-    color: var(--color-white);
-    font-size: 0.9rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 0.85rem 1.25rem;
-    border-radius: 2px;
-    opacity: 0;
-    transform: translateY(15px);
-    will-change: transform, opacity;
-    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
-    transition: transform 0.25s ease, opacity 0.25s ease; /* Added for fallback */
-    z-index: 4; /* Ensure view details is clickable */
-    position: relative; /* Needed for z-index */
-    width: fit-content; /* Don't span full width */
-    margin: 0 auto; /* Center horizontally */
-  }
-
-  .product-card-cta svg {
-    transition: transform 0.2s ease; /* Faster from 0.3s */
-  }
-
-  .product-card-cta:hover svg {
-    transform: translateX(5px);
-  }
-
-  .product-card-badge {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
+    gap: 0.4rem;
     background-color: var(--color-gold);
     color: var(--color-white);
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    padding: 0.3rem 0.6rem;
-    z-index: 5; /* Above other elements */
+    padding: 0.6rem 0.8rem;
     border-radius: 2px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    opacity: 0;
+    transform: translateY(10px);
+    will-change: transform, opacity;
+    box-shadow: 0 3px 10px rgba(212, 175, 55, 0.22);
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    z-index: 4;
+    position: relative;
+    width: fit-content;
+    margin: 0 auto;
+  }
+
+  .product-card-cta svg {
+    transition: transform 0.2s ease;
+  }
+
+  .product-card-cta:hover svg {
+    transform: translateX(4px);
+  }
+
+  .product-card-badge {
+    position: absolute;
+    top: 0.7rem;
+    left: 0.7rem;
+    background-color: var(--color-gold);
+    color: var(--color-white);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.22rem 0.45rem;
+    z-index: 5;
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.09);
   }
 
   .product-card-info {
-    padding: 1.5rem;
+    padding: 1rem;
     background-color: var(--color-white);
     z-index: 2;
     flex-grow: 1;
@@ -652,9 +619,9 @@
   }
 
   .product-card-category {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--color-charcoal-light);
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -662,10 +629,10 @@
   .product-card-title {
     font-family: var(--heading-font);
     font-weight: 500;
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     line-height: 1.2;
-    margin-bottom: 0.5rem;
-    transition: color 0.25s ease; /* Faster from 0.3s */
+    margin-bottom: 0.4rem;
+    transition: color 0.25s ease;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -673,18 +640,17 @@
     -webkit-box-orient: vertical;
   }
 
-  /* Improved Color swatches container */
   .product-card-colors {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 10px;
-    margin-bottom: 5px;
+    margin-top: 6px;
+    margin-bottom: 4px;
   }
 
   .color-swatch-container {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     border: 1px solid rgba(0, 0, 0, 0.1);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -696,8 +662,8 @@
   }
 
   .color-swatch-container:hover {
-    transform: scale(1.1);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transform: scale(1.07);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   }
 
   .color-swatch {
@@ -710,19 +676,19 @@
   .product-card-price {
     color: var(--color-gold-dark);
     font-weight: 600;
-    font-size: 1.1rem;
-    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
   }
 
   .product-card-rating {
-    margin-bottom: 1rem;
+    margin-bottom: 0.7rem;
     display: flex;
-    gap: 0.2rem;
-    font-size: 0.95rem;
+    gap: 0.18rem;
+    font-size: 0.88rem;
   }
 
   .star {
-    color: rgba(0, 0, 0, 0.2);
+    color: rgba(0, 0, 0, 0.18);
   }
 
   .star.filled {
@@ -736,14 +702,15 @@
     justify-content: center;
     gap: 0.5rem;
     width: 100%;
-    padding: 0.75rem;
+    padding: 0.6rem;
     background-color: var(--color-cream);
     border: 1px solid var(--color-gold);
     color: var(--color-gold);
     font-weight: 500;
+    font-size: 0.85rem;
     border-radius: 2px;
     cursor: pointer;
-    transition: all 0.25s ease; /* Faster from 0.3s */
+    transition: all 0.25s ease;
     transform: translateY(5px);
     opacity: 0.9;
     position: relative;
@@ -768,7 +735,7 @@
   }
 
   .product-card.hovered .add-to-cart-button::before {
-    animation: shimmer 1.5s infinite; /* Faster from 2s */
+    animation: shimmer 1.5s infinite;
   }
 
   @keyframes shimmer {
@@ -782,15 +749,13 @@
     color: var(--color-white);
     transform: translateY(0);
     opacity: 1;
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.35);
   }
 
-  /* Flying cart item animation will be handled through JS */
   :global(.flying-cart-item) {
     pointer-events: none;
   }
 
-  /* Add responsive adjustments */
   @media (max-width: 768px) {
     .product-card-overlay {
       background: linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.4) 100%);
@@ -800,83 +765,64 @@
     .product-card-cta {
       opacity: 1;
       transform: translateY(0);
-      padding: 0.7rem 1rem; /* Slightly smaller on mobile for better fit */
-      font-size: 0.8rem; /* Smaller font on mobile */
+      padding: 0.6rem 0.8rem;
+      font-size: 0.75rem;
     }
 
     .product-card-title {
-      font-size: 1.25rem;
-      /* Ensure proper text handling */
-      -webkit-line-clamp: 1; /* Show only 1 line on mobile */
+      font-size: 1rem;
+      -webkit-line-clamp: 1;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
 
     .product-card-price {
-      font-size: 1rem;
-      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      margin-bottom: 0.4rem;
     }
 
     .product-card-category {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
     }
 
     .add-to-cart-button {
       transform: translateY(0);
       opacity: 1;
-      padding: 0.6rem; /* Smaller padding on mobile */
+      padding: 0.5rem;
+      font-size: 0.8rem;
     }
 
     .product-card-image-container {
-      padding-bottom: 120%; /* Slightly shorter image container */
+      padding-bottom: 100%;
     }
 
     .product-card-info {
-      padding: 1rem; /* Less padding on mobile */
+      padding: 0.8rem;
     }
 
     .product-card-actions {
-      /* Adjusted position for better visibility on mobile */
       opacity: 1;
       transform: translateY(0);
     }
 
     .product-card-action {
-      width: 2.2rem; /* Smaller but still touchable */
-      height: 2.2rem;
-    }
-
-    .product-card-badge {
-      top: 0.75rem;
-      left: 0.75rem;
-      font-size: 0.65rem;
-      padding: 0.25rem 0.5rem;
-    }
-
-    /* Adjust color swatches on mobile */
-    .product-card-colors {
-      gap: 0.4rem;
-      margin-bottom: 0.6rem;
-    }
-    .color-swatch {
-      width: 16px;
-      height: 16px;
+      width: 2rem;
+      height: 2rem;
     }
   }
 
-  /* Ensure the product-card-wrapper has proper padding on mobile */
   @media (max-width: 480px) {
     .product-card-wrapper {
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
     }
 
     .product-card-overlay {
-      padding: 1rem; /* Smaller padding on small mobile */
+      padding: 0.8rem;
     }
 
     .product-card-title {
-      font-size: 1.1rem; /* Even smaller on tiny screens */
+      font-size: 0.9rem;
     }
   }
 

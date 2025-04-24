@@ -300,15 +300,15 @@
 
 <!-- Featured Products Section -->
 <div class="featured-products" bind:this={featuredSection}>
-  <div class="container mx-auto px-4 py-16">
+  <div class="container mx-auto px-4 py-12">
     <h2 class="section-title text-3xl md:text-4xl font-serif text-center mb-4">Featured Products</h2>
-    <p class="section-subtitle text-gray-600 text-center mb-12">Discover our most popular luxury items</p>
+    <p class="section-subtitle text-gray-600 text-center mb-10">Discover our most popular luxury items</p>
     {#if featuredProducts.length === 0}
       <div class="text-center py-12">
         <p class="text-gray-600">No featured products available at the moment.</p>
       </div>
     {:else}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
         {#each featuredProducts as product}
           <div class="product-card-container">
             <ProductCard {product} on:quickView={handleQuickView} />
@@ -550,6 +550,34 @@
   .product-card-container {
     height: 100%;
     opacity: 1;
+    /* Make product cards smaller for homepage grid */
+    padding: 0.25rem 0;
+    /* Optionally, force max-width if ProductCard does not have it */
+    /* max-width: 250px; */
+  }
+  .featured-products .grid {
+    /* Override grid gap for smaller look */
+    gap: 1rem !important;
+  }
+  @media (max-width: 767px) {
+    .featured-products .grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 0.75rem !important;
+    }
+  }
+  @media (min-width: 768px) {
+    .luxury-divider-line { width: 150px; }
+    .luxury-divider-emblem { font-size: 2.5rem; }
+    .featured-products .grid {
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 1.5rem !important;
+    }
+  }
+  @media (min-width: 1024px) {
+    .featured-products .grid {
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 2rem !important;
+    }
   }
   .experience-section {
     background-color: var(--color-cream-dark);
@@ -590,10 +618,6 @@
     border: 1px solid var(--color-gold);
     border-radius: 2px;
     z-index: -1;
-  }
-  @media (min-width: 768px) {
-    .luxury-divider-line { width: 150px; }
-    .luxury-divider-emblem { font-size: 2.5rem; }
   }
   @media (max-width: 767px) {
     .product-grid {

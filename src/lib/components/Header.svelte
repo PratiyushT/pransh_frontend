@@ -114,12 +114,10 @@
           {/if}
         </a>
 
-        <button class="hamburger-menu md:hidden" class:open={$isMenuOpen} on:click={toggleMenu} aria-label="Toggle menu">
-          <div class="hamburger-lines">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
+        <button class="hamburger md:hidden" class:active={$isMenuOpen} on:click={toggleMenu} aria-label="Toggle menu">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
         </button>
       </div>
     </div>
@@ -254,44 +252,84 @@
     padding: 1px 0;
   }
 
-  .hamburger-menu {
-    width: 2.3rem;
-    height: 2.3rem;
-    position: relative;
+  /* Elegant Minimalist Hamburger Menu */
+  .hamburger {
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
     cursor: pointer;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
+    align-items: flex-start;
+    gap: 5px;
+    position: relative;
     z-index: 101;
-    border-radius: 50%;
-    transition: transform .21s, background .22s;
-    background-color: #ffd97214;
-    border: 1.5px solid #ffeab4;
-    box-shadow: 0 2px 10px #F8CA5714;
+    padding: 8px 12px;
+    transition: all 0.2s ease;
   }
-  .hamburger-menu.open {
-    background: #fbe9b1;
-    border-color: #fad87d;
+
+  .hamburger:hover {
+    transform: translateY(-1px);
   }
-  .hamburger-lines span {
-    height: 2px;
-    background: #af961c;
-    border-radius: 2.5px;
-    margin: 3px 0;
-    transition: all 0.33s cubic-bezier(.7,0,.3,1);
+
+  .hamburger:hover .hamburger-line:first-child {
+    width: 22px;
   }
-  .hamburger-menu.open span:nth-child(1) {
-    transform: rotate(40deg) translateY(6.2px);
-    background: #e6b82c;
+
+  .hamburger:hover .hamburger-line:nth-child(2) {
+    width: 20px;
   }
-  .hamburger-menu.open span:nth-child(2) {
+
+  .hamburger:hover .hamburger-line:nth-child(3) {
+    width: 18px;
+  }
+
+  .hamburger:focus {
+    outline: none;
+  }
+
+  .hamburger-line {
+    height: 1.5px;
+    background-color: #b39839;
+    display: block;
+    transition: all 0.3s ease;
+    border-radius: 0.5px;
+    transform-origin: left center;
+  }
+
+  /* Varying line widths for aesthetic effect */
+  .hamburger-line:first-child {
+    width: 18px;
+  }
+
+  .hamburger-line:nth-child(2) {
+    width: 24px;
+    margin-top: 1px;
+  }
+
+  .hamburger-line:nth-child(3) {
+    width: 14px;
+    margin-top: 1px;
+  }
+
+  /* Active state (when menu is open) */
+  .hamburger.active .hamburger-line:first-child {
+    width: 22px;
+    transform: rotate(45deg) translate(1px, -2px);
+  }
+
+  .hamburger.active .hamburger-line:nth-child(2) {
     opacity: 0;
     width: 0;
   }
-  .hamburger-menu.open span:nth-child(3) {
-    transform: rotate(-40deg) translateY(-6.1px);
-    background: #e6b82c;
+
+  .hamburger.active .hamburger-line:nth-child(3) {
+    width: 22px;
+    transform: rotate(-45deg) translate(1px, 2px);
   }
+
   @media (max-width: 900px) {
     .container { max-width: 97vw; }
     nav ul.nav-links { gap: 1.1rem; }
