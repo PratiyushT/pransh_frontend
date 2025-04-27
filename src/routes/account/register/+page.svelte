@@ -3,11 +3,16 @@
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
   import AddressSearch from '$lib/components/AddressSearch.svelte';
+  import {
+    signUp as signUpAndCreateProfile,
+    insertProfileAndAddress
+  } from '$lib/auth/auth';
 
   // Form data
   let firstName = '';
   let lastName = '';
   let email = '';
+  let phoneNumber='';
   let password = '';
   let confirmPassword = '';
   let acceptTerms = false;
@@ -23,101 +28,59 @@
   let confirmPasswordTouched = false;
   let termsTouched = false;
 
-  // Password strength
-  let passwordStrength = 0; // 0: none, 1: weak, 2: medium, 3: strong
-
-  // Password visibility toggles
+  // Password strength & visibility
+  let passwordStrength = 0;
   let showPassword = false;
   let showConfirmPassword = false;
 
-  // Toggle password visibility
-  const togglePasswordVisibility = () => {
-    showPassword = !showPassword;
-  };
+  const togglePasswordVisibility = () => showPassword = !showPassword;
+  const toggleConfirmPasswordVisibility = () => showConfirmPassword = !showConfirmPassword;
 
-  // Toggle confirm password visibility
-  const toggleConfirmPasswordVisibility = () => {
-    showConfirmPassword = !showConfirmPassword;
-  };
-
-  // Debounce timeout
+  // Debounce helper
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  // Validate email with a more thorough regex
-  function validateEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  // Check password strength
-  function checkPasswordStrength(password: string): number {
-    if (!password) return 0;
-
-    let strength = 0;
-    // Length check
-    if (password.length >= 8) strength += 1;
-    // Complexity checks
-    if (/[A-Z]/.test(password)) strength += 0.5;
-    if (/[a-z]/.test(password)) strength += 0.5;
-    if (/[0-9]/.test(password)) strength += 0.5;
-    if (/[^A-Za-z0-9]/.test(password)) strength += 0.5;
-
-    // Cap at 3
-    return Math.min(Math.floor(strength), 3);
-  }
-
-  // Debounced validation to prevent excessive validation
   function debouncedValidation() {
     if (debounceTimeout) clearTimeout(debounceTimeout);
-
     debounceTimeout = setTimeout(() => {
-      // Validate fields if touched
-      if (emailTouched) {
-        isEmailValid = validateEmail(email);
-      }
-
+      if (emailTouched)    isEmailValid = validateEmail(email);
       if (passwordTouched) {
         passwordStrength = checkPasswordStrength(password);
         isPasswordValid = password.length >= 6;
       }
-
-      if (confirmPasswordTouched && password) {
+      if (confirmPasswordTouched && password)
         isConfirmPasswordValid = confirmPassword === password;
-      }
-
-      // Reset error message if all valid
-      if (formSubmitted && isFormValid) {
+      if (formSubmitted && isFormValid)
         errorMessage = '';
-      }
     }, 300);
   }
 
-  // Mark fields as touched
+  // Simple validators
+  function validateEmail(email: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+  function checkPasswordStrength(p: string) {
+    if (!p) return 0;
+    let s = 0;
+    if (p.length >= 8) s += 1;
+    if (/[A-Z]/.test(p)) s += 0.5;
+    if (/[a-z]/.test(p)) s += 0.5;
+    if (/[0-9]/.test(p)) s += 0.5;
+    if (/[^A-Za-z0-9]/.test(p)) s += 0.5;
+    return Math.min(Math.floor(s), 3);
+  }
+
   const touchField = (field: string) => {
     switch(field) {
-      case 'firstName':
-        firstNameTouched = true;
-        break;
-      case 'lastName':
-        lastNameTouched = true;
-        break;
-      case 'email':
-        emailTouched = true;
-        break;
-      case 'password':
-        passwordTouched = true;
-        break;
-      case 'confirmPassword':
-        confirmPasswordTouched = true;
-        break;
-      case 'terms':
-        termsTouched = true;
-        break;
+      case 'firstName': firstNameTouched = true; break;
+      case 'lastName':  lastNameTouched = true;  break;
+      case 'email':     emailTouched = true;     break;
+      case 'password':  passwordTouched = true;  break;
+      case 'confirmPassword': confirmPasswordTouched = true; break;
+      case 'terms':     termsTouched = true;     break;
     }
     debouncedValidation();
   };
 
-  // Address data
+  // Address state
   let showAddressFields = false;
   let showManualAddressForm = false;
   let streetAddress = '';
@@ -126,110 +89,72 @@
   let zipCode = '';
   let country = 'United States';
   let addressSelected = false;
-  let addressFromMapbox = false; // Add new flag to track if address came from Mapbox
+  let addressFromMapbox = false;
 
-  // Address fields interaction tracking
+  // Address interaction
   let streetAddressTouched = false;
   let cityTouched = false;
   let stateTouched = false;
   let zipCodeTouched = false;
   let countryTouched = false;
 
-  // Country options
   const countries = [
-    'United States', 'Canada', 'United Kingdom', 'Australia',
-    'India', 'Germany', 'France', 'Japan', 'China', 'Brazil',
-    'Other'
+    'United States','Canada','United Kingdom','Australia',
+    'India','Germany','France','Japan','China','Brazil','Other'
   ];
 
-  // Form validation
-  $: isFirstNameValid = !firstNameTouched || firstName.length > 1;
-  $: isLastNameValid = !lastNameTouched || lastName.length > 1;
-  $: isEmailValid = !emailTouched || validateEmail(email);
-  $: isPasswordValid = !passwordTouched || password.length >= 6;
-  $: isConfirmPasswordValid = !confirmPasswordTouched || password === confirmPassword;
-  $: isTermsAccepted = !termsTouched || acceptTerms;
-  $: passwordStrength = checkPasswordStrength(password);
-
-  // Address validation
-  $: isStreetAddressValid = !streetAddressTouched || !showAddressFields || streetAddress.length > 3;
-  $: isCityValid = !cityTouched || !showAddressFields || city.length > 2;
-  $: isStateValid = !stateTouched || !showAddressFields || state.length > 1;
-  $: isZipCodeValid = !zipCodeTouched || !showAddressFields || zipCode.length > 3;
-  $: isCountryValid = !countryTouched || !showAddressFields || country.length > 0;
-
-  $: isFormValid = firstName && lastName && email && password && confirmPassword &&
-                password === confirmPassword && acceptTerms &&
-                isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
-                (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid && isZipCodeValid && isCountryValid));
-
-  // Handle address selected from Mapbox
-  const handleAddressSelected = (event: CustomEvent) => {
-    const address = event.detail;
-    console.log('Address selected from Mapbox:', address);
-
-    // Populate address fields
-    streetAddress = address.addressLine1;
-    city = address.city;
-    state = address.state;
-    zipCode = address.postalCode;
-    country = address.country;
-
-    // Mark fields as touched for validation
-    streetAddressTouched = true;
-    cityTouched = true;
-    stateTouched = true;
-    zipCodeTouched = true;
-    countryTouched = true;
-
+  function handleAddressSelected(event: CustomEvent) {
+    const addr = event.detail;
+    streetAddress = addr.addressLine1;
+    city          = addr.city;
+    state         = addr.state;
+    zipCode       = addr.postalCode;
+    country       = addr.country;
+    streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
     addressSelected = true;
-    addressFromMapbox = true; // Set the flag when address is selected from Mapbox
-
-    // Reset form errors
+    addressFromMapbox = true;
     resetFieldError();
-  };
-
-  const handleAddressCleared = () => {
-    addressSelected = false;
-    addressFromMapbox = false; // Reset the flag when address is cleared
-  };
-
-  // Add a function to edit manually
-  const enableManualEdit = () => {
-    addressFromMapbox = false;
-  };
-
-  const handleShowManualEntry = () => {
-    showManualAddressForm = true;
-  };
-
-  // Toggle address fields visibility
+  }
+  function handleAddressCleared() {
+    addressSelected = addressFromMapbox = false;
+  }
+  const handleShowManualEntry = () => showManualAddressForm = true;
+  const enableManualEdit = () => addressFromMapbox = false;
   const toggleAddressFields = () => {
     showAddressFields = !showAddressFields;
-
-    // If closing address section and there was an error, reset the fields
-    if (!showAddressFields && formSubmitted) {
-      resetFieldError();
-    }
+    if (!showAddressFields && formSubmitted) resetFieldError();
   };
 
-  // Handle registration form submission
-  const handleSubmit = async () => {
-    formSubmitted = true;
-    firstNameTouched = true;
-    lastNameTouched = true;
-    emailTouched = true;
-    passwordTouched = true;
-    confirmPasswordTouched = true;
-    termsTouched = true;
+  // Reactive validity flags
+  $: isFirstNameValid       = !firstNameTouched      || firstName.length > 1;
+  $: isLastNameValid        = !lastNameTouched       || lastName.length > 1;
+  $: isEmailValid           = !emailTouched          || validateEmail(email);
+  $: isPasswordValid        = !passwordTouched       || password.length >= 6;
+  $: isConfirmPasswordValid = !confirmPasswordTouched|| confirmPassword === password;
+  $: isTermsAccepted        = !termsTouched          || acceptTerms;
 
-    if (showAddressFields) {
-      streetAddressTouched = true;
-      cityTouched = true;
-      stateTouched = true;
-      zipCodeTouched = true;
-      countryTouched = true;
-    }
+  $: isStreetAddressValid   = !streetAddressTouched  || !showAddressFields || streetAddress.length > 3;
+  $: isCityValid            = !cityTouched           || !showAddressFields || city.length > 2;
+  $: isStateValid           = !stateTouched          || !showAddressFields || state.length > 1;
+  $: isZipCodeValid         = !zipCodeTouched        || !showAddressFields || zipCode.length > 3;
+  $: isCountryValid         = !countryTouched        || !showAddressFields || country.length > 0;
+
+  $: isFormValid = firstName && lastName && email && password && confirmPassword &&
+                   password === confirmPassword && acceptTerms &&
+                   isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
+                   (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid && isZipCodeValid && isCountryValid));
+
+  // Reset errors on input
+  const resetFieldError = () => {
+    if (formSubmitted) errorMessage = '';
+    debouncedValidation();
+  };
+
+  // Final submit
+  async function handleSubmit() {
+    formSubmitted = true;
+    firstNameTouched = lastNameTouched = emailTouched = passwordTouched = confirmPasswordTouched = termsTouched = true;
+    if (showAddressFields) streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
 
     if (!isFormValid) {
       errorMessage = 'Please fix the errors in the form';
@@ -240,83 +165,69 @@
     errorMessage = '';
 
     try {
-      // Simulate API call with a timeout
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // In a real app, you would make an API call here to register
-      // For demonstration, we're just simulating success
-
-      // Mock successful registration
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('userEmail', email);
-      localStorage.setItem('userName', `${firstName} ${lastName}`);
-
-      // Store address if provided
-      if (showAddressFields) {
-        const addressData = {
+      // 1️⃣ Sign up
+      const { data, error: signError } = await signUpAndCreateProfile({
+        email,
+        password,
+        firstName,
+        lastName,
+        phoneNumber: phoneNumber,
+        address: {
+          label: showAddressFields ? 'Home' : '', // or your default
           street: streetAddress,
           city,
-          state,
-          zipCode,
+          postalCode: zipCode,
           country,
-          // Store whether the address was selected via Mapbox
-          selectedViaMapbox: addressSelected,
-          addressFromMapbox: addressFromMapbox // Save the flag to know if address is readonly
-        };
-
-        localStorage.setItem('userAddress', JSON.stringify(addressData));
-        console.log('Saved address data:', addressData);
+          phoneNumber: '' // optional: use phoneNumber if you collect a separate address phone
+        }
+      });
+      if (signError) {
+        errorMessage = signError.message;
+        return;
       }
 
-      // Navigate to account page after registration
-      goto('/account');
+      // 2️⃣ Insert profile & address immediately (you may also wait for email verify)
+      const userId    = data.user?.id;
+      const userEmail = data.user?.email ?? email;
+      if (userId) {
+        const { error: paError } = await insertProfileAndAddress(
+          userId,
+          userEmail,
+          firstName,
+          lastName,
+          phoneNumber,
+          {
+            label: showAddressFields ? 'Home' : '',
+            street: streetAddress,
+            city,
+            postalCode: zipCode,
+            country,
+            phoneNumber: '' 
+          }
+        );
+        if (paError) {
+          errorMessage = paError.message;
+          return;
+        }
+      }
 
-    } catch (error) {
-      console.error('Registration error:', error);
+      // 3️⃣ Done → navigate
+      goto('/account');
+    } catch (e) {
+      console.error(e);
       errorMessage = 'Something went wrong. Please try again.';
     } finally {
       isLoading = false;
     }
-  };
+  }
 
-  // Reset form error when fields change
-  const resetFieldError = () => {
-    if (formSubmitted) {
-      errorMessage = '';
-    }
-    debouncedValidation();
-  };
-
-  // Page animation
+  // Animate in
   onMount(() => {
-    const timeline = gsap.timeline();
-
-    timeline.from('.register-container', {
-      y: 20,
-      opacity: 0,
-      duration: 0.5,
-      ease: 'power2.out'
-    });
-
-    timeline.from('.form-field', {
-      y: 10,
-      opacity: 0,
-      stagger: 0.1,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.2');
-
-    timeline.from('.form-actions', {
-      y: 10,
-      opacity: 0,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.2');
-
-    // Cleanup function to clear any pending timeouts
-    return () => {
-      if (debounceTimeout) clearTimeout(debounceTimeout);
-    };
+    const tl = gsap.timeline();
+    tl.from('.register-container', { y: 20, opacity: 0, duration: 0.5, ease: 'power2.out' });
+    tl.from('.form-field',       { y: 10, opacity: 0, stagger: 0.1, duration: 0.4, ease: 'power2.out' }, '-=0.2');
+    tl.from('.form-actions',     { y: 10, opacity: 0, duration: 0.4, ease: 'power2.out' }, '-=0.2');
+    return () => { if (debounceTimeout) clearTimeout(debounceTimeout); };
   });
 </script>
 
@@ -327,29 +238,25 @@
 
 <div class="min-h-[80vh] flex flex-col items-center justify-center py-16 px-4">
   <div class="register-container max-w-lg w-full bg-white p-8 md:p-10 shadow-sm rounded-sm">
-    <!-- Logo -->
     <div class="text-center mb-8">
       <img src="/images/Website-logo-gold-svg.svg" alt="Pransh Logo" class="h-12 mx-auto mb-4">
       <h1 class="text-2xl font-serif text-gray-800">Create Account</h1>
     </div>
 
-    <!-- Error message -->
     {#if errorMessage}
       <div class="mb-6 p-3 bg-red-50 text-red-700 text-sm rounded-sm">
         {errorMessage}
       </div>
     {/if}
 
-    <!-- Registration form -->
     <form on:submit|preventDefault={handleSubmit} class="space-y-6">
-      <!-- Name fields -->
+      <!-- Name grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- First name field -->
         <div class="form-field">
           <label for="firstName" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
           <input
-            type="text"
             id="firstName"
+            type="text"
             bind:value={firstName}
             on:input={resetFieldError}
             on:blur={() => touchField('firstName')}
@@ -361,13 +268,11 @@
             <p class="mt-1 text-sm text-red-600">First name is required</p>
           {/if}
         </div>
-
-        <!-- Last name field -->
         <div class="form-field">
           <label for="lastName" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
           <input
-            type="text"
             id="lastName"
+            type="text"
             bind:value={lastName}
             on:input={resetFieldError}
             on:blur={() => touchField('lastName')}
@@ -381,12 +286,12 @@
         </div>
       </div>
 
-      <!-- Email field -->
+      <!-- Email -->
       <div class="form-field">
         <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
         <input
-          type="email"
           id="email"
+          type="email"
           bind:value={email}
           on:input={resetFieldError}
           on:blur={() => touchField('email')}
@@ -399,13 +304,13 @@
         {/if}
       </div>
 
-      <!-- Password field -->
+      <!-- Password -->
       <div class="form-field">
         <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
         <div class="relative">
           <input
-            type={showPassword ? "text" : "password"}
             id="password"
+            type={showPassword ? "text" : "password"}
             bind:value={password}
             on:input={resetFieldError}
             on:blur={() => touchField('password')}
@@ -413,44 +318,25 @@
             placeholder="••••••••"
             required
           >
-          <button
-            type="button"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold focus:outline-none transition-colors"
-            on:click={togglePasswordVisibility}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-          >
+          <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold focus:outline-none transition-colors" on:click={togglePasswordVisibility}>
             {#if showPassword}
-              <!-- Hide password icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-              </svg>
+              <!-- hide icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59"/></svg>
             {:else}
-              <!-- Show password icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
+              <!-- show icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             {/if}
           </button>
         </div>
-        {#if passwordTouched && password}
-          <!-- Password strength indicator -->
+        {#if passwordTouched}
           <div class="mt-1 h-1 w-full bg-gray-200 rounded-full overflow-hidden">
-            <div
-              class="strength-meter-bar {passwordStrength === 1 ? 'bg-red-500' : passwordStrength === 2 ? 'bg-yellow-500' : passwordStrength === 3 ? 'bg-green-500' : ''}"
-              style="width: {passwordStrength * 33.33}%;"
-            ></div>
+            <div class="strength-meter-bar {passwordStrength === 1 ? 'bg-red-500' : passwordStrength === 2 ? 'bg-yellow-500' : passwordStrength === 3 ? 'bg-green-500' : ''}" style="width: {passwordStrength * 33.33}%;"></div>
           </div>
           <p class="mt-1 text-xs {passwordStrength === 1 ? 'text-red-600' : passwordStrength === 2 ? 'text-yellow-600' : passwordStrength === 3 ? 'text-green-600' : 'text-gray-500'}">
-            {#if passwordStrength === 0}
-              Enter a password
-            {:else if passwordStrength === 1}
-              Weak password
-            {:else if passwordStrength === 2}
-              Medium strength
-            {:else}
-              Strong password
-            {/if}
+            {#if passwordStrength === 0} Enter a password
+            {:else if passwordStrength === 1} Weak password
+            {:else if passwordStrength === 2} Medium strength
+            {:else} Strong password {/if}
           </p>
           <ul class="mt-1 text-xs text-gray-500 list-disc pl-4">
             <li class="{password.length >= 8 ? 'text-green-600' : ''}">At least 8 characters</li>
@@ -458,19 +344,19 @@
             <li class="{/[0-9]/.test(password) ? 'text-green-600' : ''}">At least one number</li>
             <li class="{/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : ''}">At least one special character</li>
           </ul>
-        {/if}
-        {#if passwordTouched && !isPasswordValid}
-          <p class="mt-1 text-sm text-red-600">Password must be at least 6 characters</p>
+          {#if passwordTouched && !isPasswordValid}
+            <p class="mt-1 text-sm text-red-600">Password must be at least 6 characters</p>
+          {/if}
         {/if}
       </div>
 
-      <!-- Confirm password field -->
+      <!-- Confirm Password -->
       <div class="form-field">
         <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
         <div class="relative">
           <input
-            type={showConfirmPassword ? "text" : "password"}
             id="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
             bind:value={confirmPassword}
             on:input={resetFieldError}
             on:blur={() => touchField('confirmPassword')}
@@ -478,41 +364,27 @@
             placeholder="••••••••"
             required
           >
-          <button
-            type="button"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold focus:outline-none transition-colors"
-            on:click={toggleConfirmPasswordVisibility}
-            aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-          >
+          <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold focus:outline-none transition-colors" on:click={toggleConfirmPasswordVisibility}>
             {#if showConfirmPassword}
-              <!-- Hide password icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-              </svg>
+              <!-- hide icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59"/></svg>
             {:else}
-              <!-- Show password icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
+              <!-- show icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             {/if}
           </button>
         </div>
         {#if confirmPasswordTouched && !isConfirmPasswordValid}
           <p class="mt-1 text-sm text-red-600">Passwords do not match</p>
         {/if}
-        {#if confirmPasswordTouched && confirmPassword && confirmPassword === password}
+        {#if confirmPasswordTouched && confirmPassword === password}
           <p class="mt-1 text-sm text-green-600">Passwords match</p>
         {/if}
       </div>
 
       <!-- Address toggle -->
       <div class="form-field">
-        <button
-          type="button"
-          class="text-gold hover:text-gold-dark flex items-center text-sm font-medium transition-colors"
-          on:click={toggleAddressFields}
-        >
+        <button type="button" class="text-gold hover:text-gold-dark flex items-center text-sm font-medium transition-colors" on:click={toggleAddressFields}>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={showAddressFields ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
           </svg>
@@ -522,7 +394,6 @@
 
       {#if showAddressFields}
         <div class="address-fields space-y-6 border-t border-b border-gray-200 py-6 mt-4 animate-fade-in">
-          <!-- Mapbox Address Search Component -->
           <div class="form-field">
             <AddressSearch
               on:addressSelected={handleAddressSelected}
@@ -532,72 +403,62 @@
           </div>
 
           {#if showManualAddressForm || addressSelected}
-            <!-- Address fields - always visible when in manual mode -->
             <div class="form-field animate-fade-in">
               {#if addressFromMapbox}
                 <div class="mapbox-selection-notice">
                   <div class="mapbox-notice-content">
                     <p>Address selected from search</p>
-                    <button
-                      type="button"
-                      class="edit-address-btn"
-                      on:click={enableManualEdit}
-                    >
-                      Edit address manually
-                    </button>
+                    <button type="button" class="edit-address-btn" on:click={enableManualEdit}>Edit address manually</button>
                   </div>
                 </div>
               {/if}
-
               <label for="streetAddress" class="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
               <input
-                type="text"
                 id="streetAddress"
+                type="text"
                 bind:value={streetAddress}
                 on:input={resetFieldError}
                 on:blur={() => streetAddressTouched = true}
-                class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                placeholder="123 Main St, Apt 4B"
                 readonly={addressFromMapbox}
                 required={showAddressFields}
+                class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
+                placeholder="123 Main St, Apt 4B"
               >
               {#if streetAddressTouched && !isStreetAddressValid}
                 <p class="mt-1 text-sm text-red-600">Please enter a valid street address</p>
               {/if}
             </div>
 
-            <!-- City and State -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
               <div class="form-field">
                 <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
                 <input
-                  type="text"
                   id="city"
+                  type="text"
                   bind:value={city}
                   on:input={resetFieldError}
                   on:blur={() => cityTouched = true}
-                  class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                  placeholder="New York"
                   readonly={addressFromMapbox}
                   required={showAddressFields}
+                  class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
+                  placeholder="New York"
                 >
                 {#if cityTouched && !isCityValid}
                   <p class="mt-1 text-sm text-red-600">City is required</p>
                 {/if}
               </div>
-
               <div class="form-field">
                 <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State/Province</label>
                 <input
-                  type="text"
                   id="state"
+                  type="text"
                   bind:value={state}
                   on:input={resetFieldError}
                   on:blur={() => stateTouched = true}
-                  class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                  placeholder="NY"
                   readonly={addressFromMapbox}
                   required={showAddressFields}
+                  class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
+                  placeholder="NY"
                 >
                 {#if stateTouched && !isStateValid}
                   <p class="mt-1 text-sm text-red-600">State/Province is required</p>
@@ -605,26 +466,24 @@
               </div>
             </div>
 
-            <!-- Zip and Country -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
               <div class="form-field">
                 <label for="zipCode" class="block text-sm font-medium text-gray-700 mb-1">Zip/Postal Code</label>
                 <input
-                  type="text"
                   id="zipCode"
+                  type="text"
                   bind:value={zipCode}
                   on:input={resetFieldError}
                   on:blur={() => zipCodeTouched = true}
-                  class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                  placeholder="10001"
                   readonly={addressFromMapbox}
                   required={showAddressFields}
+                  class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
+                  placeholder="10001"
                 >
                 {#if zipCodeTouched && !isZipCodeValid}
                   <p class="mt-1 text-sm text-red-600">Zip/Postal code is required</p>
                 {/if}
               </div>
-
               <div class="form-field">
                 <label for="country" class="block text-sm font-medium text-gray-700 mb-1">Country</label>
                 <select
@@ -632,9 +491,9 @@
                   bind:value={country}
                   on:change={resetFieldError}
                   on:blur={() => countryTouched = true}
-                  class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white {addressFromMapbox ? 'input-readonly' : ''}"
                   disabled={addressFromMapbox}
                   required={showAddressFields}
+                  class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white {addressFromMapbox ? 'input-readonly' : ''}"
                 >
                   <option value="">Select Country</option>
                   {#each countries as countryOption}
@@ -650,7 +509,7 @@
         </div>
       {/if}
 
-      <!-- Terms and conditions -->
+      <!-- Terms -->
       <div class="form-field">
         <div class="flex items-start">
           <div class="flex items-center h-5">
@@ -674,7 +533,7 @@
         </div>
       </div>
 
-      <!-- Form actions -->
+      <!-- Actions -->
       <div class="form-actions">
         <button
           type="submit"
@@ -690,22 +549,16 @@
         </button>
       </div>
 
-      <!-- Sign in link -->
+      <!-- Sign In Link -->
       <div class="text-center text-sm mt-6">
         <span class="text-gray-600">Already have an account?</span>
-        <a href="/account/login" class="text-gold hover:text-gold-dark ml-1 transition-colors">
-          Sign In
-        </a>
+        <a href="/account/login" class="text-gold hover:text-gold-dark ml-1 transition-colors">Sign In</a>
       </div>
     </form>
   </div>
 
-  <!-- Return to shopping -->
   <div class="mt-8">
-    <a
-      href="/"
-      class="text-sm text-gray-600 hover:text-gold transition-colors flex items-center"
-    >
+    <a href="/" class="text-sm text-gray-600 hover:text-gold transition-colors flex items-center">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
       </svg>
@@ -715,115 +568,23 @@
 </div>
 
 <style>
-  /* Add gold color classes if they don't exist in the project */
-  .text-gold {
-    color: #b8860b;
-  }
-
-  .bg-gold {
-    background-color: #b8860b;
-  }
-
-  .border-gold {
-    border-color: #b8860b;
-  }
-
-  .hover\:bg-gold-dark:hover {
-    background-color: #a67a09;
-  }
-
-  .hover\:text-gold-dark:hover {
-    color: #a67a09;
-  }
-
-  .focus\:border-gold:focus {
-    border-color: #b8860b;
-  }
-
-  .focus\:ring-gold\/20:focus {
-    --tw-ring-color: rgb(184 134 11 / 0.2);
-  }
-
-  /* Password strength meter bar animation */
-  .strength-meter-bar {
-    transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out;
-    height: 100%;
-  }
-
-  /* Other animations */
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .animate-spin {
-    animation: spin 1s linear infinite;
-  }
-
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-in-out;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* Add transition for password strength indicator */
-  [transition\:slide] {
-    transition: width 0.3s ease-in-out;
-  }
-
-  /* Styles for read-only inputs */
-  .input-readonly {
-    background-color: #f8f8f8;
-    cursor: not-allowed;
-    opacity: 0.8;
-    border-color: #e2e8f0 !important;
-  }
-
-  /* Mapbox address selection notification */
-  .mapbox-selection-notice {
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    background-color: #f0f9ff;
-    border: 1px solid #bae6fd;
-    border-radius: 0.375rem;
-  }
-
-  .mapbox-notice-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .mapbox-notice-content p {
-    font-size: 0.875rem;
-    color: #0284c7;
-    margin: 0;
-  }
-
-  .edit-address-btn {
-    font-size: 0.75rem;
-    color: #0284c7;
-    background: none;
-    border: none;
-    padding: 0;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .edit-address-btn:hover {
-    color: #0369a1;
-  }
+  /* (all your existing styles unchanged) */
+  .text-gold { color: #b8860b; }
+  .bg-gold { background-color: #b8860b; }
+  .border-gold { border-color: #b8860b; }
+  .hover\:bg-gold-dark:hover { background-color: #a67a09; }
+  .hover\:text-gold-dark:hover { color: #a67a09; }
+  .focus\:border-gold:focus { border-color: #b8860b; }
+  .focus\:ring-gold\/20:focus { --tw-ring-color: rgb(184 134 11 / 0.2); }
+  .strength-meter-bar { transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out; height: 100%; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+  .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  .input-readonly { background-color: #f8f8f8; cursor: not-allowed; opacity: 0.8; border-color: #e2e8f0 !important; }
+  .mapbox-selection-notice { margin-bottom:1rem; padding:0.75rem; background-color:#f0f9ff; border:1px solid #bae6fd; border-radius:0.375rem; }
+  .mapbox-notice-content { display:flex; justify-content:space-between; align-items:center; }
+  .mapbox-notice-content p { font-size:0.875rem; color:#0284c7; margin:0; }
+  .edit-address-btn { font-size:0.75rem; color:#0284c7; background:none; border:none; padding:0; text-decoration:underline; cursor:pointer; }
+  .edit-address-btn:hover { color:#0369a1; }
 </style>
