@@ -17,7 +17,7 @@
   let quantity = 1;
   let activeImageIndex = 0;
   let isAddingToCart = false;
-  let isBuyingNow = false; // Add new state for Buy Now loading
+  let isBuyingNow = false;
   let addedToCart = false;
   let showBuyNowTooltip = false;
 
@@ -39,7 +39,7 @@
         .filter((value, index, self) => self.indexOf(value) === index)
     : [];
 
-  // Images for the selected variant - accessing direct URL strings per schema
+  // Images for the selected variant
   $: variantImages = selectedVariant?.images || [];
 
   // Stock status
@@ -49,8 +49,6 @@
   // Handle color selection
   function selectColor(colorId: string) {
     if (!product) return;
-
-    // Find first variant with the selected color
     const newVariant = product.variants.find(v => v.color._id === colorId);
     if (newVariant) {
       selectedVariant = newVariant;
@@ -61,12 +59,9 @@
   // Handle size selection
   function selectSize(sizeName: string) {
     if (!product || !selectedVariant) return;
-
-    // Find variant with current color and the selected size
     const newVariant = product.variants.find(
       v => v.color._id === selectedVariant.color._id && v.size.name === sizeName
     );
-
     if (newVariant) {
       selectedVariant = newVariant;
     }
@@ -89,14 +84,11 @@
   // Add to cart functionality
   function handleAddToCart() {
     if (!product || !selectedVariant) return;
-
     isAddingToCart = true;
-
     setTimeout(() => {
       addToCart(product._id, selectedVariant._id, quantity);
       isAddingToCart = false;
       addedToCart = true;
-
       setTimeout(() => {
         addedToCart = false;
         handleClose();
@@ -104,35 +96,26 @@
     }, 600);
   }
 
-  // Buy now functionality - add to cart and go to checkout with direct=true parameter, matching product detail page
+  // Buy now functionality
   async function handleBuyNow() {
     if (!product || !selectedVariant) return;
-
     isAddingToCart = true;
-    isBuyingNow = true; // Set Buy Now loading state
-
+    isBuyingNow = true;
     try {
-      // Save current cart items and clear cart for Buy Now
       await saveCartAndClearForDirectCheckout();
-
-      // Add to cart (wait for it if async)
       await addToCart(product._id, selectedVariant._id, quantity);
-
-      // Show tooltip/notification
       showBuyNowTooltip = true;
-
-      // Wait a bit for animation/UX
       setTimeout(() => {
         handleClose();
         goto('/checkout?direct=true');
         setTimeout(() => {
           showBuyNowTooltip = false;
-          isBuyingNow = false; // Reset Buy Now loading state
+          isBuyingNow = false;
         }, 3000);
       }, 600);
     } catch (error) {
       console.error("Error processing Buy Now:", error);
-      isBuyingNow = false; // Reset on error
+      isBuyingNow = false;
       isAddingToCart = false;
     }
   }
@@ -141,14 +124,12 @@
   function handleClose() {
     dispatch("close");
     setTimeout(() => {
-      // Reset state after animation completes
       quantity = 1;
       activeImageIndex = 0;
       isAddingToCart = false;
-      isBuyingNow = false; // Reset Buy Now state
+      isBuyingNow = false;
       addedToCart = false;
       showBuyNowTooltip = false;
-      // Don't reset selectedVariant here to maintain selection between opens
     }, 300);
   }
 
@@ -186,7 +167,6 @@
     }
   }
 
-  // Lifecycle management
   onMount(() => {
     if (browser) {
       document.addEventListener("keydown", handleKeydown);
@@ -198,7 +178,7 @@
         document.documentElement.style.height = "";
       };
     }
-    return () => {}; // Empty function for server-side
+    return () => {};
   });
 </script>
 
@@ -245,6 +225,11 @@
                 class="product-main-image"
                 on:error={handleImageError}
               />
+              {#if inStock}
+                <div class="product-availability in-stock">In Stock</div>
+              {:else}
+                <div class="product-availability out-of-stock">Out of Stock</div>
+              {/if}
             </div>
 
             {#if variantImages.length > 1}
@@ -291,109 +276,103 @@
             <p>{product.description}</p>
           </div>
 
-          {#if colorOptions.length > 1}
-            <div class="option-group">
-              <h3 class="option-title">Color: <span class="selected-option">{selectedVariant?.color.name}</span></h3>
-              <div class="color-options">
-                {#each colorOptions as color}
-                  <button
-                    class="color-option {selectedVariant?.color._id === color._id ? 'active' : ''}"
-                    on:click={() => selectColor(color._id)}
-                    aria-label={`Select ${color.name} color`}
-                    aria-pressed={selectedVariant?.color._id === color._id}
-                  >
-                    {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
-                      <ColorPieChart hexColors={color.hex} size={24} border={true} borderColor={selectedVariant?.color._id === color._id ? 'var(--color-gold)' : '#e2e2e2'} borderWidth={2} />
-                    {:else}
-                      <span
-                        class="color-swatch"
-                        style="background-color: {Array.isArray(color.hex) ? color.hex[0] : color.hex}; border-color: {Array.isArray(color.hex) ? (color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0]) : (color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex)}"
-                      ></span>
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          {#if sizeOptions.length > 0}
-            <div class="option-group">
-              <h3 class="option-title">Size</h3>
-              <div class="size-options">
-                {#each sizeOptions as sizeName}
-                  <button
-                    class="size-option {selectedVariant?.size.name === sizeName ? 'active' : ''}"
-                    on:click={() => selectSize(sizeName)}
-                    aria-label={`Select size ${sizeName}`}
-                    aria-pressed={selectedVariant?.size.name === sizeName}
-                  >
-                    {sizeName}
-                  </button>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          <div class="option-group">
-            <h3 class="option-title">Quantity</h3>
-            <div class="quantity-selector">
-              <button
-                class="quantity-btn"
-                on:click={decreaseQuantity}
-                disabled={quantity <= 1 || !inStock}
-                aria-label="Decrease quantity"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-              </button>
-              <span class="quantity-value">{quantity}</span>
-              <button
-                class="quantity-btn"
-                on:click={increaseQuantity}
-                disabled={quantity >= (selectedVariant?.stock || 0) || !inStock}
-                aria-label="Increase quantity"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-              </button>
-            </div>
-
-            {#if inStock}
-              <div class="stock-status">
-                {#if lowStock}
-                  <span class="low-stock">Only {selectedVariant?.stock} left in stock</span>
-                {:else}
-                  <span class="in-stock">In Stock</span>
-                {/if}
-              </div>
-            {:else}
-              <div class="stock-status">
-                <span class="out-of-stock">Out of Stock</span>
+          <div class="product-options-container">
+            {#if colorOptions.length > 1}
+              <div class="option-group">
+                <h3 class="option-title">Color: <span class="selected-option">{selectedVariant?.color.name}</span></h3>
+                <div class="color-options">
+                  {#each colorOptions as color}
+                    <button
+                      class="color-option {selectedVariant?.color._id === color._id ? 'active' : ''}"
+                      on:click={() => selectColor(color._id)}
+                      aria-label={`Select ${color.name} color`}
+                      aria-pressed={selectedVariant?.color._id === color._id}
+                    >
+                      {#if color.hex && Array.isArray(color.hex) && color.hex.length > 1}
+                        <ColorPieChart hexColors={color.hex} size={28} border={true} borderColor={selectedVariant?.color._id === color._id ? 'var(--color-gold)' : '#e2e2e2'} borderWidth={2} />
+                      {:else}
+                        <span
+                          class="color-swatch"
+                          style="background-color: {Array.isArray(color.hex) ? color.hex[0] : color.hex}; border-color: {Array.isArray(color.hex) ? (color.hex[0] === '#FFFFFF' ? '#e2e2e2' : color.hex[0]) : (color.hex === '#FFFFFF' ? '#e2e2e2' : color.hex)}"
+                        ></span>
+                      {/if}
+                    </button>
+                  {/each}
+                </div>
               </div>
             {/if}
+
+            {#if sizeOptions.length > 0}
+              <div class="option-group">
+                <h3 class="option-title">Size: <span class="selected-option">{selectedVariant?.size.name}</span></h3>
+                <div class="size-options">
+                  {#each sizeOptions as sizeName}
+                    <button
+                      class="size-option {selectedVariant?.size.name === sizeName ? 'active' : ''}"
+                      on:click={() => selectSize(sizeName)}
+                      aria-label={`Select size ${sizeName}`}
+                      aria-pressed={selectedVariant?.size.name === sizeName}
+                    >
+                      {sizeName}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+
+            <div class="option-group">
+              <h3 class="option-title">Quantity</h3>
+              <div class="quantity-selector">
+                <button
+                  class="quantity-btn"
+                  on:click={decreaseQuantity}
+                  disabled={quantity <= 1 || !inStock}
+                  aria-label="Decrease quantity"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+                <span class="quantity-value">{quantity}</span>
+                <button
+                  class="quantity-btn"
+                  on:click={increaseQuantity}
+                  disabled={quantity >= (selectedVariant?.stock || 0) || !inStock}
+                  aria-label="Increase quantity"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+              </div>
+
+              {#if lowStock}
+                <div class="stock-status">
+                  <span class="low-stock">Only {selectedVariant?.stock} left in stock</span>
+                </div>
+              {/if}
+            </div>
           </div>
 
           <div class="product-actions">
@@ -451,7 +430,7 @@
               {/if}
             </button>
 
-            <div class="buy-now-wrapper" style="position: relative; flex: 1;">
+            <div class="buy-now-wrapper">
               <button
                 class="btn-buy-now"
                 on:click={handleBuyNow}
@@ -502,7 +481,21 @@
             </div>
 
             <a href={`/product/${product.slug}`} class="btn-view-details" data-sveltekit-preload-data="off">
-              View Details
+              <span>View Details</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14"></path>
+                <path d="m12 5 7 7-7 7"></path>
+              </svg>
             </a>
           </div>
         </div>
@@ -512,19 +505,13 @@
 {/if}
 
 <style>
-  html,
-  body {
-    overscroll-behavior: none !important;
-    touch-action: none !important;
-  }
-
   .modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.65);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -533,12 +520,12 @@
     opacity: 0;
     visibility: hidden;
     transition:
-      opacity 0.3s ease,
-      visibility 0.3s ease;
+      opacity 0.35s ease,
+      visibility 0.35s ease;
     overscroll-behavior: contain;
     width: 100vw;
     height: 100vh;
-    /* Prevent background scroll on mobile as well */
+    backdrop-filter: blur(4px);
   }
 
   .modal-overlay.open {
@@ -549,9 +536,9 @@
   .modal-content {
     background-color: var(--color-white);
     width: 100%;
-    max-width: 1000px;
-    max-height: 90vh;
-    border-radius: 4px;
+    max-width: 1100px;
+    max-height: 85vh;
+    border-radius: 8px;
     overflow: hidden;
     position: relative;
     display: flex;
@@ -559,11 +546,11 @@
     transform: translateY(20px);
     opacity: 0;
     transition:
-      transform 0.3s ease,
-      opacity 0.3s ease;
-    animation: modalFadeIn 0.3s forwards;
-    height: 90vh;
-    /* Force the modal to take up the available vertical space and fix scrolling inside */
+      transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 0.35s ease;
+    animation: modalFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    height: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   }
 
   @keyframes modalFadeIn {
@@ -587,10 +574,10 @@
     justify-content: center;
     cursor: pointer;
     z-index: 10;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     transition:
       background-color 0.3s ease,
-      transform 0.3s ease;
+      transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .modal-close:hover {
@@ -602,10 +589,10 @@
     flex: 1 1 auto;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 2rem;
-    padding: 2rem;
-    overflow-y: auto;
-    max-height: 100%;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    overflow: auto;
+    max-height: calc(85vh - 3rem);
     min-height: 0;
     min-width: 0;
     scrollbar-width: thin;
@@ -614,7 +601,6 @@
     overscroll-behavior: contain;
   }
 
-  /* Custom scrollbar for WebKit browsers */
   .modal-body::-webkit-scrollbar {
     width: 6px;
   }
@@ -647,46 +633,57 @@
     overflow: hidden;
     background-color: var(--color-cream-dark);
     aspect-ratio: 1;
-    max-height: calc(70vh - 6rem);
+    max-height: calc(70vh - 8rem);
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
 
   .product-main-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    transition: transform 0.5s ease;
+  }
+
+  .product-main-image-container:hover .product-main-image {
+    transform: scale(1.03);
   }
 
   .product-thumbnails {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
     margin-top: 1rem;
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   .product-thumbnail-btn {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
     overflow: hidden;
     cursor: pointer;
     border: 2px solid transparent;
     padding: 0;
     background: none;
     transition: all 0.3s ease;
+    border-radius: 4px;
   }
 
   .product-thumbnail-btn:hover {
     border-color: var(--color-charcoal-light);
+    transform: translateY(-2px);
   }
 
   .product-thumbnail-btn.active {
     border-color: var(--color-gold);
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.25);
   }
 
   .product-thumbnail {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 2px;
   }
 
   .product-info {
@@ -700,6 +697,19 @@
     margin-bottom: 0.25rem;
     line-height: 1.2;
     font-family: var(--heading-font);
+    color: var(--color-charcoal);
+    position: relative;
+    display: inline-block;
+  }
+
+  .product-title::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 60px;
+    height: 2px;
+    background-color: var(--color-gold);
   }
 
   .product-category {
@@ -708,10 +718,11 @@
     margin-bottom: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    margin-top: 1rem;
   }
 
   .product-price {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     color: var(--color-gold);
     font-weight: 500;
     margin-bottom: 0.75rem;
@@ -741,52 +752,87 @@
 
   .product-description {
     margin: 1rem 0;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    color: var(--color-charcoal-light);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--color-charcoal);
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .product-availability {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .product-availability.in-stock {
+    background-color: rgba(16, 185, 129, 0.9);
+    color: white;
+  }
+
+  .product-availability.out-of-stock {
+    background-color: rgba(239, 68, 68, 0.9);
+    color: white;
+  }
+
+  .product-options-container {
+    background-color: #fafafa;
+    padding: 1.25rem;
+    border-radius: 8px;
+    margin: 0.5rem 0 1.25rem;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
   }
 
   .option-group {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .option-title {
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 500;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-charcoal);
   }
 
   .color-options {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.85rem;
     flex-wrap: wrap;
   }
 
   .color-option {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     padding: 0;
-    margin: 0 8px 8px 0;
+    margin: 0 4px 8px 0;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
     overflow: visible;
     background: none;
     border: none;
   }
 
   .color-option.active {
-    transform: scale(1.15);
+    transform: scale(1.18);
     box-shadow: 0 0 0 2px var(--color-white), 0 0 0 4px var(--color-gold);
   }
 
   .color-swatch {
     display: inline-block;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     border: 2px solid;
   }
@@ -799,18 +845,18 @@
 
   .size-options {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.6rem;
     flex-wrap: wrap;
   }
 
   .size-option {
-    min-width: 40px;
-    padding: 0.3rem 0.7rem;
+    min-width: 44px;
+    padding: 0.4rem 0.8rem;
     border: 1px solid var(--color-charcoal-light);
-    border-radius: 2px;
+    border-radius: 4px;
     background: var(--color-white);
     color: var(--color-charcoal);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: center;
@@ -819,24 +865,30 @@
   .size-option:hover {
     border-color: var(--color-gold);
     color: var(--color-gold);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   }
 
   .size-option.active {
     background-color: var(--color-gold);
     color: var(--color-white);
     border-color: var(--color-gold);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.25);
   }
 
   .quantity-selector {
     display: flex;
     align-items: center;
     border: 1px solid var(--color-charcoal-light);
-    max-width: 120px;
+    max-width: 140px;
+    border-radius: 4px;
+    overflow: hidden;
   }
 
   .quantity-btn {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -844,10 +896,12 @@
     border: none;
     cursor: pointer;
     transition: all 0.3s ease;
+    color: var(--color-charcoal);
   }
 
   .quantity-btn:hover:not([disabled]) {
     background-color: var(--color-cream-dark);
+    color: var(--color-gold);
   }
 
   .quantity-btn[disabled] {
@@ -859,29 +913,31 @@
     flex: 1;
     text-align: center;
     font-weight: 500;
+    font-size: 1.1rem;
   }
 
   .stock-status {
-    margin-top: 0.5rem;
-    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
   }
 
   .in-stock {
-    color: green;
+    color: #10b981;
   }
 
   .low-stock {
-    color: #ff9800;
+    color: #f59e0b;
   }
 
   .out-of-stock {
-    color: red;
+    color: #ef4444;
   }
 
   .product-actions {
     display: flex;
     flex-direction: row;
-    gap: 0.6rem;
+    gap: 0.75rem;
     margin-top: 1.5rem;
     flex-wrap: nowrap;
   }
@@ -890,22 +946,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
     background-color: var(--color-gold);
     color: var(--color-white);
     border: none;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.9rem;
+    padding: 0.85rem 0.6rem;
+    font-size: 0.95rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.35s ease;
     position: relative;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
-    border-radius: 4px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(212, 175, 55, 0.2);
   }
 
   .btn-add-to-cart::before {
@@ -926,6 +983,8 @@
 
   .btn-add-to-cart:hover:not([disabled]) {
     background-color: var(--color-gold-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
   }
 
   .btn-add-to-cart:disabled {
@@ -939,7 +998,7 @@
   }
 
   .btn-add-to-cart.added {
-    background-color: green;
+    background-color: #10b981;
   }
 
   .spinner {
@@ -979,23 +1038,24 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
     background-color: var(--color-charcoal);
     color: var(--color-white);
     border: none;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.9rem;
+    padding: 0.85rem 0.6rem;
+    font-size: 0.95rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.35s ease;
     position: relative;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
-    border-radius: 4px;
+    border-radius: 6px;
     z-index: 2;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   }
 
   .btn-buy-now::before {
@@ -1016,6 +1076,8 @@
 
   .btn-buy-now:hover:not([disabled]) {
     background-color: var(--color-charcoal-dark, #1a1a1a);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
   }
 
   .btn-buy-now:disabled {
@@ -1028,23 +1090,34 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.75rem 0.75rem;
+    padding: 0.85rem 0.75rem;
     background-color: transparent;
     border: 1px solid var(--color-charcoal-light);
     color: var(--color-charcoal);
     text-align: center;
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 500;
-    transition: all 0.3s ease;
+    transition: all 0.35s ease;
     white-space: nowrap;
     text-overflow: ellipsis;
-    border-radius: 4px;
+    border-radius: 6px;
+    gap: 0.5rem;
+  }
+
+  .btn-view-details svg {
+    transition: transform 0.3s ease;
   }
 
   .btn-view-details:hover {
     border-color: var(--color-gold);
     color: var(--color-gold);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .btn-view-details:hover svg {
+    transform: translateX(4px);
   }
 
   .buy-now-wrapper {
@@ -1064,23 +1137,23 @@
     background: var(--color-cream-dark, #fffbe5);
     color: var(--color-charcoal);
     border: 1px solid var(--color-gold);
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.92rem;
-    padding: 0.75em 1em;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    padding: 0.85em 1.2em;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
     min-width: 230px;
     max-width: 300px;
     z-index: 99;
     text-align: left;
     pointer-events: none;
     opacity: 1;
-    animation: buynowTooltipAppear 0.22s cubic-bezier(.4,1.5,.6,1) both;
+    animation: buynowTooltipAppear 0.3s cubic-bezier(.16, 1.3, .5, 1.3) both;
   }
 
   @keyframes buynowTooltipAppear {
     from {
       opacity: 0;
-      transform: translateX(-50%) translateY(10px);
+      transform: translateX(-50%) translateY(15px);
     }
     to {
       opacity: 1;
@@ -1101,47 +1174,194 @@
   @media (min-width: 768px) {
     .modal-body {
       grid-template-columns: 1fr 1fr;
-      padding: 2.5rem;
-      max-height: 100%;
+      padding: 2rem;
+      max-height: none;
       align-items: start;
+      gap: 2rem;
+      overflow: hidden;
     }
 
     .product-images-container {
-      position: sticky;
-      top: 0;
+      position: relative;
+      max-height: 75vh;
+      overflow: auto;
+    }
+
+    .product-info {
+      max-height: 75vh;
+      overflow: auto;
+      padding-right: 0.5rem;
     }
 
     .product-main-image-container {
-      max-height: calc(70vh - 8rem);
+      max-height: 45vh;
+    }
+
+    .product-description {
+      max-height: none;
+    }
+
+    .product-thumbnails {
+      justify-content: flex-start;
+      margin-top: 0.75rem;
     }
 
     .product-title {
-      font-size: 2.25rem;
+      font-size: 1.75rem;
+    }
+
+    .option-group {
+      margin-bottom: 1rem;
+    }
+
+    .product-options-container {
+      padding: 1.25rem;
+      margin: 0.5rem 0 1rem;
+    }
+
+    .product-actions {
+      margin-top: 1.25rem;
+    }
+  }
+
+  @media (min-width: 1200px) and (min-height: 800px) {
+    .modal-content {
+      max-width: 1200px;
+      max-height: 80vh;
+    }
+
+    .product-main-image-container {
+      max-height: 50vh;
+    }
+
+    .product-images-container {
+      max-height: 75vh;
+    }
+
+    .product-info {
+      max-height: 75vh;
+    }
+
+    .modal-body {
+      padding: 2rem 2.5rem;
     }
   }
 
   @media (max-width: 767px) {
+    .modal-content {
+      height: 95vh;
+      max-height: 95vh;
+      border-radius: 12px 12px 0 0;
+      margin-top: auto;
+      margin-bottom: 0;
+    }
+
+    .modal-overlay {
+      align-items: flex-end;
+    }
+
+    .modal-body {
+      padding: 1.25rem;
+      gap: 1.25rem;
+    }
+
+    .product-main-image-container {
+      aspect-ratio: 1;
+      max-height: 45vh;
+    }
+
     .product-actions {
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 0.75rem;
     }
 
     .btn-add-to-cart,
     .btn-buy-now,
     .buy-now-wrapper {
-      flex: 1 1 calc(50% - 0.5rem);
+      flex: 1 1 calc(50% - 0.4rem);
     }
 
     .btn-view-details {
       flex: 0 0 100%;
     }
+
     .buynow-tooltip {
       min-width: 180px;
       max-width: 90vw;
-      font-size: 0.96rem;
+      font-size: 0.9rem;
       left: 50%;
       right: auto;
       transform: translateX(-50%);
+    }
+
+    .product-title {
+      font-size: 1.5rem;
+    }
+
+    .product-description {
+      margin: 1rem 0;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .option-title {
+      font-size: 0.95rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .product-thumbnails {
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .product-thumbnail-btn {
+      width: 50px;
+      height: 50px;
+    }
+
+    .product-options-container {
+      padding: 1rem;
+      margin: 0.5rem 0 1rem;
+    }
+
+    .product-availability {
+      top: 8px;
+      right: 8px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .btn-add-to-cart,
+    .btn-buy-now {
+      font-size: 0.85rem;
+      padding: 0.75rem 0.5rem;
+    }
+
+    .product-title {
+      font-size: 1.4rem;
+    }
+
+    .product-main-image-container {
+      max-height: 40vh;
+    }
+
+    .modal-close {
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 36px;
+      height: 36px;
+    }
+
+    .product-description {
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .product-options-container {
+      padding: 0.75rem;
+      border-radius: 6px;
     }
   }
 </style>
