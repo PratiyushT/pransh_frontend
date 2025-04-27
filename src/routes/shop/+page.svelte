@@ -305,10 +305,22 @@
     font-weight: 500;
   }
 
+  /* Responsive improvements for small screens */
   @media (max-width: 640px) {
     .products-grid {
-      grid-template-columns: 1fr;
-      gap: 1.2rem;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .product-count-indicator {
+      font-size: 0.85rem;
+      padding: 0.4rem 0.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .container {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
     }
     .pagination-page, .pagination-btn {
       min-width: 2.2rem;
@@ -324,6 +336,13 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .products-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
     }
   }
 </style>

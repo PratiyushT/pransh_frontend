@@ -374,7 +374,7 @@
       <p class="text-sm text-red-600">{error}</p>
     </div>
   {:else if products && products.length > 0}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
+    <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
       {#each products as product}
         <div class="product-card-wrapper favorite-card">
           <ProductCard {product} on:quickview={handleQuickView} />

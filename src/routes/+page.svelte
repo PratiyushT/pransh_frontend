@@ -572,6 +572,31 @@
   @media (max-width: 767px) {
     .featured-products .grid {
       grid-template-columns: repeat(2, 1fr) !important;
+      gap: 0.6rem !important;
+    }
+
+    .product-card-container {
+      padding: 0.1rem;
+    }
+
+    .featured-products .container {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    .section-title {
+      font-size: 1.75rem !important;
+      margin-bottom: 0.5rem !important;
+    }
+
+    .section-subtitle {
+      font-size: 0.95rem !important;
+      margin-bottom: 1.5rem !important;
+    }
+  }
+  @media (max-width: 400px) {
+    .featured-products .grid {
+      grid-template-columns: repeat(1, 1fr) !important;
       gap: 0.75rem !important;
     }
   }

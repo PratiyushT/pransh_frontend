@@ -765,12 +765,12 @@
     .product-card-cta {
       opacity: 1;
       transform: translateY(0);
-      padding: 0.6rem 0.8rem;
-      font-size: 0.75rem;
+      padding: 0.5rem 0.7rem;
+      font-size: 0.7rem;
     }
 
     .product-card-title {
-      font-size: 1rem;
+      font-size: 0.95rem;
       -webkit-line-clamp: 1;
       overflow: hidden;
       white-space: nowrap;
@@ -789,8 +789,8 @@
     .add-to-cart-button {
       transform: translateY(0);
       opacity: 1;
-      padding: 0.5rem;
-      font-size: 0.8rem;
+      padding: 0.45rem;
+      font-size: 0.75rem;
     }
 
     .product-card-image-container {
@@ -798,7 +798,7 @@
     }
 
     .product-card-info {
-      padding: 0.8rem;
+      padding: 0.7rem;
     }
 
     .product-card-actions {
@@ -807,22 +807,69 @@
     }
 
     .product-card-action {
-      width: 2rem;
-      height: 2rem;
+      width: 1.8rem;
+      height: 1.8rem;
+    }
+
+    .product-card-action svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .product-card-colors {
+      gap: 4px;
+      margin-top: 4px;
+      margin-bottom: 3px;
+    }
+
+    .color-swatch-container {
+      width: 14px;
+      height: 14px;
+    }
+
+    .product-card-rating {
+      font-size: 0.8rem;
+      margin-bottom: 0.5rem;
     }
   }
 
   @media (max-width: 480px) {
     .product-card-wrapper {
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
     }
 
     .product-card-overlay {
-      padding: 0.8rem;
+      padding: 0.6rem;
     }
 
     .product-card-title {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .product-card-badge {
+      font-size: 0.6rem;
+      padding: 0.18rem 0.4rem;
+      top: 0.5rem;
+      left: 0.5rem;
+    }
+
+    .product-card-price {
+      font-size: 0.85rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .product-card-category {
+      font-size: 0.6rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .product-card-info {
+      padding: 0.6rem;
+    }
+
+    .product-card-image-container {
+      padding-bottom: 90%;
     }
   }
 

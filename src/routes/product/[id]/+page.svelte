@@ -1588,6 +1588,30 @@
     }
   }
 
+  @media (max-width: 480px) {
+    .product-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .related-products-section {
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+
+    .section-title h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  @media (max-width: 350px) {
+    .product-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+  }
+
   .related-product-card-wrapper {
     height: 100%;
   }
