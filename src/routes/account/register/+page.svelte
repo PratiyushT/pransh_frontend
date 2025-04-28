@@ -162,7 +162,7 @@
 
   try {
     // 1️⃣ Sign up — store all metadata
-    await signUp({
+    const data = await signUp({
       email,
       password,
       firstName,
@@ -177,22 +177,23 @@
       } : undefined
     });
 
+    console.log(data)
+      // 🚨 Check if session already exists (means user is already registered and verified)
+      if (data?.user && data?.user.identities?.length === 0) {
+  errorMessage = 'An account with this email already exists. Please Log in or use a different email.';
+  return;
+}
     // 2️⃣ After signup success → Show success and redirect to verification page
     formSubmitted = false;
     goto('/account/verify-email');
   } catch (e: any) {
-    console.error(e);
-
-    // Check for the "User already registered" error specifically
-    if (e.message === 'User already registered') {
-      errorMessage = 'This email is already registered. Please use a different email or try signing in.';
-    } else {
-      errorMessage = e.message || 'Something went wrong. Please try again.';
-    }
+    errorMessage = e.message || 'Something went wrong. Please try again.';
   } finally {
     isLoading = false;
   }
 }
+
+
 
   // Animate in
   onMount(() => {

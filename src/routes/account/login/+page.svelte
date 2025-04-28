@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import gsap from 'gsap';
+  import { onMount, tick } from "svelte";
+  import { goto } from "$app/navigation";
+  import gsap from "gsap";
+  import { supabase } from "$lib/auth/client";
 
   // Form data
-  let email = '';
-  let password = '';
+  let email = "";
+  let password = "";
   let rememberMe = false;
   let isLoading = false;
-  let errorMessage = '';
+  let errorMessage = "";
   let formSubmitted = false;
 
   // Field interaction tracking
@@ -44,12 +45,12 @@
 
       // Check password if touched
       if (passwordTouched) {
-        isPasswordValid = password.trim() !== '';
+        isPasswordValid = password.trim() !== "";
       }
 
       // Reset error message if all valid
       if (formSubmitted && isFormValid) {
-        errorMessage = '';
+        errorMessage = "";
       }
     }, 300);
   }
@@ -67,40 +68,65 @@
 
   // Form validation
   $: isEmailValid = !emailTouched || validateEmail(email);
-  $: isPasswordValid = !passwordTouched || password.trim() !== '';
+  $: isPasswordValid = !passwordTouched || password.trim() !== "";
   $: isFormValid = email && password && isEmailValid && isPasswordValid;
 
-  // Handle login form submission
   const handleSubmit = async () => {
     formSubmitted = true;
     emailTouched = true;
     passwordTouched = true;
 
     if (!isFormValid) {
-      errorMessage = 'Please fix the errors in the form';
+      errorMessage = "Please fix the errors in the form";
       return;
     }
 
     isLoading = true;
-    errorMessage = '';
+    errorMessage = "";
 
     try {
-      // Simulate API call with a timeout
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 1️⃣ Sign in via Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      // In a real app, you would make an API call here to authenticate
-      // For demonstration, we're just simulating success
+      if (error) {
+        console.error("Login error:", error);
+        if (error.message.includes("Invalid login credentials")) {
+          errorMessage = "Invalid email or password. Please try again.";
+        } else if (error.message.includes("Email not confirmed")) {
+          errorMessage =
+            "Please verify your email address first before logging in.";
+        } else {
+          errorMessage =
+            error.message || "Something went wrong. Please try again.";
+        }
+        return;
+      }
 
-      // Mock successful login
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('userEmail', email);
+      if (!data?.session) {
+        errorMessage = "Login failed. Please try again.";
+        return;
+      }
 
-      // Navigate to account page after login
-      goto('/account');
+      // 2️⃣ Login successful
+      if (rememberMe) {
+        // Optional: Save session persistently
+        localStorage.setItem("rememberMe", "true");
+      }
 
-    } catch (error) {
-      console.error('Login error:', error);
-      errorMessage = 'Invalid email or password';
+      if (data.session && data.user.email_confirmed_at) {
+        // 🚀 Safe to go to /account
+        await tick(); 
+        goto("/account");
+      } else {
+        errorMessage = "Please verify your email before logging in.";
+      }
+      console.log("OK!");
+    } catch (e) {
+      console.error("Unexpected login error:", e);
+      errorMessage = "Something went wrong. Please try again.";
     } finally {
       isLoading = false;
     }
@@ -109,7 +135,7 @@
   // Reset form error when fields change
   const resetFieldError = () => {
     if (formSubmitted) {
-      errorMessage = '';
+      errorMessage = "";
     }
     debouncedValidation();
   };
@@ -118,27 +144,35 @@
   onMount(() => {
     const timeline = gsap.timeline();
 
-    timeline.from('.login-container', {
+    timeline.from(".login-container", {
       y: 20,
       opacity: 0,
       duration: 0.5,
-      ease: 'power2.out'
+      ease: "power2.out",
     });
 
-    timeline.from('.form-field', {
-      y: 10,
-      opacity: 0,
-      stagger: 0.1,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.2');
+    timeline.from(
+      ".form-field",
+      {
+        y: 10,
+        opacity: 0,
+        stagger: 0.1,
+        duration: 0.4,
+        ease: "power2.out",
+      },
+      "-=0.2"
+    );
 
-    timeline.from('.form-actions', {
-      y: 10,
-      opacity: 0,
-      duration: 0.4,
-      ease: 'power2.out'
-    }, '-=0.2');
+    timeline.from(
+      ".form-actions",
+      {
+        y: 10,
+        opacity: 0,
+        duration: 0.4,
+        ease: "power2.out",
+      },
+      "-=0.2"
+    );
 
     // Cleanup function to clear any pending timeouts
     return () => {
@@ -149,14 +183,23 @@
 
 <svelte:head>
   <title>Login | Pransh</title>
-  <meta name="description" content="Sign in to your Pransh account to access your orders, wishlist, and personalized recommendations.">
+  <meta
+    name="description"
+    content="Sign in to your Pransh account to access your orders, wishlist, and personalized recommendations."
+  />
 </svelte:head>
 
 <div class="min-h-[80vh] flex flex-col items-center justify-center py-16 px-4">
-  <div class="login-container max-w-md w-full bg-white p-8 md:p-10 shadow-sm rounded-sm">
+  <div
+    class="login-container max-w-md w-full bg-white p-8 md:p-10 shadow-sm rounded-sm"
+  >
     <!-- Logo -->
     <div class="text-center mb-8">
-      <img src="/images/Website-logo-gold-svg.svg" alt="Pransh Logo" class="h-12 mx-auto mb-4">
+      <img
+        src="/images/Website-logo-gold-svg.svg"
+        alt="Pransh Logo"
+        class="h-12 mx-auto mb-4"
+      />
       <h1 class="text-2xl font-serif text-gray-800">Sign In</h1>
     </div>
 
@@ -171,27 +214,38 @@
     <form on:submit|preventDefault={handleSubmit} class="space-y-6">
       <!-- Email field -->
       <div class="form-field">
-        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+        <label for="email" class="block text-sm font-medium text-gray-700 mb-1"
+          >Email Address</label
+        >
         <input
           type="email"
           id="email"
           bind:value={email}
           on:input={resetFieldError}
           on:blur={touchEmail}
-          class="w-full px-3 py-2 border {emailTouched && !isEmailValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          class="w-full px-3 py-2 border {emailTouched && !isEmailValid
+            ? 'border-red-300'
+            : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
           placeholder="your@email.com"
           required
-        >
+        />
         {#if emailTouched && !isEmailValid}
-          <p class="mt-1 text-sm text-red-600">Please enter a valid email address</p>
+          <p class="mt-1 text-sm text-red-600">
+            Please enter a valid email address
+          </p>
         {/if}
       </div>
 
       <!-- Password field -->
       <div class="form-field">
         <div class="flex justify-between mb-1">
-          <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-          <a href="/account/reset-password" class="text-xs text-gold hover:text-gold-dark transition-colors">
+          <label for="password" class="block text-sm font-medium text-gray-700"
+            >Password</label
+          >
+          <a
+            href="/account/reset-password"
+            class="text-xs text-gold hover:text-gold-dark transition-colors"
+          >
             Forgot Password?
           </a>
         </div>
@@ -202,10 +256,12 @@
             bind:value={password}
             on:input={resetFieldError}
             on:blur={touchPassword}
-            class="w-full px-3 py-2 border {passwordTouched && !isPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+            class="w-full px-3 py-2 border {passwordTouched && !isPasswordValid
+              ? 'border-red-300'
+              : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
             placeholder="••••••••"
             required
-          >
+          />
           <button
             type="button"
             class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold focus:outline-none transition-colors"
@@ -214,14 +270,41 @@
           >
             {#if showPassword}
               <!-- Hide password icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                />
               </svg>
             {:else}
               <!-- Show password icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
               </svg>
             {/if}
           </button>
@@ -238,7 +321,7 @@
           id="remember-me"
           bind:checked={rememberMe}
           class="h-4 w-4 text-gold focus:ring-gold border-gray-300 rounded"
-        >
+        />
         <label for="remember-me" class="ml-2 block text-sm text-gray-700">
           Remember me
         </label>
@@ -252,7 +335,9 @@
           class="w-full bg-gold hover:bg-gold-dark text-white py-2.5 px-4 rounded-sm transition-colors duration-300 flex justify-center"
         >
           {#if isLoading}
-            <span class="inline-block h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+            <span
+              class="inline-block h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"
+            ></span>
             Signing In...
           {:else}
             Sign In
@@ -263,7 +348,10 @@
       <!-- Register link -->
       <div class="text-center text-sm mt-6">
         <span class="text-gray-600">Don't have an account?</span>
-        <a href="/account/register" class="text-gold hover:text-gold-dark ml-1 transition-colors">
+        <a
+          href="/account/register"
+          class="text-gold hover:text-gold-dark ml-1 transition-colors"
+        >
           Create one
         </a>
       </div>
@@ -276,8 +364,19 @@
       href="/"
       class="text-sm text-gray-600 hover:text-gold transition-colors flex items-center"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-4 w-4 mr-1"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.5"
+          d="M10 19l-7-7m0 0l7-7m-7 7h18"
+        />
       </svg>
       Return to Shopping
     </a>
