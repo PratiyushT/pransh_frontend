@@ -74,7 +74,6 @@
 
                                 // Check if it's a country code error
                                 if (err && err.message && err.message.includes('is not a known stack')) {
-                                    console.log('Country code error detected, retrying with US only');
 
                                     // If the error is related to country codes, try again with just US
                                     // This is a temporary fix that allows the search to continue
@@ -115,9 +114,7 @@
                     // Listen for results
                     geocoder.on('result', (e: any) => {
                         const result = e.result;
-                        console.log('Mapbox result:', result); // Log the result for debugging
                         const address = parseMapboxAddress(result);
-                        console.log('Parsed address:', address); // Log the parsed address
                         dispatch('addressSelected', address);
                         // Set the selected result text for display
                         selectedResult = result.place_name || '';
@@ -164,7 +161,6 @@
 
     // Parse Mapbox result into address components
     function parseMapboxAddress(result: any) {
-        console.log('Parsing Mapbox result:', result);
 
         // Set the selected result text for display
         selectedResult = result.place_name || '';
@@ -266,7 +262,6 @@
         if (!address.state) address.state = 'N/A';
         if (!address.postalCode) address.postalCode = 'N/A';
 
-        console.log('Final parsed address:', address);
         return address;
     }
 

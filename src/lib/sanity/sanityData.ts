@@ -96,7 +96,6 @@ export async function getSizes(): Promise<Size[]> {
 export async function getColors(): Promise<Color[]> {
   try {
     const sanityColors = await client.fetch(allColorsQuery);
-    console.log('Sanity colors data:', sanityColors);
 
     return sanityColors.map((color: any) => {
       // Check if hex is an array - if not, make it an array with a single value
@@ -225,12 +224,10 @@ export async function getCartProductDetails(
 ): Promise<ProductDetails> {
   // Add defensive checks
   if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
-    console.log('No cart items to fetch details for');
     return {};
   }
 
   try {
-    console.log('Fetching details for cart items:', cartItems.length);
 
     // Filter out any invalid items
     const validCartItems = cartItems.filter(
@@ -238,7 +235,6 @@ export async function getCartProductDetails(
     );
 
     if (validCartItems.length === 0) {
-      console.log('No valid cart items to fetch details for');
       return {};
     }
 
@@ -272,11 +268,8 @@ export async function getCartProductDetails(
     const productIds = [...new Set(validCartItems.map(i => i.productId))];
     const variantIds = [...new Set(validCartItems.map(i => i.variantId))];
 
-    console.log('Product IDs:', productIds);
-    console.log('Variant IDs:', variantIds);
 
     const result = await client.fetch(fetchQuery, { productIds, variantIds });
-    console.log('Raw response from Sanity:', result);
 
     const details: ProductDetails = {};
 
@@ -310,7 +303,6 @@ export async function getCartProductDetails(
 
     // Fallback to individual queries if the combined query fails or returns empty results
     if (Object.keys(details).length === 0) {
-      console.log('Falling back to individual product queries...');
 
       // Fetch each product and variant individually
       for (const item of validCartItems) {
@@ -365,7 +357,6 @@ export async function getCartProductDetails(
       }
     }
 
-    console.log('Processed details:', Object.keys(details).length);
     return details;
   } catch (error) {
     console.error('Error fetching cart product details:', error);

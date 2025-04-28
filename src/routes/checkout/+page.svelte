@@ -9,7 +9,6 @@
   import { getStripePromise } from '$lib/payments/client';
 
   // DEBUG: Log environment variables to console
-  console.log('Environment variables available:', import.meta.env);
 
   let productDetails: Record<string, any> = {};
   let isLoadingProducts = true;
@@ -119,7 +118,6 @@
     ? displayedCart.reduce((sum, item) => {
       const details = productDetails[`${item.productId}___${item.variantId}`];
       if (!details) {
-        console.log(`No details for item: ${item.productId}___${item.variantId}`);
         return sum + 0;
       }
       return sum + details.variant.price * item.quantity;
@@ -282,7 +280,6 @@
         };
       });
 
-      console.log('Sending items to API:', items);
 
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
@@ -395,7 +392,6 @@
   }
 
   function handleAddressSearchError() {
-    console.log('Address search component reported an error');
     mapboxLoadError = true;
     showManualEntryForm = true;
   }

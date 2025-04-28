@@ -27,8 +27,6 @@ export const POST = async ({ request }) => {
         return json({ error: 'Invalid item data' }, { status: 400 })
       }
 
-      console.log(`Validating item: ${item.id}, SKU: ${item.sku}, Quantity: ${item.quantity}, Price: ${item.price}`)
-      console.log(`Item name: ${item.name}`)
 
       // Use a more comprehensive query to get product and variant details
       const productData = await client.fetch(`
@@ -57,7 +55,6 @@ export const POST = async ({ request }) => {
 
       // If variant doesn't exist in this product, try a fallback query with just the variant ID
       if (!productData.variants || !productData.variants._id) {
-        console.log(`Variant not found with primary query for ${item.sku}, trying fallback query`)
 
         // Fallback query that just looks for the variant by ID
         const variantData = await client.fetch(`
@@ -126,7 +123,6 @@ export const POST = async ({ request }) => {
       })
     }
 
-    console.log('Validated items:', validatedItems)
 
     // After successful validation of all items → create Stripe Checkout Session
     try {

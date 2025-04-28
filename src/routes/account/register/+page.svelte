@@ -3,10 +3,7 @@
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
   import AddressSearch from '$lib/components/AddressSearch.svelte';
-  import {
-    signUp as signUpAndCreateProfile,
-    insertProfileAndAddress
-  } from '$lib/auth/auth';
+  import { signUp } from '$lib/auth/auth';
 
   // Form data
   let firstName = '';
@@ -150,76 +147,46 @@
     debouncedValidation();
   };
 
-  // Final submit
   async function handleSubmit() {
-    formSubmitted = true;
-    firstNameTouched = lastNameTouched = emailTouched = passwordTouched = confirmPasswordTouched = termsTouched = true;
-    if (showAddressFields) streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
+  formSubmitted = true;
+  firstNameTouched = lastNameTouched = emailTouched = passwordTouched = confirmPasswordTouched = termsTouched = true;
+  if (showAddressFields) streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
 
-    if (!isFormValid) {
-      errorMessage = 'Please fix the errors in the form';
-      return;
-    }
-
-    isLoading = true;
-    errorMessage = '';
-
-    try {
-      // 1️⃣ Sign up
-      const { data, error: signError } = await signUpAndCreateProfile({
-        email,
-        password,
-        firstName,
-        lastName,
-        phoneNumber: phoneNumber,
-        address: {
-          label: showAddressFields ? 'Home' : '', // or your default
-          street: streetAddress,
-          city,
-          postalCode: zipCode,
-          country,
-          phoneNumber: '' // optional: use phoneNumber if you collect a separate address phone
-        }
-      });
-      if (signError) {
-        errorMessage = signError.message;
-        return;
-      }
-
-      // 2️⃣ Insert profile & address immediately (you may also wait for email verify)
-      const userId    = data.user?.id;
-      const userEmail = data.user?.email ?? email;
-      if (userId) {
-        const { error: paError } = await insertProfileAndAddress(
-          userId,
-          userEmail,
-          firstName,
-          lastName,
-          phoneNumber,
-          {
-            label: showAddressFields ? 'Home' : '',
-            street: streetAddress,
-            city,
-            postalCode: zipCode,
-            country,
-            phoneNumber: '' 
-          }
-        );
-        if (paError) {
-          errorMessage = paError.message;
-          return;
-        }
-      }
-
-      // 3️⃣ Done → navigate
-      goto('/account');
-    } catch (e) {
-      console.error(e);
-      errorMessage = 'Something went wrong. Please try again.';
-    } finally {
-      isLoading = false;
-    }
+  if (!isFormValid) {
+    errorMessage = 'Please fix the errors in the form';
+    return;
   }
+
+  isLoading = true;
+  errorMessage = '';
+
+  try {
+    // 1️⃣ Sign up — store all metadata
+    await signUp({
+      email,
+      password,
+      firstName,
+      lastName,
+      address: showAddressFields ? {
+        street: streetAddress,
+        city,
+        state,
+        postalCode: zipCode,
+        country,
+        phoneNumber: phoneNumber || ''
+      } : undefined
+    });
+
+    // 2️⃣ After signup success → Show success and redirect
+    formSubmitted = false;
+    goto('/account/login');
+  } catch (e: any) {
+    console.error(e);
+    errorMessage = e.message || 'Something went wrong. Please try again.';
+  } finally {
+    isLoading = false;
+  }
+}
 
   // Animate in
   onMount(() => {

@@ -3,19 +3,21 @@ import { supabase } from './client';
 
 /**
  * Sign up a new user
- * - Creates an auth user
- * - Creates a profile (handled by Supabase webhook or backend)
- * - Inserts shipping address immediately if provided
+ * - Creates a Supabase auth user
+ * - Stores first_name, last_name, and shipping address temporarily in user_metadata
+ * - No profiles or addresses are created until email confirmation
  */
 export async function signUp({
   email,
   password,
-  fullName,
-  address,
+  firstName,
+  lastName,
+  address
 }: {
   email: string;
   password: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   address?: {
     street: string;
     city: string;
@@ -25,56 +27,32 @@ export async function signUp({
     phoneNumber: string;
   };
 }) {
-  // Step 1: Create a new user in auth.users
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { full_name: fullName }, // Save full name into user's metadata
-    },
+      data: {
+        first_name: firstName,
+        last_name: lastName,
+        shipping_address: address || null,
+      }
+    }
   });
 
-  if (signUpError) throw signUpError;
-
-  const user = signUpData.user;
-  if (!user) throw new Error('Signup failed — no user created.');
-
-  // Step 2: Fetch the newly created profile using user ID
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (profileError || !profile) throw new Error('Profile not found after signup.');
-
-  // Step 3: If address fields are provided, insert address immediately
-  if (address && address.street && address.city && address.postalCode && address.country && address.phoneNumber) {
-    const { error: addressError } = await supabase.from('addresses').insert({
-      profile_id: profile.id,    // Link address to the user's profile
-      label: 'Home',             // Default label
-      street: address.street,
-      city: address.city,
-      state: address.state || '',
-      postal_code: address.postalCode,
-      country: address.country,
-      phone_number: address.phoneNumber,
-      is_default: true,          // Mark first address as default
-    });
-
-    if (addressError) {
-      console.error('Address insertion failed:', addressError.message);
-      // You can choose whether to throw error here or just log it
-    }
-  }
-
-  return user;
+  if (error) throw error;
+  return data;
 }
 
 /**
  * Sign in an existing user
  */
-export async function signIn({ email, password }: { email: string; password: string }) {
+export async function signIn({
+  email,
+  password
+}: {
+  email: string;
+  password: string;
+}) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -102,7 +80,8 @@ export async function getSession() {
 }
 
 /**
- * Load the logged-in user's profile from public.profiles table
+ * Load logged-in user's profile after confirmation
+ * Fetch the profile from public.profiles after user has confirmed email
  */
 export async function loadUserProfile() {
   const session = await getSession();
@@ -119,30 +98,29 @@ export async function loadUserProfile() {
 }
 
 /**
- * Update logged-in user's profile
- * - Only updates fullName and phoneNumber
+ * Insert Shipping Address after login if metadata had a stored address
  */
-export async function updateUserProfile({
-  fullName,
-  phoneNumber,
-}: {
-  fullName?: string;
-  phoneNumber?: string;
-}) {
+export async function insertShippingAddressIfNeeded(profileId: number) {
   const session = await getSession();
-  if (!session?.user) throw new Error('No logged in user.');
+  if (!session?.user) throw new Error('No active session');
 
-  const updates: any = {
-    updated_at: new Date().toISOString(), // Always update the updated_at timestamp
-  };
+  const shipping = session.user.user_metadata?.shipping_address;
 
-  if (fullName) updates.full_name = fullName;
-  if (phoneNumber) updates.phone_number = phoneNumber;
+  if (shipping) {
+    const { error } = await supabase.from('addresses').insert([
+      {
+        profile_id: profileId,
+        street: shipping.street,
+        city: shipping.city,
+        state: shipping.state || '',
+        postal_code: shipping.postalCode,
+        country: shipping.country,
+        phone_number: shipping.phoneNumber,
+        label: 'Default',
+        is_default: true,
+      }
+    ]);
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('user_id', session.user.id);
-
-  if (error) throw error;
+    if (error) throw error;
+  }
 }

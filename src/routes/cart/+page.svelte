@@ -39,7 +39,6 @@
 
       // If cart is empty but we have saved items, wait to see if user wants to restore
       if ($cart.length === 0 && hasSavedItems) {
-        console.log('Cart is empty but there are saved items. Waiting for user action.');
         isLoadingProducts = false;
         return;
       }
@@ -105,8 +104,6 @@
     loadError = false;
 
     try {
-      console.log('Fetching product details for cart with', $cart.length, 'items');
-      console.log('Cart items:', $cart.map(item => `${item.productId}:${item.variantId}`).join(', '));
 
       // Make a copy of the cart to prevent any concurrent updates issues
       const currentCart = [...$cart];
@@ -117,7 +114,6 @@
       );
 
       if (validCartItems.length === 0) {
-        console.log('No valid cart items to fetch details for');
         productDetails = {};
         return;
       }
@@ -127,7 +123,6 @@
 
       // If no details were found, and we have items in the cart, it might be due to Sanity query issues
       if (Object.keys(details).length === 0 && validCartItems.length > 0) {
-        console.log('No product details found from Sanity. Retrying with individual fetches...');
 
         // Try fetching each item individually
         const individualDetails = {};

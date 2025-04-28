@@ -13,7 +13,6 @@ export const load: PageServerLoad = async ({ params }) => {
     // If no product found, return a null product instead of throwing an error
     // This allows the page component to handle the missing product gracefully
     if (!product) {
-      console.log(`Product with slug '${slug}' not found.`);
       return {
         product: null,
         relatedProducts: []
