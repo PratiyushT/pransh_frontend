@@ -177,12 +177,18 @@
       } : undefined
     });
 
-    // 2️⃣ After signup success → Show success and redirect
+    // 2️⃣ After signup success → Show success and redirect to verification page
     formSubmitted = false;
-    goto('/account/login');
+    goto('/account/verify-email');
   } catch (e: any) {
     console.error(e);
-    errorMessage = e.message || 'Something went wrong. Please try again.';
+
+    // Check for the "User already registered" error specifically
+    if (e.message === 'User already registered') {
+      errorMessage = 'This email is already registered. Please use a different email or try signing in.';
+    } else {
+      errorMessage = e.message || 'Something went wrong. Please try again.';
+    }
   } finally {
     isLoading = false;
   }
