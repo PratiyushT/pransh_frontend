@@ -112,13 +112,30 @@
 
       // 2️⃣ Login successful
       if (rememberMe) {
-        // Optional: Save session persistently
-        localStorage.setItem("rememberMe", "true");
+        // Tell Supabase to persist session (handled by Supabase client)
+        // No need to store anything in localStorage for authentication
+        console.log("Remember me enabled - session persistence handled by Supabase");
       }
 
       if (data.session && data.user.email_confirmed_at) {
+        // Only store non-sensitive UI display data
+        if (data.user.user_metadata?.first_name) {
+          localStorage.setItem("userDisplayName", data.user.user_metadata.first_name);
+        } else if (data.user.user_metadata?.full_name) {
+          const nameParts = data.user.user_metadata.full_name.split(' ');
+          localStorage.setItem("userDisplayName", nameParts[0] || '');
+        }
+
+        // Store user initials for UI elements like avatars
+        if (data.user.user_metadata?.first_name && data.user.user_metadata?.last_name) {
+          const initials = `${data.user.user_metadata.first_name.charAt(0)}${data.user.user_metadata.last_name.charAt(0)}`;
+          localStorage.setItem("userInitials", initials);
+        }
+
+        // No sensitive data or authentication state stored in localStorage
+
         // 🚀 Safe to go to /account
-        await tick(); 
+        await tick();
         goto("/account");
       } else {
         errorMessage = "Please verify your email before logging in.";

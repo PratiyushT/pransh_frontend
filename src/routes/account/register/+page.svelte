@@ -73,6 +73,7 @@
       case 'password':  passwordTouched = true;  break;
       case 'confirmPassword': confirmPasswordTouched = true; break;
       case 'terms':     termsTouched = true;     break;
+      case 'phoneNumber': streetAddressTouched = true; break; // Using existing variable to track phone validation
     }
     debouncedValidation();
   };
@@ -136,10 +137,15 @@
   $: isZipCodeValid         = !zipCodeTouched        || !showAddressFields || zipCode.length > 3;
   $: isCountryValid         = !countryTouched        || !showAddressFields || country.length > 0;
 
+  // Add phone number validation for shipping address
+  $: isPhoneNumberValid = !streetAddressTouched || !showAddressFields || (phoneNumber && phoneNumber.length > 0);
+
   $: isFormValid = firstName && lastName && email && password && confirmPassword &&
                    password === confirmPassword && acceptTerms &&
                    isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
-                   (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid && isZipCodeValid && isCountryValid));
+                   (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid &&
+                                          isZipCodeValid && isCountryValid && isPhoneNumberValid &&
+                                          phoneNumber && phoneNumber.length > 0));
 
   // Reset errors on input
   const resetFieldError = () => {
@@ -276,6 +282,21 @@
         {#if emailTouched && !isEmailValid}
           <p class="mt-1 text-sm text-red-600">Please enter a valid email address</p>
         {/if}
+      </div>
+
+      <!-- Phone Number (Optional) -->
+      <div class="form-field">
+        <label for="phoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
+          Phone Number <span class="text-gray-400 text-xs">(Optional)</span>
+        </label>
+        <input
+          id="phoneNumber"
+          type="tel"
+          bind:value={phoneNumber}
+          on:input={resetFieldError}
+          class="w-full px-3 py-2 border border-gray-300 focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          placeholder="(123) 456-7890"
+        >
       </div>
 
       <!-- Password -->
@@ -478,6 +499,29 @@
                   <p class="mt-1 text-sm text-red-600">Country is required</p>
                 {/if}
               </div>
+            </div>
+
+            <!-- Mandatory Phone Number for Shipping Address -->
+            <div class="form-field animate-fade-in">
+              <label for="shippingPhoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number <span class="text-red-500">*</span>
+              </label>
+              <input
+                id="shippingPhoneNumber"
+                type="tel"
+                bind:value={phoneNumber}
+                on:input={resetFieldError}
+                on:blur={() => {
+                  // Using an existing variable to track if this field has been touched
+                  streetAddressTouched = true;
+                }}
+                required={showAddressFields}
+                class="w-full px-3 py-2 border {streetAddressTouched && !phoneNumber && showAddressFields ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                placeholder="(123) 456-7890"
+              >
+              {#if streetAddressTouched && !phoneNumber && showAddressFields}
+                <p class="mt-1 text-sm text-red-600">Phone number is required for shipping</p>
+              {/if}
             </div>
           {/if}
         </div>

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
+  import { supabase } from '$lib/auth/client';
 
   // User data (in a real app, this would come from API)
   let user = {
@@ -31,33 +32,94 @@
   let isLoading = true;
   let activeTab = 'dashboard';
 
-  // Check if user is logged in
-  const checkAuth = () => {
-    if (typeof window !== 'undefined') {
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-      if (!isLoggedIn) {
+  // Check if user is logged in and fetch data securely from API
+  const checkAuth = async () => {
+    try {
+      // Check if there's an active session with Supabase - only source of truth for authentication
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        console.error('No valid session found:', error || 'Session not found');
         goto('/account/login');
         return false;
       }
 
-      // Get user data from localStorage (in a real app, this would be from API)
-      user.email = localStorage.getItem('userEmail') || '';
-      const userName = localStorage.getItem('userName') || '';
-      const nameParts = userName.split(' ');
-      user.firstName = nameParts[0] || '';
-      user.lastName = nameParts.slice(1).join(' ') || '';
+      // Session exists, fetch user data from secure API
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user profile:', userError);
+        // If we can't get profile data but have valid session, we can still use session data
+        user.email = session.user.email || '';
+
+        // Get first/last name from session metadata as fallback
+        if (session.user.user_metadata) {
+          user.firstName = session.user.user_metadata.first_name || '';
+          user.lastName = session.user.user_metadata.last_name || '';
+
+          // If we have full_name but not individual names
+          if (!user.firstName && session.user.user_metadata.full_name) {
+            const nameParts = session.user.user_metadata.full_name.split(' ');
+            user.firstName = nameParts[0] || '';
+            user.lastName = nameParts.slice(1).join(' ') || '';
+          }
+        }
+      } else if (userData) {
+        // Set user data from secure API response
+        user.firstName = userData.first_name || '';
+        user.lastName = userData.last_name || '';
+        user.email = userData.email || session.user.email || '';
+        user.phone = userData.phone || '';
+      }
+
+      // Now fetch orders, which is a separate API call for security
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (!ordersError && ordersData) {
+        user.orders = ordersData;
+      } else {
+        console.error('Error fetching orders:', ordersError);
+      }
 
       return true;
+    } catch (err) {
+      console.error('Unexpected error during auth check:', err);
+      goto('/account/login');
+      return false;
     }
-    return false;
   };
 
   // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    goto('/account/login');
+  const handleLogout = async () => {
+    try {
+      // Call Supabase signOut to invalidate the session - this is the important part
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error logging out:', error);
+      }
+
+      // Clean up UI data from localStorage - no authentication data stored here anymore
+      localStorage.removeItem('userDisplayName');
+      localStorage.removeItem('userInitials');
+
+      // Remove any other non-sensitive UI preferences
+      localStorage.removeItem('uiTheme');
+      localStorage.removeItem('hasAddress');
+
+      goto('/account/login');
+    } catch (err) {
+      console.error('Unexpected error during logout:', err);
+      // Even on error, we should still try to navigate away
+      goto('/account/login');
+    }
   };
 
   // Handle tab change
@@ -77,48 +139,61 @@
     return date.toLocaleDateString('en-US', options);
   };
 
+  // For quick UI display before API loads
+  let quickDisplayName = '';
+
   // Page animation
-  onMount(() => {
+  onMount(async () => {
     isLoading = true;
-    const isAuthenticated = checkAuth();
-    if (!isAuthenticated) return;
 
-    // If authenticated, apply animations
-    setTimeout(() => {
+    // Get display name from localStorage for immediate UI feedback
+    quickDisplayName = localStorage.getItem('userDisplayName') || '';
+
+    try {
+      const isAuthenticated = await checkAuth();
+      if (!isAuthenticated) return;
+
+      // If authenticated, apply animations
+      setTimeout(() => {
+        isLoading = false;
+
+        // Apply animations once data is loaded
+        const timeline = gsap.timeline();
+
+        timeline.from('.account-header', {
+          y: -20,
+          opacity: 0,
+          duration: 0.5,
+          ease: 'power2.out'
+        });
+
+        timeline.from('.account-tabs', {
+          y: 10,
+          opacity: 0,
+          duration: 0.4,
+          ease: 'power2.out'
+        }, '-=0.2');
+
+        timeline.from('.account-content', {
+          y: 20,
+          opacity: 0,
+          duration: 0.4,
+          ease: 'power2.out'
+        }, '-=0.2');
+
+        timeline.from('.account-card', {
+          y: 10,
+          opacity: 0,
+          stagger: 0.1,
+          duration: 0.4,
+          ease: 'power2.out'
+        }, '-=0.2');
+      }, 500);
+    } catch (err) {
+      console.error('Error during account page initialization:', err);
       isLoading = false;
-
-      // Apply animations once data is loaded
-      const timeline = gsap.timeline();
-
-      timeline.from('.account-header', {
-        y: -20,
-        opacity: 0,
-        duration: 0.5,
-        ease: 'power2.out'
-      });
-
-      timeline.from('.account-tabs', {
-        y: 10,
-        opacity: 0,
-        duration: 0.4,
-        ease: 'power2.out'
-      }, '-=0.2');
-
-      timeline.from('.account-content', {
-        y: 20,
-        opacity: 0,
-        duration: 0.4,
-        ease: 'power2.out'
-      }, '-=0.2');
-
-      timeline.from('.account-card', {
-        y: 10,
-        opacity: 0,
-        stagger: 0.1,
-        duration: 0.4,
-        ease: 'power2.out'
-      }, '-=0.2');
-    }, 500);
+      goto('/account/login');
+    }
   });
 </script>
 
@@ -140,7 +215,7 @@
       <!-- Account header -->
       <div class="account-header mb-8 md:mb-12">
         <h1 class="text-2xl md:text-3xl font-serif text-gray-800 mb-2">My Account</h1>
-        <p class="text-gray-600">Welcome back, {user.firstName}!</p>
+        <p class="text-gray-600">Welcome back, {user.firstName || quickDisplayName || 'valued customer'}!</p>
       </div>
 
       <!-- Account navigation -->
