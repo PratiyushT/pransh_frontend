@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
   import { supabase } from '$lib/auth/client';
+  import AddressForm from '$lib/components/AddressForm.svelte';
 
   // User data (in a real app, this would come from API)
   let user = {
@@ -31,6 +32,9 @@
 
   let isLoading = true;
   let activeTab = 'dashboard';
+  let showAddressForm = false;
+  let currentEditAddress = null;
+  let isEditMode = false;
 
   // Check if user is logged in and fetch data securely from API
   const checkAuth = async () => {
@@ -44,15 +48,15 @@
         return false;
       }
 
-      // Session exists, fetch user data from secure API
+      // Session exists, fetch user data from secure API along with addresses
       const { data: userData, error: userError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, addresses(*)')
         .eq('user_id', session.user.id)
         .single();
 
       if (userError) {
-        console.error('Error fetching user profile:', userError);
+        console.error('Error fetching user profile with addresses:', userError);
         // If we can't get profile data but have valid session, we can still use session data
         user.email = session.user.email || '';
 
@@ -74,6 +78,17 @@
         user.lastName = userData.last_name || '';
         user.email = userData.email || session.user.email || '';
         user.phone = userData.phone || '';
+
+        // Set addresses from the joined query
+        if (userData.addresses && Array.isArray(userData.addresses)) {
+          user.addresses = userData.addresses;
+          // Store in localStorage that user has addresses for quick UI feedback
+          if (userData.addresses.length > 0) {
+            localStorage.setItem('hasAddress', 'true');
+          } else {
+            localStorage.removeItem('hasAddress');
+          }
+        }
       }
 
       // Now fetch orders, which is a separate API call for security
@@ -125,6 +140,106 @@
   // Handle tab change
   const setActiveTab = (tab) => {
     activeTab = tab;
+    // Reset address form when changing tabs
+    showAddressForm = false;
+    currentEditAddress = null;
+    isEditMode = false;
+  };
+
+  // Address management functions
+  const openAddAddressForm = () => {
+    showAddressForm = true;
+    currentEditAddress = null;
+    isEditMode = false;
+  };
+
+  const openEditAddressForm = (address) => {
+    currentEditAddress = { ...address };
+    isEditMode = true;
+    showAddressForm = true;
+  };
+
+  const handleAddressCancel = () => {
+    showAddressForm = false;
+    currentEditAddress = null;
+    isEditMode = false;
+  };
+
+  const handleAddressSaved = async (event) => {
+    const savedAddress = event.detail;
+
+    // Refresh user data to show the updated addresses
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('*, addresses(*)')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (userData && userData.addresses) {
+        user.addresses = userData.addresses;
+      }
+    }
+
+    // Close the form
+    showAddressForm = false;
+    currentEditAddress = null;
+    isEditMode = false;
+  };
+
+  const deleteAddress = async (addressId) => {
+    if (!confirm('Are you sure you want to delete this address?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('addresses')
+        .delete()
+        .eq('id', addressId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Remove the address from the local state
+      user.addresses = user.addresses.filter(addr => addr.id !== addressId);
+
+    } catch (error) {
+      console.error('Error deleting address:', error);
+      alert('Failed to delete address');
+    }
+  };
+
+  const setDefaultAddress = async (addressId) => {
+    try {
+      // First set all addresses to non-default
+      await supabase
+        .from('addresses')
+        .update({ is_default: false })
+        .eq('profile_id', user.addresses[0].profile_id);
+
+      // Then set the selected address as default
+      const { error } = await supabase
+        .from('addresses')
+        .update({ is_default: true })
+        .eq('id', addressId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Update the local state
+      user.addresses = user.addresses.map(addr => ({
+        ...addr,
+        is_default: addr.id === addressId
+      }));
+
+    } catch (error) {
+      console.error('Error setting default address:', error);
+      alert('Failed to update default address');
+    }
   };
 
   // Format price utility
@@ -282,10 +397,12 @@
                   <h3 class="text-sm font-medium text-gray-600 mb-2">Default Shipping Address</h3>
                   {#if user.addresses && user.addresses.length > 0}
                     <div class="p-4 border border-gray-200 rounded-sm">
-                      <p class="font-medium">{user.firstName} {user.lastName}</p>
+                      <p class="font-medium">{user.addresses[0].label || `${user.firstName} ${user.lastName}`}</p>
                       <p class="text-gray-600 text-sm mt-1">
-                        123 Main Street <br>
-                        New York, NY 10001
+                        {user.addresses[0].street}<br>
+                        {user.addresses[0].city}, {user.addresses[0].state || ''} {user.addresses[0].postal_code}<br>
+                        {user.addresses[0].country || 'United States'}<br>
+                        {user.addresses[0].phone_number}
                       </p>
                       <button
                         class="text-gold hover:text-gold-dark text-sm mt-3"
@@ -447,46 +564,83 @@
             </div>
           {:else if activeTab === 'addresses'}
             <div class="bg-white shadow-sm rounded-sm p-4 md:p-6 account-card">
-              <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-medium text-gray-800">Saved Addresses</h2>
-                <button class="text-white bg-gold hover:bg-gold-dark px-4 py-2 text-sm rounded-sm">
-                  Add New Address
-                </button>
-              </div>
-
-              {#if user.addresses && user.addresses.length > 0}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {#each user.addresses as address}
-                    <div class="border border-gray-200 rounded-sm p-4">
-                      <p class="font-medium">{address.name}</p>
-                      <p class="text-gray-600 text-sm mt-1">
-                        {address.line1}<br>
-                        {#if address.line2}{address.line2}<br>{/if}
-                        {address.city}, {address.state} {address.zip}<br>
-                        {address.country}
-                      </p>
-                      <div class="mt-3 flex space-x-3">
-                        <button class="text-gold hover:text-gold-dark text-sm">
-                          Edit
-                        </button>
-                        <button class="text-red-500 hover:text-red-700 text-sm">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              {:else}
-                <div class="flex flex-col items-center justify-center py-8 text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <p class="text-gray-500 mb-4">You haven't added any addresses yet.</p>
-                  <button class="bg-gold hover:bg-gold-dark text-white px-4 py-2 rounded-sm inline-block transition-colors text-sm">
-                    Add Your First Address
+              {#if !showAddressForm}
+                <div class="flex justify-between items-center mb-6">
+                  <h2 class="text-xl font-medium text-gray-800">Saved Addresses</h2>
+                  <button
+                    class="text-white bg-gold hover:bg-gold-dark px-4 py-2 text-sm rounded-sm"
+                    on:click={openAddAddressForm}
+                  >
+                    Add New Address
                   </button>
                 </div>
+
+                {#if user.addresses && user.addresses.length > 0}
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {#each user.addresses as address}
+                      <div
+                        class="border border-gray-200 rounded-sm p-4 transition-all"
+                        class:border-gold={address.is_default}
+                        class:shadow-sm={address.is_default}
+                      >
+                        {#if address.is_default}
+                          <div class="bg-gold text-white text-xs px-2 py-0.5 inline-block rounded-sm mb-2">Default</div>
+                        {/if}
+                        <p class="font-medium">{address.label || `${user.firstName} ${user.lastName}`}</p>
+                        <p class="text-gray-600 text-sm mt-1">
+                          {address.street}<br>
+                          {address.city}, {address.state || ''} {address.postal_code}<br>
+                          {address.country || 'United States'}<br>
+                          {address.phone_number}
+                        </p>
+                        <div class="mt-3 flex space-x-3">
+                          <button
+                            class="text-gold hover:text-gold-dark text-sm"
+                            on:click={() => openEditAddressForm(address)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            class="text-red-500 hover:text-red-700 text-sm"
+                            on:click={() => deleteAddress(address.id)}
+                          >
+                            Delete
+                          </button>
+                          {#if !address.is_default}
+                            <button
+                              class="text-blue-500 hover:text-blue-700 text-sm"
+                              on:click={() => setDefaultAddress(address.id)}
+                            >
+                              Set as Default
+                            </button>
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {:else}
+                  <div class="flex flex-col items-center justify-center py-8 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <p class="text-gray-500 mb-4">You haven't added any addresses yet.</p>
+                    <button
+                      class="bg-gold hover:bg-gold-dark text-white px-4 py-2 rounded-sm inline-block transition-colors text-sm"
+                      on:click={openAddAddressForm}
+                    >
+                      Add Your First Address
+                    </button>
+                  </div>
+                {/if}
+              {:else}
+                <!-- Address Form -->
+                <AddressForm
+                  editMode={isEditMode}
+                  address={currentEditAddress || {}}
+                  on:saved={handleAddressSaved}
+                  on:cancel={handleAddressCancel}
+                />
               {/if}
             </div>
           {:else if activeTab === 'settings'}
