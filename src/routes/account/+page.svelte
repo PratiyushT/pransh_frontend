@@ -339,25 +339,25 @@
           <div class="bg-white shadow-sm rounded-sm p-4 md:p-6 account-tabs">
             <nav class="space-y-1">
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'dashboard' ? 'bg-gold bg-opacity-10 text-gold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'dashboard' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('dashboard')}
               >
                 Dashboard
               </button>
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'orders' ? 'bg-gold bg-opacity-10 text-gold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'orders' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('orders')}
               >
                 Orders
               </button>
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'addresses' ? 'bg-gold bg-opacity-10 text-gold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'addresses' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('addresses')}
               >
                 Addresses
               </button>
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'settings' ? 'bg-gold bg-opacity-10 text-gold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'settings' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('settings')}
               >
                 Account Settings
@@ -747,35 +747,47 @@
 <style>
   /* Gold color classes */
   .text-gold {
-    color: #b8860b;
+    color: #D4AF37;
+  }
+
+  .text-gold-dark {
+    color: #B8941F;
   }
 
   .bg-gold {
-    background-color: #b8860b;
+    background-color: #D4AF37;
+  }
+
+  .bg-gold-light {
+    background-color: #E6C869;
   }
 
   .border-gold {
-    border-color: #b8860b;
+    border-color: #D4AF37;
   }
 
   .hover\:bg-gold-dark:hover {
-    background-color: #a67a09;
+    background-color: #B8941F;
   }
 
   .hover\:text-gold-dark:hover {
-    color: #a67a09;
+    color: #B8941F;
   }
 
   .focus\:ring-gold:focus {
-    --tw-ring-color: rgba(184, 134, 11, 0.2);
+    --tw-ring-color: rgba(212, 175, 55, 0.2);
   }
 
   .focus\:border-gold:focus {
-    border-color: #b8860b;
+    border-color: #D4AF37;
   }
 
   .bg-gold-opacity-10 {
-    background-color: rgba(184, 134, 11, 0.1);
+    background-color: rgba(212, 175, 55, 0.1);
+  }
+
+  .bg-gold-light.bg-opacity-20 {
+    background-color: rgba(230, 200, 105, 0.2);
   }
 
   /* Loading spinner animation */
