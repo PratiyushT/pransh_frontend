@@ -10,7 +10,7 @@
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
+    phone_number: '',
     addresses: [],
     orders: [
       {
@@ -35,6 +35,115 @@
   let showAddressForm = false;
   let currentEditAddress = null;
   let isEditMode = false;
+
+  // Account settings variables
+  let isUpdatingProfile = false;
+  let profileUpdateMessage = '';
+  let profileUpdateError = false;
+  let currentPassword = '';
+  let newPassword = '';
+  let confirmPassword = '';
+
+  // Handle profile update
+  const handleProfileUpdate = async () => {
+    try {
+      profileUpdateMessage = '';
+      profileUpdateError = false;
+      isUpdatingProfile = true;
+
+      // Validate password if changing
+      if (currentPassword || newPassword || confirmPassword) {
+        if (!currentPassword) {
+          profileUpdateMessage = 'Current password is required to set a new password';
+          profileUpdateError = true;
+          isUpdatingProfile = false;
+          return;
+        }
+
+        if (!newPassword) {
+          profileUpdateMessage = 'New password is required';
+          profileUpdateError = true;
+          isUpdatingProfile = false;
+          return;
+        }
+
+        if (newPassword.length < 8) {
+          profileUpdateMessage = 'New password must be at least 8 characters';
+          profileUpdateError = true;
+          isUpdatingProfile = false;
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          profileUpdateMessage = 'New passwords do not match';
+          profileUpdateError = true;
+          isUpdatingProfile = false;
+          return;
+        }
+
+        // Update password
+        const { error: pwError } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+
+        if (pwError) {
+          throw new Error(pwError.message);
+        }
+
+        // Clear password fields
+        currentPassword = '';
+        newPassword = '';
+        confirmPassword = '';
+      }
+
+      // Check if email has changed
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentEmail = session.user.email;
+
+      if (user.email !== currentEmail) {
+        // Update email with Supabase Auth
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: user.email
+        });
+
+        if (emailError) {
+          throw new Error(`Failed to update email: ${emailError.message}`);
+        }
+
+        profileUpdateMessage = 'Email update verification sent. Please check your inbox.';
+      } else {
+        profileUpdateMessage = 'Profile updated successfully';
+      }
+
+      // Update profile data
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          phone_number: user.phone_number,
+          email: user.email, // Also update email in profiles table
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', session.user.id)
+        .select()
+        .single();
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
+      // Update local user object if needed
+      if (profile) {
+        user.phone_number = profile.phone_number;
+      }
+
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      profileUpdateMessage = error.message || 'An error occurred while updating your profile';
+      profileUpdateError = true;
+    } finally {
+      isUpdatingProfile = false;
+    }
+  };
 
   // Check if user is logged in and fetch data securely from API
   const checkAuth = async () => {
@@ -81,7 +190,15 @@
 
         // Set addresses from the joined query
         if (userData.addresses && Array.isArray(userData.addresses)) {
-          user.addresses = userData.addresses;
+          // Sort addresses to ensure default address is first
+          user.addresses = userData.addresses.sort((a, b) => {
+            // Default address should be first (prioritize is_default flag)
+            if (a.is_default && !b.is_default) return -1;
+            if (!a.is_default && b.is_default) return 1;
+            // Otherwise maintain original order
+            return 0;
+          });
+
           // Store in localStorage that user has addresses for quick UI feedback
           if (userData.addresses.length > 0) {
             localStorage.setItem('hasAddress', 'true');
@@ -339,25 +456,25 @@
           <div class="bg-white shadow-sm rounded-sm p-4 md:p-6 account-tabs">
             <nav class="space-y-1">
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'dashboard' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'dashboard' ? 'bg-gold text-white' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('dashboard')}
               >
                 Dashboard
               </button>
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'orders' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'orders' ? 'bg-gold text-white' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('orders')}
               >
                 Orders
               </button>
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'addresses' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'addresses' ? 'bg-gold text-white' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('addresses')}
               >
                 Addresses
               </button>
               <button
-                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'settings' ? 'bg-gold-light bg-opacity-20 text-gold-dark font-semibold' : 'text-gray-600 hover:bg-gray-50'}"
+                class="w-full text-left px-3 py-2 rounded-sm text-sm font-medium {activeTab === 'settings' ? 'bg-gold text-white' : 'text-gray-600 hover:bg-gray-50'}"
                 on:click={() => setActiveTab('settings')}
               >
                 Account Settings
@@ -396,13 +513,15 @@
                 <div class="account-card">
                   <h3 class="text-sm font-medium text-gray-600 mb-2">Default Shipping Address</h3>
                   {#if user.addresses && user.addresses.length > 0}
+                    <!-- Find the default address or fall back to the first address -->
+                    {@const defaultAddress = user.addresses.find(addr => addr.is_default) || user.addresses[0]}
                     <div class="p-4 border border-gray-200 rounded-sm">
-                      <p class="font-medium">{user.addresses[0].label || `${user.firstName} ${user.lastName}`}</p>
+                      <p class="font-medium">{defaultAddress.label || `${user.firstName} ${user.lastName}`}</p>
                       <p class="text-gray-600 text-sm mt-1">
-                        {user.addresses[0].street}<br>
-                        {user.addresses[0].city}, {user.addresses[0].state || ''} {user.addresses[0].postal_code}<br>
-                        {user.addresses[0].country || 'United States'}<br>
-                        {user.addresses[0].phone_number}
+                        {defaultAddress.street}<br>
+                        {defaultAddress.city}, {defaultAddress.state || ''} {defaultAddress.postal_code}<br>
+                        {defaultAddress.country || 'United States'}<br>
+                        {defaultAddress.phone_number}
                       </p>
                       <button
                         class="text-gold hover:text-gold-dark text-sm mt-3"
@@ -647,7 +766,13 @@
             <div class="bg-white shadow-sm rounded-sm p-4 md:p-6 account-card">
               <h2 class="text-xl font-medium text-gray-800 mb-6">Account Settings</h2>
 
-              <form class="space-y-6">
+              {#if profileUpdateMessage}
+                <div class="mb-4 p-3 {profileUpdateError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'} rounded-sm">
+                  {profileUpdateMessage}
+                </div>
+              {/if}
+
+              <form class="space-y-6" on:submit|preventDefault={handleProfileUpdate}>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label for="settings-firstname" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
@@ -655,8 +780,10 @@
                       type="text"
                       id="settings-firstname"
                       value={user.firstName}
-                      class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
+                      readonly
+                      class="w-full px-3 py-2 border border-gray-300 rounded-sm bg-gray-50 cursor-not-allowed"
                     >
+                    <p class="mt-1 text-xs text-gray-500">First name cannot be changed</p>
                   </div>
 
                   <div>
@@ -665,8 +792,10 @@
                       type="text"
                       id="settings-lastname"
                       value={user.lastName}
-                      class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
+                      readonly
+                      class="w-full px-3 py-2 border border-gray-300 rounded-sm bg-gray-50 cursor-not-allowed"
                     >
+                    <p class="mt-1 text-xs text-gray-500">Last name cannot be changed</p>
                   </div>
                 </div>
 
@@ -675,7 +804,7 @@
                   <input
                     type="email"
                     id="settings-email"
-                    value={user.email}
+                    bind:value={user.email}
                     class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
                   >
                 </div>
@@ -685,7 +814,7 @@
                   <input
                     type="tel"
                     id="settings-phone"
-                    value={user.phone}
+                    bind:value={user.phone_number}
                     placeholder="(123) 456-7890"
                     class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
                   >
@@ -700,6 +829,7 @@
                       <input
                         type="password"
                         id="current-password"
+                        bind:value={currentPassword}
                         class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
                         placeholder="••••••••"
                       >
@@ -710,9 +840,15 @@
                       <input
                         type="password"
                         id="new-password"
+                        bind:value={newPassword}
                         class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
                         placeholder="••••••••"
                       >
+                      {#if newPassword}
+                        <div class="mt-1 text-xs">
+                          <p class={newPassword.length >= 8 ? "text-green-600" : "text-gray-500"}>At least 8 characters</p>
+                        </div>
+                      {/if}
                     </div>
 
                     <div>
@@ -720,9 +856,13 @@
                       <input
                         type="password"
                         id="confirm-password"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
+                        bind:value={confirmPassword}
+                        class="w-full px-3 py-2 border {confirmPassword && newPassword !== confirmPassword ? 'border-red-300' : 'border-gray-300'} rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
                         placeholder="••••••••"
                       >
+                      {#if confirmPassword && newPassword !== confirmPassword}
+                        <p class="mt-1 text-xs text-red-600">Passwords do not match</p>
+                      {/if}
                     </div>
                   </div>
                 </div>
@@ -731,8 +871,9 @@
                   <button
                     type="submit"
                     class="bg-gold hover:bg-gold-dark text-white px-6 py-2 rounded-sm transition-colors"
+                    disabled={isUpdatingProfile}
                   >
-                    Save Changes
+                    {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -747,47 +888,35 @@
 <style>
   /* Gold color classes */
   .text-gold {
-    color: #D4AF37;
-  }
-
-  .text-gold-dark {
-    color: #B8941F;
+    color: #b8860b;
   }
 
   .bg-gold {
-    background-color: #D4AF37;
-  }
-
-  .bg-gold-light {
-    background-color: #E6C869;
+    background-color: #b8860b;
   }
 
   .border-gold {
-    border-color: #D4AF37;
+    border-color: #b8860b;
   }
 
   .hover\:bg-gold-dark:hover {
-    background-color: #B8941F;
+    background-color: #a67a09;
   }
 
   .hover\:text-gold-dark:hover {
-    color: #B8941F;
+    color: #a67a09;
   }
 
   .focus\:ring-gold:focus {
-    --tw-ring-color: rgba(212, 175, 55, 0.2);
+    --tw-ring-color: rgba(184, 134, 11, 0.2);
   }
 
   .focus\:border-gold:focus {
-    border-color: #D4AF37;
+    border-color: #b8860b;
   }
 
   .bg-gold-opacity-10 {
-    background-color: rgba(212, 175, 55, 0.1);
-  }
-
-  .bg-gold-light.bg-opacity-20 {
-    background-color: rgba(230, 200, 105, 0.2);
+    background-color: rgba(184, 134, 11, 0.1);
   }
 
   /* Loading spinner animation */
