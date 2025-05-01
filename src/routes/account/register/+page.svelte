@@ -9,7 +9,7 @@
   let firstName = '';
   let lastName = '';
   let email = '';
-  let phoneNumber='';
+  let phoneNumber = '';
   let password = '';
   let confirmPassword = '';
   let acceptTerms = false;
@@ -24,6 +24,10 @@
   let passwordTouched = false;
   let confirmPasswordTouched = false;
   let termsTouched = false;
+
+  // For phone number validation
+  let phoneNumberTouched = false;
+  let phoneNumberError = '';
 
   // Password strength & visibility
   let passwordStrength = 0;
@@ -45,6 +49,8 @@
       }
       if (confirmPasswordTouched && password)
         isConfirmPasswordValid = confirmPassword === password;
+      if (phoneNumberTouched)
+        validatePhoneNumber(phoneNumber);
       if (formSubmitted && isFormValid)
         errorMessage = '';
     }, 300);
@@ -54,6 +60,60 @@
   function validateEmail(email: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
+
+  // Phone number validation
+  function validatePhoneNumber(phone: string) {
+    if (!phone) {
+      phoneNumberError = '';
+      return true; // Phone is optional in registration
+    }
+    // Remove all non-numeric characters for validation
+    const digits = phone.replace(/\D/g, '');
+    // Basic validation: 10-15 digits (international numbers can be longer)
+    if (digits.length < 10 || digits.length > 15) {
+      phoneNumberError = 'Phone number must have 10-15 digits';
+      return false;
+    }
+    // US format validation (optional)
+    const usPhoneRegex = /^(\+?1)?[\s-]?\(?(\d{3})\)?[\s-]?(\d{3})[\s-]?(\d{4})$/;
+    if (!usPhoneRegex.test(phone) && digits.length === 10) {
+      phoneNumberError = 'Format should be (555) 555-5555 or similar';
+      return false;
+    }
+    phoneNumberError = '';
+    return true;
+  }
+
+  // Format phone number as user types
+  function formatPhoneNumber(value: string) {
+    if (!value) return '';
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
+    // Format as (XXX) XXX-XXXX if it looks like a US number
+    if (digits.length <= 10) {
+      if (digits.length < 4) {
+        return digits;
+      } else if (digits.length < 7) {
+        return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+      } else {
+        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+      }
+    }
+    // For longer numbers (international), just keep as is with country code
+    return value;
+  }
+
+  // Handle phone number input
+  function handlePhoneInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    phoneNumberTouched = true;
+    // Format the phone number
+    const formattedNumber = formatPhoneNumber(input.value);
+    phoneNumber = formattedNumber;
+    // Reset error field
+    resetFieldError();
+  }
+
   function checkPasswordStrength(p: string) {
     if (!p) return 0;
     let s = 0;
@@ -73,7 +133,7 @@
       case 'password':  passwordTouched = true;  break;
       case 'confirmPassword': confirmPasswordTouched = true; break;
       case 'terms':     termsTouched = true;     break;
-      case 'phoneNumber': streetAddressTouched = true; break; // Using existing variable to track phone validation
+      case 'phoneNumber': phoneNumberTouched = true; break;
     }
     debouncedValidation();
   };
@@ -137,15 +197,14 @@
   $: isZipCodeValid         = !zipCodeTouched        || !showAddressFields || zipCode.length > 3;
   $: isCountryValid         = !countryTouched        || !showAddressFields || country.length > 0;
 
-  // Add phone number validation for shipping address
-  $: isPhoneNumberValid = !streetAddressTouched || !showAddressFields || (phoneNumber && phoneNumber.length > 0);
+  // Update isPhoneNumberValid to use the validatePhoneNumber function
+  $: isPhoneNumberValid = !phoneNumberTouched || (phoneNumber ? validatePhoneNumber(phoneNumber) : true);
 
   $: isFormValid = firstName && lastName && email && password && confirmPassword &&
                    password === confirmPassword && acceptTerms &&
                    isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
                    (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid &&
-                                          isZipCodeValid && isCountryValid && isPhoneNumberValid &&
-                                          phoneNumber && phoneNumber.length > 0));
+                                          isZipCodeValid && isCountryValid && (phoneNumber && phoneNumber.length > 0 ? isPhoneNumberValid : true)));
 
   // Reset errors on input
   const resetFieldError = () => {
@@ -153,53 +212,58 @@
     debouncedValidation();
   };
 
+  // Update handleSubmit to validate phone number before submission
   async function handleSubmit() {
-  formSubmitted = true;
-  firstNameTouched = lastNameTouched = emailTouched = passwordTouched = confirmPasswordTouched = termsTouched = true;
-  if (showAddressFields) streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
+    formSubmitted = true;
+    firstNameTouched = lastNameTouched = emailTouched = passwordTouched = confirmPasswordTouched = termsTouched = phoneNumberTouched = true;
+    if (showAddressFields) streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
 
-  if (!isFormValid) {
-    errorMessage = 'Please fix the errors in the form';
-    return;
-  }
+    // Validate phone number if provided
+    if (phoneNumber && !validatePhoneNumber(phoneNumber)) {
+      errorMessage = phoneNumberError || 'Please provide a valid phone number';
+      return;
+    }
 
-  isLoading = true;
-  errorMessage = '';
+    if (!isFormValid) {
+      errorMessage = 'Please fix the errors in the form';
+      return;
+    }
 
-  try {
-    // 1️⃣ Sign up — store all metadata
-    const data = await signUp({
-      email,
-      password,
-      firstName,
-      lastName,
-      address: showAddressFields ? {
-        street: streetAddress,
-        city,
-        state,
-        postalCode: zipCode,
-        country,
-        phoneNumber: phoneNumber || ''
-      } : undefined
-    });
+    isLoading = true;
+    errorMessage = '';
 
-    console.log(data)
+    try {
+      // 1️⃣ Sign up — store all metadata
+      const data = await signUp({
+        email,
+        password,
+        firstName,
+        lastName,
+        address: showAddressFields ? {
+          street: streetAddress,
+          city,
+          state,
+          postalCode: zipCode,
+          country,
+          phoneNumber: phoneNumber || ''
+        } : undefined
+      });
+
+      console.log(data)
       // 🚨 Check if session already exists (means user is already registered and verified)
       if (data?.user && data?.user.identities?.length === 0) {
-  errorMessage = 'An account with this email already exists. Please Log in or use a different email.';
-  return;
-}
-    // 2️⃣ After signup success → Show success and redirect to verification page
-    formSubmitted = false;
-    goto('/account/verify-email');
-  } catch (e: any) {
-    errorMessage = e.message || 'Something went wrong. Please try again.';
-  } finally {
-    isLoading = false;
+        errorMessage = 'An account with this email already exists. Please Log in or use a different email.';
+        return;
+      }
+      // 2️⃣ After signup success → Show success and redirect to verification page
+      formSubmitted = false;
+      goto('/account/verify-email');
+    } catch (e: any) {
+      errorMessage = e.message || 'Something went wrong. Please try again.';
+    } finally {
+      isLoading = false;
+    }
   }
-}
-
-
 
   // Animate in
   onMount(() => {
@@ -265,6 +329,9 @@
           {/if}
         </div>
       </div>
+      <div class="text-xs text-gray-500 mb-2">
+        Please use your real name for shipping and account verification purposes.
+      </div>
 
       <!-- Email -->
       <div class="form-field">
@@ -284,7 +351,7 @@
         {/if}
       </div>
 
-      <!-- Phone Number (Optional) -->
+      <!-- Phone Number with validation -->
       <div class="form-field">
         <label for="phoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
           Phone Number <span class="text-gray-400 text-xs">(Optional)</span>
@@ -292,11 +359,15 @@
         <input
           id="phoneNumber"
           type="tel"
-          bind:value={phoneNumber}
-          on:input={resetFieldError}
-          class="w-full px-3 py-2 border border-gray-300 focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-          placeholder="(123) 456-7890"
+          value={phoneNumber}
+          on:input={handlePhoneInput}
+          on:blur={() => touchField('phoneNumber')}
+          class="w-full px-3 py-2 border {phoneNumberTouched && !isPhoneNumberValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+          placeholder="(555) 555-5555"
         >
+        {#if phoneNumberTouched && phoneNumberError}
+          <p class="mt-1 text-sm text-red-600">{phoneNumberError}</p>
+        {/if}
       </div>
 
       <!-- Password -->
@@ -509,18 +580,19 @@
               <input
                 id="shippingPhoneNumber"
                 type="tel"
-                bind:value={phoneNumber}
-                on:input={resetFieldError}
+                value={phoneNumber}
+                on:input={handlePhoneInput}
                 on:blur={() => {
-                  // Using an existing variable to track if this field has been touched
+                  phoneNumberTouched = true;
                   streetAddressTouched = true;
+                  debouncedValidation();
                 }}
                 required={showAddressFields}
-                class="w-full px-3 py-2 border {streetAddressTouched && !phoneNumber && showAddressFields ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-                placeholder="(123) 456-7890"
+                class="w-full px-3 py-2 border {streetAddressTouched && (!phoneNumber || !isPhoneNumberValid) && showAddressFields ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
+                placeholder="(555) 555-5555"
               >
-              {#if streetAddressTouched && !phoneNumber && showAddressFields}
-                <p class="mt-1 text-sm text-red-600">Phone number is required for shipping</p>
+              {#if streetAddressTouched && (!phoneNumber || !isPhoneNumberValid) && showAddressFields}
+                <p class="mt-1 text-sm text-red-600">{phoneNumberError || 'Phone number is required for shipping'}</p>
               {/if}
             </div>
           {/if}
@@ -591,7 +663,7 @@
   .bg-gold { background-color: #b8860b; }
   .border-gold { border-color: #b8860b; }
   .hover\:bg-gold-dark:hover { background-color: #a67a09; }
-  .hover\:text-gold-dark:hover { color: #a67a09; }
+  .hover\:text-gold-dark:hover { color:#a67a09; }
   .focus\:border-gold:focus { border-color: #b8860b; }
   .focus\:ring-gold\/20:focus { --tw-ring-color: rgb(184 134 11 / 0.2); }
   .strength-meter-bar { transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out; height: 100%; }

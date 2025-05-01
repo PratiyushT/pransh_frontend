@@ -1,4 +1,4 @@
-import { client } from '$lib/sanity/client';
+import { client, fetchWithRetry } from '$lib/sanity/client';
 import {
   allFeaturedProductsQuery,
   allCategoriesQuery,
@@ -66,7 +66,14 @@ function transformSanityProduct(sanityProduct: any): Product {
 // Fetch all categories
 export async function getCategories(): Promise<Category[]> {
   try {
-    const sanityCategories = await client.fetch(allCategoriesQuery);
+    const sanityCategories = await fetchWithRetry(allCategoriesQuery);
+
+    // Handle the case where fetch might return null due to network issues
+    if (!sanityCategories) {
+      console.warn('Unable to fetch categories due to network issues, returning empty array');
+      return [];
+    }
+
     return sanityCategories.map((category: any) => ({
       _id: category._id,
       name: category.name,
@@ -81,7 +88,14 @@ export async function getCategories(): Promise<Category[]> {
 // Fetch all sizes
 export async function getSizes(): Promise<Size[]> {
   try {
-    const sanitySizes = await client.fetch(allSizesQuery);
+    const sanitySizes = await fetchWithRetry(allSizesQuery);
+
+    // Handle the case where fetch might return null due to network issues
+    if (!sanitySizes) {
+      console.warn('Unable to fetch sizes due to network issues, returning empty array');
+      return [];
+    }
+
     return sanitySizes.map((size: any) => ({
       _id: size._id,
       name: size.name
@@ -95,7 +109,13 @@ export async function getSizes(): Promise<Size[]> {
 // Fetch all colors
 export async function getColors(): Promise<Color[]> {
   try {
-    const sanityColors = await client.fetch(allColorsQuery);
+    const sanityColors = await fetchWithRetry(allColorsQuery);
+
+    // Handle the case where fetch might return null due to network issues
+    if (!sanityColors) {
+      console.warn('Unable to fetch colors due to network issues, returning empty array');
+      return [];
+    }
 
     return sanityColors.map((color: any) => {
       // Check if hex is an array - if not, make it an array with a single value
@@ -117,7 +137,11 @@ export async function getColors(): Promise<Color[]> {
 // Fetch all products
 export async function getProducts(): Promise<Product[]> {
   try {
-    const result = await client.fetch(paginatedProductsQuery(0, 100));
+    const result = await fetchWithRetry(paginatedProductsQuery(0, 100));
+    if (!result || !result.products) {
+      console.warn('Unable to fetch products due to network issues, returning empty array');
+      return [];
+    }
     return result.products.map(transformSanityProduct);
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -128,7 +152,11 @@ export async function getProducts(): Promise<Product[]> {
 // Fetch featured products
 export async function getFeaturedProducts(): Promise<Product[]> {
   try {
-    const featuredProducts = await client.fetch(allFeaturedProductsQuery);
+    const featuredProducts = await fetchWithRetry(allFeaturedProductsQuery);
+    if (!featuredProducts) {
+      console.warn('Unable to fetch featured products due to network issues, returning empty array');
+      return [];
+    }
     return featuredProducts.map(transformSanityProduct);
   } catch (error) {
     console.error('Error fetching featured products:', error);
@@ -180,7 +208,11 @@ export async function getProductsByCategory(categoryName: string): Promise<Produ
       }
     `;
 
-    const products = await client.fetch(query);
+    const products = await fetchWithRetry(query);
+    if (!products) {
+      console.warn(`Unable to fetch products for category ${categoryName} due to network issues, returning empty array`);
+      return [];
+    }
     return products.map(transformSanityProduct);
   } catch (error) {
     console.error(`Error fetching products for category ${categoryName}:`, error);
@@ -211,11 +243,17 @@ export function formatPrice(price: number): string {
 
 export async function getProductBySlug(slug: string) {
   try {
-    const product = await client.fetch(singleProductBySlugQuery(slug));
+    const product = await fetchWithRetry(singleProductBySlugQuery(slug));
+
+    if (!product) {
+      console.warn(`Unable to fetch product with slug '${slug}' due to network issues`);
+      return null;
+    }
+
     return product;
   } catch (err) {
     console.error('Error fetching product by slug:', err);
-    throw err;
+    return null; // Return null instead of throwing to prevent cascading failures
   }
 }
 
@@ -268,8 +306,7 @@ export async function getCartProductDetails(
     const productIds = [...new Set(validCartItems.map(i => i.productId))];
     const variantIds = [...new Set(validCartItems.map(i => i.variantId))];
 
-
-    const result = await client.fetch(fetchQuery, { productIds, variantIds });
+    const result = await fetchWithRetry(fetchQuery, { productIds, variantIds });
 
     const details: ProductDetails = {};
 
@@ -307,14 +344,14 @@ export async function getCartProductDetails(
       // Fetch each product and variant individually
       for (const item of validCartItems) {
         try {
-          const product = await client.fetch(`
+          const product = await fetchWithRetry(`
             *[_type == "product" && _id == $productId][0]{
               _id,
               name
             }
           `, { productId: item.productId });
 
-          const variant = await client.fetch(`
+          const variant = await fetchWithRetry(`
             *[_type == "variant" && _id == $variantId][0]{
               _id,
               sku,
