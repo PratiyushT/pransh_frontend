@@ -1,0 +1,214 @@
+-- =============================================================
+-- FINAL AUTHENTICATION + PROFILE + ADDRESS CREATION FLOW (AFTER EMAIL VERIFICATION)
+-- =============================================================
+
+-- USER FLOW (Reference)
+--
+-- User fills Registration Form (First Name + Last Name + Email + Password + (Optional) Shipping Address)
+-- ↓
+-- Call Supabase auth.signUp():
+--   - Create only auth.users record
+--   - Save first_name, last_name, and shipping address inside user_metadata temporarily
+-- ↓
+-- Show Success: "Check your email to verify your account"
+-- ↓
+-- User verifies email (clicks confirmation link)
+-- ↓
+-- Supabase triggers Edge Function:
+--   - Insert into public.profiles (user_id, first_name, last_name, email)
+--   - If shipping address exists, insert into public.addresses linked to profile_id with label 'Default'
+-- ↓
+-- User's account is now fully created and ready
+-- END
+
+-- =============================================================
+-- 0. DROP OLD STRUCTURES IF ANY
+-- =============================================================
+
+DROP FUNCTION IF EXISTS public.handle_user_verified() CASCADE;
+DROP TRIGGER IF EXISTS on_auth_user_email_confirmed ON auth.users;
+
+DROP TABLE IF EXISTS public.profiles CASCADE;
+DROP TABLE IF EXISTS public.addresses CASCADE;
+
+-- =============================================================
+-- 1. PROFILES TABLE
+-- =============================================================
+
+CREATE TABLE public.profiles (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- Internal ID
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE, -- Link to auth.users
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE, -- Enforce email uniqueness in profiles
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow users to select their own profile"
+ON public.profiles
+FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Allow users to update their own profile"
+ON public.profiles
+FOR UPDATE
+USING (auth.uid() = user_id);
+
+-- Auto-update updated_at
+CREATE OR REPLACE FUNCTION update_profile_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_profile_updated_at
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW
+EXECUTE PROCEDURE update_profile_updated_at();
+
+-- =============================================================
+-- 2. ADDRESSES TABLE
+-- =============================================================
+
+CREATE TABLE public.addresses (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  profile_id BIGINT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, -- Linked to profiles
+  label TEXT DEFAULT 'Default', -- Always default label for auto-insert
+  street TEXT NOT NULL,
+  city TEXT NOT NULL,
+  state TEXT,
+  postal_code TEXT NOT NULL,
+  country TEXT NOT NULL,
+  phone_number TEXT NOT NULL,
+  is_default BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.addresses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow users to select their own addresses"
+ON public.addresses
+FOR SELECT
+USING (
+  profile_id IN (SELECT id FROM public.profiles WHERE user_id = auth.uid())
+);
+
+CREATE POLICY "Allow users to update their own addresses"
+ON public.addresses
+FOR UPDATE
+USING (
+  profile_id IN (SELECT id FROM public.profiles WHERE user_id = auth.uid())
+)
+WITH CHECK (
+  profile_id IN (SELECT id FROM public.profiles WHERE user_id = auth.uid())
+);
+
+-- Auto-update updated_at
+CREATE OR REPLACE FUNCTION update_address_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_address_updated_at
+BEFORE UPDATE ON public.addresses
+FOR EACH ROW
+EXECUTE PROCEDURE update_address_updated_at();
+
+-- Enforce only one default address per profile
+CREATE UNIQUE INDEX IF NOT EXISTS one_default_address_per_profile
+ON public.addresses (profile_id)
+WHERE is_default = TRUE;
+
+-- =============================================================
+-- 3. FUNCTION: HANDLE EMAIL CONFIRMATION
+-- =============================================================
+
+-- This function runs AFTER user confirms email
+-- It inserts a profile, and if shipping address metadata exists, inserts address too
+
+CREATE OR REPLACE FUNCTION public.handle_user_verified()
+RETURNS TRIGGER AS $$
+DECLARE
+  shipping jsonb;
+  new_profile_id BIGINT;
+BEGIN
+  -- Only act if email is confirmed
+  IF NEW.email_confirmed_at IS NOT NULL THEN
+
+    -- Insert into profiles
+    INSERT INTO public.profiles (user_id, first_name, last_name, email)
+    VALUES (
+      NEW.id,
+      COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
+      COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
+      NEW.email
+    )
+    RETURNING id INTO new_profile_id;
+
+    -- If user_metadata has shipping address, insert it too
+    shipping := NEW.raw_user_meta_data->'shipping_address';
+
+    IF shipping IS NOT NULL THEN
+      INSERT INTO public.addresses (
+        profile_id,
+        street,
+        city,
+        state,
+        postal_code,
+        country,
+        phone_number,
+        label,
+        is_default
+      )
+      VALUES (
+        new_profile_id,
+        shipping->>'street',
+        shipping->>'city',
+        shipping->>'state',
+        shipping->>'postalCode',
+        shipping->>'country',
+        shipping->>'phoneNumber',
+        'Default',
+        TRUE
+      );
+    END IF;
+
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================
+-- 4. TRIGGER: LISTEN TO EMAIL CONFIRMATION
+-- =============================================================
+
+CREATE TRIGGER on_auth_user_email_confirmed
+AFTER UPDATE ON auth.users
+FOR EACH ROW
+WHEN (NEW.email_confirmed_at IS NOT NULL AND OLD.email_confirmed_at IS NULL)
+EXECUTE FUNCTION public.handle_user_verified();
+
+
+select
+  event_object_schema as table_schema,
+  event_object_table as table_name,
+  trigger_name,
+  action_timing,
+  event_manipulation,
+  action_statement
+from
+  information_schema.triggers
+where
+  trigger_schema not in ('pg_catalog', 'information_schema')
+order by
+  table_schema, table_name, trigger_name;
