@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
-  import AddressSearch from '$lib/components/AddressSearch.svelte';
+  import ReusableAddressForm from '$lib/components/ReusableAddressForm.svelte';
   import { signUp } from '$lib/auth/auth';
 
   // Form data
@@ -140,71 +140,16 @@
 
   // Address state
   let showAddressFields = false;
-  let showManualAddressForm = false;
-  let streetAddress = '';
-  let city = '';
-  let state = '';
-  let zipCode = '';
-  let country = 'United States';
-  let addressSelected = false;
-  let addressFromMapbox = false;
 
-  // Address interaction
-  let streetAddressTouched = false;
-  let cityTouched = false;
-  let stateTouched = false;
-  let zipCodeTouched = false;
-  let countryTouched = false;
-
-  const countries = [
-    'United States','Canada','United Kingdom','Australia',
-    'India','Germany','France','Japan','China','Brazil','Other'
-  ];
-
-  function handleAddressSelected(event: CustomEvent) {
-    const addr = event.detail;
-    streetAddress = addr.addressLine1;
-    city          = addr.city;
-    state         = addr.state;
-    zipCode       = addr.postalCode;
-    country       = addr.country;
-    streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
-    addressSelected = true;
-    addressFromMapbox = true;
-    resetFieldError();
-  }
-  function handleAddressCleared() {
-    addressSelected = addressFromMapbox = false;
-  }
-  const handleShowManualEntry = () => showManualAddressForm = true;
-  const enableManualEdit = () => addressFromMapbox = false;
-  const toggleAddressFields = () => {
-    showAddressFields = !showAddressFields;
-    if (!showAddressFields && formSubmitted) resetFieldError();
+  // Address data
+  let addressData = {
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'United States',
+    phoneNumber: ''
   };
-
-  // Reactive validity flags
-  $: isFirstNameValid       = !firstNameTouched      || firstName.length > 1;
-  $: isLastNameValid        = !lastNameTouched       || lastName.length > 1;
-  $: isEmailValid           = !emailTouched          || validateEmail(email);
-  $: isPasswordValid        = !passwordTouched       || password.length >= 6;
-  $: isConfirmPasswordValid = !confirmPasswordTouched|| confirmPassword === password;
-  $: isTermsAccepted        = !termsTouched          || acceptTerms;
-
-  $: isStreetAddressValid   = !streetAddressTouched  || !showAddressFields || streetAddress.length > 3;
-  $: isCityValid            = !cityTouched           || !showAddressFields || city.length > 2;
-  $: isStateValid           = !stateTouched          || !showAddressFields || state.length > 1;
-  $: isZipCodeValid         = !zipCodeTouched        || !showAddressFields || zipCode.length > 3;
-  $: isCountryValid         = !countryTouched        || !showAddressFields || country.length > 0;
-
-  // Update isPhoneNumberValid to use the validatePhoneNumber function
-  $: isPhoneNumberValid = !phoneNumberTouched || (phoneNumber ? validatePhoneNumber(phoneNumber) : true);
-
-  $: isFormValid = firstName && lastName && email && password && confirmPassword &&
-                   password === confirmPassword && acceptTerms &&
-                   isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
-                   (!showAddressFields || (isStreetAddressValid && isCityValid && isStateValid &&
-                                          isZipCodeValid && isCountryValid && (phoneNumber && phoneNumber.length > 0 ? isPhoneNumberValid : true)));
 
   // Reset errors on input
   const resetFieldError = () => {
@@ -212,11 +157,42 @@
     debouncedValidation();
   };
 
+  // Handle address toggle
+  function handleAddressToggle(event: CustomEvent) {
+    showAddressFields = event.detail.show;
+    if (!showAddressFields && formSubmitted) resetFieldError();
+  }
+
+  // Address form validity
+  let isAddressFormValid = true;
+
+  function handleAddressFormValidityChange(event: CustomEvent) {
+    isAddressFormValid = event.detail.valid;
+  }
+
+  // Handle address changes
+  function handleAddressChange(event: CustomEvent) {
+    addressData = event.detail.addressData;
+  }
+
+  // Reactive validity flags
+  $: isFirstNameValid = !firstNameTouched || firstName.length > 1;
+  $: isLastNameValid = !lastNameTouched || lastName.length > 1;
+  $: isEmailValid = !emailTouched || validateEmail(email);
+  $: isPasswordValid = !passwordTouched || password.length >= 6;
+  $: isConfirmPasswordValid = !confirmPasswordTouched || confirmPassword === password;
+  $: isTermsAccepted = !termsTouched || acceptTerms;
+  $: isPhoneNumberValid = !phoneNumberTouched || (phoneNumber ? validatePhoneNumber(phoneNumber) : true);
+
+  $: isFormValid = firstName && lastName && email && password && confirmPassword &&
+                   password === confirmPassword && acceptTerms &&
+                   isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
+                   (!showAddressFields || isAddressFormValid);
+
   // Update handleSubmit to validate phone number before submission
   async function handleSubmit() {
     formSubmitted = true;
     firstNameTouched = lastNameTouched = emailTouched = passwordTouched = confirmPasswordTouched = termsTouched = phoneNumberTouched = true;
-    if (showAddressFields) streetAddressTouched = cityTouched = stateTouched = zipCodeTouched = countryTouched = true;
 
     // Validate phone number if provided
     if (phoneNumber && !validatePhoneNumber(phoneNumber)) {
@@ -240,12 +216,12 @@
         firstName,
         lastName,
         address: showAddressFields ? {
-          street: streetAddress,
-          city,
-          state,
-          postalCode: zipCode,
-          country,
-          phoneNumber: phoneNumber || ''
+          street: addressData.street,
+          city: addressData.city,
+          state: addressData.state,
+          postalCode: addressData.postalCode,
+          country: addressData.country,
+          phoneNumber: addressData.phoneNumber || phoneNumber || ''
         } : undefined
       });
 
@@ -448,156 +424,19 @@
         {/if}
       </div>
 
-      <!-- Address toggle -->
-      <div class="form-field">
-        <button type="button" class="text-gold hover:text-gold-dark flex items-center text-sm font-medium transition-colors" on:click={toggleAddressFields}>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={showAddressFields ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
-          </svg>
-          {showAddressFields ? 'Hide Shipping Address' : 'Add Shipping Address'}
-        </button>
-      </div>
-
-      {#if showAddressFields}
-        <div class="address-fields space-y-6 border-t border-b border-gray-200 py-6 mt-4 animate-fade-in">
-          <div class="form-field">
-            <AddressSearch
-              on:addressSelected={handleAddressSelected}
-              on:addressCleared={handleAddressCleared}
-              on:showManualEntry={handleShowManualEntry}
-            />
-          </div>
-
-          {#if showManualAddressForm || addressSelected}
-            <div class="form-field animate-fade-in">
-              {#if addressFromMapbox}
-                <div class="mapbox-selection-notice">
-                  <div class="mapbox-notice-content">
-                    <p>Address selected from search</p>
-                    <button type="button" class="edit-address-btn" on:click={enableManualEdit}>Edit address manually</button>
-                  </div>
-                </div>
-              {/if}
-              <label for="streetAddress" class="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
-              <input
-                id="streetAddress"
-                type="text"
-                bind:value={streetAddress}
-                on:input={resetFieldError}
-                on:blur={() => streetAddressTouched = true}
-                readonly={addressFromMapbox}
-                required={showAddressFields}
-                class="w-full px-3 py-2 border {streetAddressTouched && !isStreetAddressValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                placeholder="123 Main St, Apt 4B"
-              >
-              {#if streetAddressTouched && !isStreetAddressValid}
-                <p class="mt-1 text-sm text-red-600">Please enter a valid street address</p>
-              {/if}
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-              <div class="form-field">
-                <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City</label>
-                <input
-                  id="city"
-                  type="text"
-                  bind:value={city}
-                  on:input={resetFieldError}
-                  on:blur={() => cityTouched = true}
-                  readonly={addressFromMapbox}
-                  required={showAddressFields}
-                  class="w-full px-3 py-2 border {cityTouched && !isCityValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                  placeholder="New York"
-                >
-                {#if cityTouched && !isCityValid}
-                  <p class="mt-1 text-sm text-red-600">City is required</p>
-                {/if}
-              </div>
-              <div class="form-field">
-                <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State/Province</label>
-                <input
-                  id="state"
-                  type="text"
-                  bind:value={state}
-                  on:input={resetFieldError}
-                  on:blur={() => stateTouched = true}
-                  readonly={addressFromMapbox}
-                  required={showAddressFields}
-                  class="w-full px-3 py-2 border {stateTouched && !isStateValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                  placeholder="NY"
-                >
-                {#if stateTouched && !isStateValid}
-                  <p class="mt-1 text-sm text-red-600">State/Province is required</p>
-                {/if}
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-              <div class="form-field">
-                <label for="zipCode" class="block text-sm font-medium text-gray-700 mb-1">Zip/Postal Code</label>
-                <input
-                  id="zipCode"
-                  type="text"
-                  bind:value={zipCode}
-                  on:input={resetFieldError}
-                  on:blur={() => zipCodeTouched = true}
-                  readonly={addressFromMapbox}
-                  required={showAddressFields}
-                  class="w-full px-3 py-2 border {zipCodeTouched && !isZipCodeValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm {addressFromMapbox ? 'input-readonly' : ''}"
-                  placeholder="10001"
-                >
-                {#if zipCodeTouched && !isZipCodeValid}
-                  <p class="mt-1 text-sm text-red-600">Zip/Postal code is required</p>
-                {/if}
-              </div>
-              <div class="form-field">
-                <label for="country" class="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                <select
-                  id="country"
-                  bind:value={country}
-                  on:change={resetFieldError}
-                  on:blur={() => countryTouched = true}
-                  disabled={addressFromMapbox}
-                  required={showAddressFields}
-                  class="w-full px-3 py-2 border {countryTouched && !isCountryValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm bg-white {addressFromMapbox ? 'input-readonly' : ''}"
-                >
-                  <option value="">Select Country</option>
-                  {#each countries as countryOption}
-                    <option value={countryOption}>{countryOption}</option>
-                  {/each}
-                </select>
-                {#if countryTouched && !isCountryValid}
-                  <p class="mt-1 text-sm text-red-600">Country is required</p>
-                {/if}
-              </div>
-            </div>
-
-            <!-- Mandatory Phone Number for Shipping Address -->
-            <div class="form-field animate-fade-in">
-              <label for="shippingPhoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number <span class="text-red-500">*</span>
-              </label>
-              <input
-                id="shippingPhoneNumber"
-                type="tel"
-                value={phoneNumber}
-                on:input={handlePhoneInput}
-                on:blur={() => {
-                  phoneNumberTouched = true;
-                  streetAddressTouched = true;
-                  debouncedValidation();
-                }}
-                required={showAddressFields}
-                class="w-full px-3 py-2 border {streetAddressTouched && (!phoneNumber || !isPhoneNumberValid) && showAddressFields ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-                placeholder="(555) 555-5555"
-              >
-              {#if streetAddressTouched && (!phoneNumber || !isPhoneNumberValid) && showAddressFields}
-                <p class="mt-1 text-sm text-red-600">{phoneNumberError || 'Phone number is required for shipping'}</p>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {/if}
+      <!-- Address form -->
+      <ReusableAddressForm
+        bind:showAddressFields
+        bind:addressData
+        showAddressToggle={true}
+        addressRequired={false}
+        phoneNumberRequired={true}
+        showPhoneNumber={true}
+        on:toggleAddress={handleAddressToggle}
+        on:change={handleAddressChange}
+        on:validityChange={handleAddressFormValidityChange}
+        on:resetError={resetFieldError}
+      />
 
       <!-- Terms -->
       <div class="form-field">

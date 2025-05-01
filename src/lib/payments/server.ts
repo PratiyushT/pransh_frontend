@@ -1,11 +1,10 @@
-import { STRIPE_SECRET_KEY } from '$lib/env'
 import Stripe from 'stripe'
 
 // Import from environment directly rather than using $env
 // The STRIPE_SECRET_KEY should be picked up from the .env file
 
 // Add fallback and error handling
-const stripeSecretKey = STRIPE_SECRET_KEY || ''
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || ''
 if (!stripeSecretKey) {
   console.error('Missing Stripe secret key in environment variables')
 }

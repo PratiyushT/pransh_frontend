@@ -4,11 +4,9 @@
   import { cart, keepOnlyLastCartItem, savedCart, savedCartCount, restoreSavedCart } from '$lib/stores';
   import { getCartProductDetails } from '$lib/sanity/sanityData';
   import { formatPrice } from '$lib/utils/data';
-  import AddressSearch from '$lib/components/AddressSearch.svelte';
+  import ReusableAddressForm from '$lib/components/ReusableAddressForm.svelte';
   import { page } from '$app/stores';
   import { getStripePromise } from '$lib/payments/client';
-
-  // DEBUG: Log environment variables to console
 
   let productDetails: Record<string, any> = {};
   let isLoadingProducts = true;
@@ -17,35 +15,56 @@
   let shippingCost = 15.0;
   let total = 0;
 
-  // Check if this is a direct checkout (Buy Now functionality)
   let isDirectCheckout = false;
   let directCheckoutItem = null;
-
-  // Use the $page store to detect when direct checkout is active
-  // and handle restoration when component is destroyed
   let isDirectCheckoutActive = false;
 
-  // Form validation
   let formSubmitted = false;
   let errorMessage = '';
   let errorDetails = '';
   let checkoutError = false;
 
-  // Stripe instance
   let stripeInstance: any = null;
 
-  // Shipping form fields
+  // Update the shippingDetails object structure
   let shippingDetails = {
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: 'United States'
+    address: {
+      street: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: 'United States',
+      phoneNumber: ''
+    }
+  };
+
+  // Create a mapped addressData object that references the shippingDetails.address structure
+  let addressData = {
+    get street() { return shippingDetails.address.street; },
+    set street(val) { shippingDetails.address.street = val; },
+
+    get addressLine2() { return shippingDetails.address.addressLine2; },
+    set addressLine2(val) { shippingDetails.address.addressLine2 = val; },
+
+    get city() { return shippingDetails.address.city; },
+    set city(val) { shippingDetails.address.city = val; },
+
+    get state() { return shippingDetails.address.state; },
+    set state(val) { shippingDetails.address.state = val; },
+
+    get postalCode() { return shippingDetails.address.postalCode; },
+    set postalCode(val) { shippingDetails.address.postalCode = val; },
+
+    get country() { return shippingDetails.address.country; },
+    set country(val) { shippingDetails.address.country = val; },
+
+    get phoneNumber() { return shippingDetails.address.phoneNumber; },
+    set phoneNumber(val) { shippingDetails.address.phoneNumber = val; }
   };
 
   // Field interaction tracking
@@ -60,30 +79,25 @@
   let countryTouched = false;
 
   // Address search state
-  let showManualEntryForm = false;
+  let showManualAddressForm = false;
   let addressSelected = false;
   let mapboxLoadError = false;
   let addressFromMapbox = false;
 
-  // For storing the buy now product (if any)
   let buyNowProduct = null;
 
-  // Compute the cart items to display
   $: displayedCart = $cart;
 
-  // Watch for direct checkout param and track it
   $: {
     const url = $page.url || (typeof window !== 'undefined' && window.location ? new URL(window.location.href) : null);
     if (url) {
       const params = url.searchParams;
       isDirectCheckout = params.get('direct') === 'true';
 
-      // Set active flag for restoration on destroy
       if (isDirectCheckout) {
         isDirectCheckoutActive = true;
       }
 
-      // If this is a direct checkout, keep only the last item (most recently added)
       if (isDirectCheckout && $cart && $cart.length > 0) {
         buyNowProduct = $cart[$cart.length - 1];
         keepOnlyLastCartItem();
@@ -91,7 +105,6 @@
     }
   }
 
-  // Add an onDestroy hook to ensure cart restoration when component is unmounted
   onDestroy(() => {
     try {
       if (isDirectCheckoutActive && $savedCartCount > 0) {
@@ -113,7 +126,6 @@
     }
   });
 
-  // Update subtotal and total
   $: subtotal = (displayedCart && Array.isArray(displayedCart))
     ? displayedCart.reduce((sum, item) => {
       const details = productDetails[`${item.productId}___${item.variantId}`];
@@ -125,26 +137,28 @@
     : 0;
   $: total = subtotal + (subtotal > 0 ? shippingCost : 0);
 
-  // Form validation
   $: isFirstNameValid = !firstNameTouched || shippingDetails.firstName.length > 1;
   $: isLastNameValid = !lastNameTouched || shippingDetails.lastName.length > 1;
   $: isEmailValid = !emailTouched || validateEmail(shippingDetails.email);
   $: isPhoneValid = !phoneTouched || shippingDetails.phone.length > 5;
-  $: isAddressLine1Valid = !addressLine1Touched || shippingDetails.addressLine1.length > 3;
-  $: isCityValid = !cityTouched || shippingDetails.city.length > 2;
-  $: isStateValid = !stateTouched || shippingDetails.state.length > 1;
-  $: isPostalCodeValid = !postalCodeTouched || shippingDetails.postalCode.length > 3;
-  $: isCountryValid = !countryTouched || shippingDetails.country.length > 0;
+  $: isAddressLine1Valid = !addressLine1Touched || shippingDetails.address.street.length > 3;
+  $: isCityValid = !cityTouched || shippingDetails.address.city.length > 2;
+  $: isStateValid = !stateTouched || shippingDetails.address.state.length > 1;
+  $: isPostalCodeValid = !postalCodeTouched || shippingDetails.address.postalCode.length > 3;
+  $: isCountryValid = !countryTouched || shippingDetails.address.country.length > 0;
+
+  // Add address form validity tracking
+  let isAddressFormValid = true;
 
   $: isFormValid =
     shippingDetails.firstName &&
     shippingDetails.lastName &&
     shippingDetails.email &&
     shippingDetails.phone &&
-    shippingDetails.addressLine1 &&
-    shippingDetails.city &&
-    shippingDetails.state &&
-    shippingDetails.postalCode &&
+    shippingDetails.address.street &&
+    shippingDetails.address.city &&
+    shippingDetails.address.state &&
+    shippingDetails.address.postalCode &&
     isFirstNameValid &&
     isLastNameValid &&
     isEmailValid &&
@@ -153,12 +167,11 @@
     isCityValid &&
     isStateValid &&
     isPostalCodeValid &&
-    isCountryValid;
+    isCountryValid &&
+    isAddressFormValid;
 
-  // Automatically restore saved cart on mount if not direct checkout
   onMount(async () => {
     try {
-      // Initialize Stripe instance
       stripeInstance = await getStripePromise();
       if (!stripeInstance) {
         console.warn('Stripe.js failed to initialize on page load');
@@ -182,10 +195,8 @@
     }
   });
 
-  // We need to track the cart to avoid infinite refetching
   let previousCartJson = '';
 
-  // Only update when cart actually changes
   $: {
     if ($cart && Array.isArray($cart)) {
       const currentCartJson = JSON.stringify($cart);
@@ -231,12 +242,10 @@
     return emailRegex.test(email);
   }
 
-  // UPDATED FUNCTION: goToPayment
   async function goToPayment() {
     formSubmitted = true;
     checkoutError = false;
 
-    // Mark all fields as touched for validation
     firstNameTouched = true;
     lastNameTouched = true;
     emailTouched = true;
@@ -280,7 +289,6 @@
         };
       });
 
-
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -289,7 +297,18 @@
         body: JSON.stringify({
           items,
           origin: window.location.origin,
-          shippingDetails: shippingDetails
+          shippingDetails: {
+            firstName: shippingDetails.firstName,
+            lastName: shippingDetails.lastName,
+            email: shippingDetails.email,
+            phone: shippingDetails.phone,
+            addressLine1: shippingDetails.address.street,
+            addressLine2: shippingDetails.address.addressLine2 || '',
+            city: shippingDetails.address.city,
+            state: shippingDetails.address.state,
+            postalCode: shippingDetails.address.postalCode,
+            country: shippingDetails.address.country
+          }
         })
       });
 
@@ -304,9 +323,7 @@
         return;
       }
 
-      // Redirect to Stripe Checkout
       if (!stripeInstance) {
-        // Try to initialize Stripe again if it failed during page load
         stripeInstance = await getStripePromise();
       }
 
@@ -341,13 +358,15 @@
   function handleAddressSelected(event) {
     const address = event.detail;
 
-    shippingDetails = {
-      ...shippingDetails,
-      addressLine1: address.addressLine1,
+    shippingDetails.address = {
+      ...shippingDetails.address,
+      street: address.addressLine1,
+      addressLine2: address.addressLine2 || '',
       city: address.city,
       state: address.state,
       postalCode: address.postalCode,
-      country: address.country
+      country: address.country,
+      phoneNumber: address.phoneNumber || ''
     };
 
     addressLine1Touched = true;
@@ -372,18 +391,18 @@
   }
 
   function handleShowManualEntry() {
-    showManualEntryForm = true;
+    showManualAddressForm = true;
     errorMessage = '';
   }
 
   function toggleManualEntry() {
-    showManualEntryForm = !showManualEntryForm;
-    if (!showManualEntryForm) {
-      shippingDetails.addressLine1 = '';
-      shippingDetails.addressLine2 = '';
-      shippingDetails.city = '';
-      shippingDetails.state = '';
-      shippingDetails.postalCode = '';
+    showManualAddressForm = !showManualAddressForm;
+    if (!showManualAddressForm) {
+      shippingDetails.address.street = '';
+      shippingDetails.address.addressLine2 = '';
+      shippingDetails.address.city = '';
+      shippingDetails.address.state = '';
+      shippingDetails.address.postalCode = '';
       addressSelected = false;
       mapboxLoadError = false;
       addressFromMapbox = false;
@@ -393,7 +412,12 @@
 
   function handleAddressSearchError() {
     mapboxLoadError = true;
-    showManualEntryForm = true;
+    showManualAddressForm = true;
+  }
+
+  // Function to handle address form validity change
+  function handleAddressFormValidityChange(event: CustomEvent) {
+    isAddressFormValid = event.detail.valid;
   }
 
   const resetFieldError = () => {
@@ -594,150 +618,35 @@
           <div class="form-group full-width address-section">
             <h3 class="address-section-title">Shipping Address</h3>
 
-            {#if !showManualEntryForm && !mapboxLoadError}
-              <div class="form-group full-width address-search-wrapper">
-                <AddressSearch
-                  {showManualEntryForm}
-                  on:addressSelected={handleAddressSelected}
-                  on:addressCleared={handleAddressCleared}
-                  on:showManualEntry={handleShowManualEntry}
-                  on:error={handleAddressSearchError}
-                />
-              </div>
-            {:else}
-              {#if !mapboxLoadError}
-                <div class="manual-entry-header">
-                  <button
-                    type="button"
-                    class="toggle-manual-btn"
-                    on:click={toggleManualEntry}
-                  >
-                    ← Back to Address Search
-                  </button>
-                </div>
-              {/if}
-            {/if}
-
-            <div class="address-fields {addressSelected || showManualEntryForm || mapboxLoadError ? 'visible' : 'hidden'}">
-
-              {#if addressFromMapbox}
-                <div class="mapbox-selection-notice">
-                  <div class="mapbox-notice-content">
-                    <p>Address selected from search</p>
-                    <button
-                      type="button"
-                      class="edit-address-btn"
-                      on:click={enableManualEdit}
-                    >
-                      Edit address manually
-                    </button>
-                  </div>
-                </div>
-              {/if}
-
-              <div class="form-group full-width">
-                <label for="addressLine1">Address Line 1*</label>
-                <input
-                  type="text"
-                  id="addressLine1"
-                  bind:value={shippingDetails.addressLine1}
-                  on:input={resetFieldError}
-                  on:blur={() => touchField('addressLine1')}
-                  class="form-input {addressLine1Touched && !isAddressLine1Valid ? 'input-error' : ''} {addressFromMapbox ? 'input-readonly' : ''}"
-                  readonly={addressFromMapbox}
-                  required
-                />
-                {#if addressLine1Touched && !isAddressLine1Valid}
-                  <p class="form-error">Please enter a valid address</p>
-                {/if}
-              </div>
-
-              <div class="form-group full-width">
-                <label for="addressLine2">Address Line 2</label>
-                <input
-                  type="text"
-                  id="addressLine2"
-                  bind:value={shippingDetails.addressLine2}
-                  class="form-input {addressFromMapbox ? 'input-readonly' : ''}"
-                  readonly={addressFromMapbox}
-                />
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="city">City*</label>
-                  <input
-                    type="text"
-                    id="city"
-                    bind:value={shippingDetails.city}
-                    on:input={resetFieldError}
-                    on:blur={() => touchField('city')}
-                    class="form-input {cityTouched && !isCityValid ? 'input-error' : ''} {addressFromMapbox ? 'input-readonly' : ''}"
-                    readonly={addressFromMapbox}
-                    required
-                  />
-                  {#if cityTouched && !isCityValid}
-                    <p class="form-error">City is required</p>
-                  {/if}
-                </div>
-                <div class="form-group">
-                  <label for="state">State/Province*</label>
-                  <input
-                    type="text"
-                    id="state"
-                    bind:value={shippingDetails.state}
-                    on:input={resetFieldError}
-                    on:blur={() => touchField('state')}
-                    class="form-input {stateTouched && !isStateValid ? 'input-error' : ''} {addressFromMapbox ? 'input-readonly' : ''}"
-                    readonly={addressFromMapbox}
-                    required
-                  />
-                  {#if stateTouched && !isStateValid}
-                    <p class="form-error">State/Province is required</p>
-                  {/if}
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="postalCode">Postal Code*</label>
-                  <input
-                    type="text"
-                    id="postalCode"
-                    bind:value={shippingDetails.postalCode}
-                    on:input={resetFieldError}
-                    on:blur={() => touchField('postalCode')}
-                    class="form-input {postalCodeTouched && !isPostalCodeValid ? 'input-error' : ''} {addressFromMapbox ? 'input-readonly' : ''}"
-                    readonly={addressFromMapbox}
-                    required
-                  />
-                  {#if postalCodeTouched && !isPostalCodeValid}
-                    <p class="form-error">Postal code is required</p>
-                  {/if}
-                </div>
-                <div class="form-group">
-                  <label for="country">Country*</label>
-                  <select
-                    id="country"
-                    bind:value={shippingDetails.country}
-                    on:change={resetFieldError}
-                    on:blur={() => touchField('country')}
-                    class="form-input {countryTouched && !isCountryValid ? 'input-error' : ''} {addressFromMapbox ? 'input-readonly' : ''}"
-                    disabled={addressFromMapbox}
-                    required
-                  >
-                    <option value="United States">United States</option>
-                    <option value="Canada">Canada</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Australia">Australia</option>
-                    <option value="New Zealand">New Zealand</option>
-                  </select>
-                  {#if countryTouched && !isCountryValid}
-                    <p class="form-error">Country is required</p>
-                  {/if}
-                </div>
-              </div>
-            </div>
+            <ReusableAddressForm
+              bind:addressData={addressData}
+              showAddressFields={true}
+              showAddressToggle={false}
+              addressRequired={true}
+              phoneNumberRequired={true}
+              showPhoneNumber={true}
+              showMapboxSearch={true}
+              bind:firstNameTouched
+              bind:lastNameTouched
+              bind:emailTouched
+              bind:phoneTouched
+              bind:addressLine1Touched
+              bind:cityTouched
+              bind:stateTouched
+              bind:postalCodeTouched
+              bind:countryTouched
+              bind:showManualAddressForm
+              bind:addressSelected
+              bind:mapboxLoadError
+              bind:addressFromMapbox
+              on:resetError={resetFieldError}
+              on:touchField={(e) => touchField(e.detail)}
+              on:addressSelected={handleAddressSelected}
+              on:addressCleared={handleAddressCleared}
+              on:showManualEntry={handleShowManualEntry}
+              on:enableManualEdit={enableManualEdit}
+              on:validityChange={handleAddressFormValidityChange}
+            />
           </div>
         </div>
       </div>

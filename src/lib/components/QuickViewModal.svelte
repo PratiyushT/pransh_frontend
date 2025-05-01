@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatPrice } from "$lib/utils/data";
-  import { addToCart, clearCart } from "$lib/cart/cartStore";
+  import { addToCart, saveCartAndClearForDirectCheckout, cart } from "$lib/stores";
   import type { Product, Variant } from "$lib/types";
   import { onMount, createEventDispatcher } from "svelte";
   import ColorPieChart from "$lib/components/ColorPieChart.svelte";
@@ -82,25 +82,18 @@
   }
 
   // Add to cart functionality
-  async function handleAddToCart() {
+  function handleAddToCart() {
     if (!product || !selectedVariant) return;
     isAddingToCart = true;
-
-    try {
-      const success = await addToCart(product._id, selectedVariant._id, quantity);
-
-      if (success) {
-        addedToCart = true;
-        setTimeout(() => {
-          addedToCart = false;
-          handleClose();
-        }, 1000);
-      }
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-    } finally {
+    setTimeout(() => {
+      addToCart(product._id, selectedVariant._id, quantity);
       isAddingToCart = false;
-    }
+      addedToCart = true;
+      setTimeout(() => {
+        addedToCart = false;
+        handleClose();
+      }, 1000);
+    }, 600);
   }
 
   // Buy now functionality
@@ -108,31 +101,21 @@
     if (!product || !selectedVariant) return;
     isAddingToCart = true;
     isBuyingNow = true;
-
     try {
-      // Clear the cart first
-      await clearCart();
-
-      // Add the current item to cart
-      const success = await addToCart(product._id, selectedVariant._id, quantity);
-
-      if (success) {
-        showBuyNowTooltip = true;
+      await saveCartAndClearForDirectCheckout();
+      await addToCart(product._id, selectedVariant._id, quantity);
+      showBuyNowTooltip = true;
+      setTimeout(() => {
+        handleClose();
+        goto('/checkout?direct=true');
         setTimeout(() => {
-          handleClose();
-          goto('/checkout?direct=true');
-          setTimeout(() => {
-            showBuyNowTooltip = false;
-            isBuyingNow = false;
-          }, 3000);
-        }, 600);
-      } else {
-        throw new Error("Failed to add item to cart");
-      }
+          showBuyNowTooltip = false;
+          isBuyingNow = false;
+        }, 3000);
+      }, 600);
     } catch (error) {
       console.error("Error processing Buy Now:", error);
       isBuyingNow = false;
-    } finally {
       isAddingToCart = false;
     }
   }

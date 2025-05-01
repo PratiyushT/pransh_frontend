@@ -71,6 +71,14 @@
   $: isPasswordValid = !passwordTouched || password.trim() !== "";
   $: isFormValid = email && password && isEmailValid && isPasswordValid;
 
+  // Reset form error when fields change
+  const resetFieldError = () => {
+    if (formSubmitted) {
+      errorMessage = "";
+    }
+    debouncedValidation();
+  };
+
   const handleSubmit = async () => {
     formSubmitted = true;
     emailTouched = true;
@@ -147,14 +155,6 @@
     } finally {
       isLoading = false;
     }
-  };
-
-  // Reset form error when fields change
-  const resetFieldError = () => {
-    if (formSubmitted) {
-      errorMessage = "";
-    }
-    debouncedValidation();
   };
 
   // Page animation
@@ -441,5 +441,14 @@
 
   .animate-spin {
     animation: spin 1s linear infinite;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 </style>

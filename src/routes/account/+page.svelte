@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
   import { supabase } from '$lib/auth/client';
-  import AddressForm from '$lib/components/AddressForm.svelte';
+  import ReusableAddressForm from '$lib/components/ReusableAddressForm.svelte';
 
   // User data (in a real app, this would come from API)
   let user = {
@@ -1151,7 +1151,7 @@
                 {/if}
               {:else}
                 <!-- Address Form -->
-                <AddressForm
+                <ReusableAddressForm
                   editMode={isEditMode}
                   address={currentEditAddress || {}}
                   on:saved={handleAddressSaved}

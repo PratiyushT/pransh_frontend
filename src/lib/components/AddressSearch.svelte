@@ -2,7 +2,6 @@
     import {onMount, createEventDispatcher} from 'svelte';
     import {browser} from '$app/environment';
     import * as publicEnv from '$env/static/public';
-  import { MAPBOX_API_KEY } from '$lib/env';
 
     const dispatch = createEventDispatcher();
 
@@ -27,7 +26,7 @@
                 await import('@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css');
 
                 // Get API key from environment, with fallback
-                const mapboxApiKey = MAPBOX_API_KEY 
+                const mapboxApiKey = import.meta.env.VITE_MAPBOX_API_KEY 
                 mapboxgl.accessToken = mapboxApiKey;
 
                 // Initialize the geocoder with error handling

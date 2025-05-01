@@ -4,7 +4,6 @@
   import { page } from "$app/state";
   import { navigating } from "$app/stores";
   import { isLoading, syncWishlistToCookies } from "$lib";
-  import { initializeCart, cartLoading, cartError } from "$lib/cart/cartStore";
   import gsap from "gsap";
   import Header from "$lib/components/Header.svelte";
   import Footer from "$lib/components/Footer.svelte";
@@ -17,12 +16,9 @@
   let timeline: gsap.core.Timeline;
   let isMobile = false;
 
-  onMount(async () => {
+  onMount(() => {
     // Sync wishlist from localStorage to cookies on app initialization
     syncWishlistToCookies();
-
-    // Initialize the cart
-    await initializeCart();
 
     // Check if mobile/touch device
     isMobile =
@@ -138,32 +134,17 @@
   }
 </script>
 
-{#if $isLoading || $cartLoading}
+{#if $isLoading}
   <PageLoader />
 {/if}
 
 <div
   class="site-wrapper"
-  class:page-loading={$isLoading || $cartLoading}
+  class:page-loading={$isLoading}
   class:mobile={isMobile}
 >
   <Header />
   <Menu />
-
-  {#if $cartError}
-    <div class="cart-error-notification">
-      <div class="cart-error-content">
-        <span class="cart-error-icon">⚠️</span>
-        <span>{$cartError}</span>
-        <button
-          class="cart-error-close"
-          on:click={() => cartError.set(null)}
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  {/if}
 
   <main class="main-content" bind:this={mainContent}>
     <div class="page-wrapper" bind:this={pageWrapper}>
@@ -208,68 +189,10 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Cart error notification */
-  .cart-error-notification {
-    position: fixed;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 9999;
-    width: 90%;
-    max-width: 500px;
-    background-color: var(--color-cream, #f9f6f0);
-    border: 1px solid var(--color-gold, #ad974f);
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    padding: 0;
-    animation: slideDown 0.3s ease-out forwards;
-  }
-
-  .cart-error-content {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-  }
-
-  .cart-error-icon {
-    margin-right: 12px;
-  }
-
-  .cart-error-close {
-    margin-left: auto;
-    background: none;
-    border: none;
-    font-size: 20px;
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
-    color: #666;
-  }
-
-  .cart-error-close:hover {
-    color: #000;
-  }
-
-  @keyframes slideDown {
-    from {
-      transform: translate(-50%, -20px);
-      opacity: 0;
-    }
-    to {
-      transform: translate(-50%, 0);
-      opacity: 1;
-    }
-  }
-
   @media (max-width: 768px) {
     /* Add specific mobile styles if needed */
     .page-wrapper {
       overflow-x: hidden; /* Prevent horizontal scroll on mobile */
-    }
-
-    .cart-error-notification {
-      top: 60px;
-      width: 95%;
     }
   }
 </style>
