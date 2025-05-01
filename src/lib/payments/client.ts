@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { STRIPE_PUBLIC_KEY } from '$lib/env';
 
 // Define the global Stripe type
 declare global {
@@ -17,7 +18,7 @@ export const getStripePromise = () => {
   return new Promise((resolve) => {
     // Check if Stripe is already loaded
     if (window.Stripe) {
-      const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+      const stripeKey = STRIPE_PUBLIC_KEY;
       if (!stripeKey) {
         console.error('Missing Stripe public key in environment variables');
         resolve(null);
@@ -31,7 +32,7 @@ export const getStripePromise = () => {
     const checkStripeInterval = setInterval(() => {
       if (window.Stripe) {
         clearInterval(checkStripeInterval);
-        const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+        const stripeKey = STRIPE_PUBLIC_KEY;
         if (!stripeKey) {
           console.error('Missing Stripe public key in environment variables');
           resolve(null);

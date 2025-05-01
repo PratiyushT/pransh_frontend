@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { isMenuOpen, cartCount, wishlistCount, openSearch } from '$lib/stores/index';
+  import { isMenuOpen, wishlistCount, openSearch } from '$lib/stores/index';
+  import { cartCount } from '$lib/cart/cartStore';
   import gsap from 'gsap';
   import SearchModal from './SearchModal.svelte';
 

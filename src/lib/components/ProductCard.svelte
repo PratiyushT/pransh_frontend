@@ -4,6 +4,7 @@
   import { onMount, createEventDispatcher } from 'svelte';
   import gsap from 'gsap';
   import { isInWishlist, toggleWishlist } from '$lib';
+  import { addToCart } from '$lib/cart/cartStore';
   import ColorPieChart from '$lib/components/ColorPieChart.svelte';
 
   export let product: Product;
@@ -39,6 +40,7 @@
   let timeline: gsap.core.Timeline;
   let mainCartIcon: HTMLElement;
   let wishlistButton: HTMLElement;
+  let isAddingToCart = false;
 
   function handleImageError(event) {
     event.currentTarget.src = '/images/product-placeholder.jpg';
@@ -272,10 +274,90 @@
     dispatch('quickView',  { product });
   };
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    dispatch('quickView',  { product });
+
+    if (isAddingToCart || !product || !product.variants || product.variants.length === 0) {
+      return;
+    }
+
+    isAddingToCart = true;
+
+    try {
+      // Get the first variant for simplicity
+      // In a real implementation, you might want to let users select a variant
+      const defaultVariant = product.variants[0];
+
+      // Add the item to cart
+      const success = await addToCart(product._id, defaultVariant._id, 1);
+
+      if (success) {
+        // Display success animation
+        const cardRect = cardElement.getBoundingClientRect();
+        // Try to find the cart icon by aria-label or fallback to .cart-icon
+        let headerCartIcon = document.querySelector('.header .header-action-icon[aria-label="Cart"]');
+        if (!headerCartIcon) {
+          headerCartIcon = document.querySelector('.header .header-action-icon.cart-icon');
+        }
+        if (!headerCartIcon) {
+          headerCartIcon = document.querySelector('.header-sticky .header-action-icon[aria-label="Cart"]');
+        }
+        if (!headerCartIcon) {
+          headerCartIcon = document.querySelector('.header-sticky .header-action-icon.cart-icon');
+        }
+
+        if (headerCartIcon) {
+          const cartRect = headerCartIcon.getBoundingClientRect();
+
+          // Create flying item element
+          const flyingItem = document.createElement('div');
+          flyingItem.className = 'flying-cart-item';
+          flyingItem.style.position = 'fixed';
+          flyingItem.style.zIndex = '9999';
+          flyingItem.style.width = '40px';
+          flyingItem.style.height = '40px';
+          flyingItem.style.borderRadius = '50%';
+          flyingItem.style.background = `#fff url(${primaryImage}) center center / cover no-repeat`;
+          flyingItem.style.boxShadow = '0 2px 8px rgba(0,0,0,0.18)';
+          flyingItem.style.pointerEvents = 'none';
+          flyingItem.style.top = `${cardRect.top + cardRect.height / 2 - 20}px`;
+          flyingItem.style.left = `${cardRect.left + cardRect.width / 2 - 20}px`;
+          document.body.appendChild(flyingItem);
+
+          // Animate to cart icon
+          gsap.to(flyingItem, {
+            top: cartRect.top + cartRect.height / 2 - 10,
+            left: cartRect.left + cartRect.width / 2 - 10,
+            width: 20,
+            height: 20,
+            opacity: 0.7,
+            duration: 0.8,
+            ease: "power3.in",
+            onComplete: () => {
+              document.body.removeChild(flyingItem);
+
+              // Pulse animation on cart icon
+              gsap.fromTo(
+                headerCartIcon,
+                { scale: 1 },
+                {
+                  scale: 1.4,
+                  duration: 0.2,
+                  ease: "power1.out",
+                  yoyo: true,
+                  repeat: 1
+                }
+              );
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error adding item to cart:', error);
+    } finally {
+      isAddingToCart = false;
+    }
   };
 </script>
 
@@ -380,8 +462,8 @@
         </div>
       {/if}
 
-      <button class="add-to-cart-button" on:click={handleAddToCart}>
-        <span>Add to Cart</span>
+      <button class="add-to-cart-button" on:click={handleAddToCart} disabled={isAddingToCart}>
+        <span>{isAddingToCart ? 'Adding...' : 'Add to Cart'}</span>
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
           <circle cx="20" cy="21" r="1"></circle>
@@ -715,6 +797,11 @@
     opacity: 0.9;
     position: relative;
     overflow: hidden;
+  }
+
+  .add-to-cart-button[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .add-to-cart-button::before {

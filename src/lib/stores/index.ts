@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Product, CartItem } from '$lib/types';
 import { browser } from '$app/environment';
+import { loadCartFromSupabase, saveCartToSupabase } from '$lib/cart/cart';
 
 // Loading state
 export const isLoading = writable(true);
@@ -55,6 +56,45 @@ if (browser) {
         );
       }
     }
+
+    // Load cart from Supabase if user is logged in (async)
+    (async () => {
+      try {
+        const supabaseCart = await loadCartFromSupabase();
+        if (supabaseCart && Array.isArray(supabaseCart) && supabaseCart.length > 0) {
+          // Merge with any existing cart items
+          cart.update(currentCart => {
+            if (!currentCart || currentCart.length === 0) {
+              return supabaseCart;
+            }
+
+            // Create a merged cart combining local and Supabase items
+            const mergedCart = [...currentCart];
+
+            for (const supabaseItem of supabaseCart) {
+              const existingIndex = mergedCart.findIndex(
+                item =>
+                  item.productId === supabaseItem.productId &&
+                  item.variantId === supabaseItem.variantId
+              );
+
+              if (existingIndex >= 0) {
+                // Item exists, use the highest quantity
+                mergedCart[existingIndex].quantity =
+                  Math.max(mergedCart[existingIndex].quantity, supabaseItem.quantity);
+              } else {
+                // Item doesn't exist locally, add it
+                mergedCart.push(supabaseItem);
+              }
+            }
+
+            return mergedCart;
+          });
+        }
+      } catch (error) {
+        console.error('Error loading cart from Supabase:', error);
+      }
+    })();
   } catch (e) {
     console.error('Error loading cart from localStorage:', e);
   }
@@ -65,6 +105,11 @@ cart.subscribe((items) => {
   if (browser && Array.isArray(items)) {
     try {
       localStorage.setItem('cart', JSON.stringify(items));
+
+      // Save to Supabase as well (async, no await)
+      saveCartToSupabase(items).catch(error => {
+        console.error('Error saving cart to Supabase:', error);
+      });
     } catch (e) {
       console.error('Error saving cart to localStorage:', e);
     }
