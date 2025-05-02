@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import ProductCard from '$lib/components/ProductCard.svelte';
-  import QuickViewModal from '$lib/components/QuickViewModal.svelte';
+  import ProductCard from '$lib/components/UI/ProductCard.svelte';
+  import QuickViewModal from '$lib/components/UI/QuickViewModal.svelte';
   import gsap from 'gsap';
   import type { Product } from '$lib/types';
-  import LazyImage from '../components/LazyImage.svelte';
+  import LazyImage from '$lib/components/Loaders/LazyImage.svelte';
 
   // SSR‐injected data
   export let data: {

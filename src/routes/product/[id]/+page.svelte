@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import { formatPrice } from '$lib/utils/data';
   import { addToCart, isInWishlist, toggleWishlist, saveCartAndClearForDirectCheckout, cart } from '$lib/stores';
-  import ProductCard from '$lib/components/ProductCard.svelte';
-  import ColorPieChart from '$lib/components/ColorPieChart.svelte';
+  import ProductCard from '$lib/components/UI/ProductCard.svelte';
+  import ColorPieChart from '$lib/components/UI/ColorPieChart.svelte';
   import { goto } from '$app/navigation';
   import { get } from 'svelte/store';
 

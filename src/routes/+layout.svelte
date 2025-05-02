@@ -5,10 +5,10 @@
   import { navigating } from "$app/stores";
   import { isLoading, syncWishlistToCookies } from "$lib";
   import gsap from "gsap";
-  import Header from "$lib/components/Header.svelte";
-  import Footer from "$lib/components/Footer.svelte";
-  import Menu from "$lib/components/Menu.svelte";
-  import PageLoader from "$lib/components/PageLoader.svelte";
+  import Header from "$lib/components/LayoutElements/Header.svelte";
+  import Footer from "$lib/components/LayoutElements/Footer.svelte";
+  import Menu from "$lib/components/UI/Menu.svelte";
+  import PageLoader from "$lib/components/Loaders/PageLoader.svelte";
 
   let mainContent: HTMLElement;
   let pageWrapper: HTMLElement;

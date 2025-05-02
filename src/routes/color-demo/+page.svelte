@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ColorPieChart from '$lib/components/ColorPieChart.svelte';
+  import ColorPieChart from '$lib/components/UI/ColorPieChart.svelte';
 
   // Example color combinations
   const twoColorCombinations = [

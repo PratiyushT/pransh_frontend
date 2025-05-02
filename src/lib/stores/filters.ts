@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import type { Category, Color, Size } from '$lib/types';
-import { getCategories, getColors, getSizes } from '$lib/sanity/sanityData';
+import { getCategories, getColors, getSizes } from '$lib/sanity/utils/queriesTransform';
 
 // Create stores for filter data
 export const categoriesStore = writable<Category[]>([]);

@@ -1,7 +1,8 @@
-import { client } from '$lib/sanity/client';
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { singleProductBySlugQuery } from '$lib/sanity/queries';
+import { singleProductBySlugQuery } from '$lib/sanity/utils/queries';
+
+import client from "$lib/sanity/client";
 
 export const load: PageServerLoad = async ({ params }) => {
   const slug = params.id;

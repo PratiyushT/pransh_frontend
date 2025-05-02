@@ -1,8 +1,8 @@
 <script lang="ts">
-  import ProductCard from '$lib/components/ProductCard.svelte';
+  import ProductCard from '$lib/components/UI/ProductCard.svelte';
   import type { Product } from '$lib/types';
   import { goto } from '$app/navigation';
-  import QuickViewModal from '$lib/components/QuickViewModal.svelte';
+  import QuickViewModal from '$lib/components/UI/QuickViewModal.svelte';
 
   export let data: {
     products: Product[];

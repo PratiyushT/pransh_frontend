@@ -2,11 +2,12 @@
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { cart, keepOnlyLastCartItem, savedCart, savedCartCount, restoreSavedCart } from '$lib/stores';
-  import { getCartProductDetails } from '$lib/sanity/sanityData';
+  import { getCartProductDetails } from '$lib/sanity/utils/queriesTransform';
   import { formatPrice } from '$lib/utils/data';
-  import ReusableAddressForm from '$lib/components/ReusableAddressForm.svelte';
+  import AddressForm from '$lib/components/FormElements/AddressForm.svelte';
   import { page } from '$app/stores';
-  import { getStripePromise } from '$lib/payments/client';
+  import { getStripePromise } from '$lib/stripe/client';
+  import { Input, PhoneInput, EmailInput, FormGroup } from '$lib/components/FormElements';
 
   let productDetails: Record<string, any> = {};
   let isLoadingProducts = true;
@@ -549,76 +550,63 @@
         <div class="shipping-form">
           <h2 class="section-title">Shipping Details</h2>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="firstName">First Name*</label>
-              <input
-                type="text"
-                id="firstName"
-                bind:value={shippingDetails.firstName}
-                on:input={resetFieldError}
-                on:blur={() => touchField('firstName')}
-                class="form-input {firstNameTouched && !isFirstNameValid ? 'input-error' : ''}"
-                required
-              />
-              {#if firstNameTouched && !isFirstNameValid}
-                <p class="form-error">First name is required</p>
-              {/if}
-            </div>
-            <div class="form-group">
-              <label for="lastName">Last Name*</label>
-              <input
-                type="text"
-                id="lastName"
-                bind:value={shippingDetails.lastName}
-                on:input={resetFieldError}
-                on:blur={() => touchField('lastName')}
-                class="form-input {lastNameTouched && !isLastNameValid ? 'input-error' : ''}"
-                required
-              />
-              {#if lastNameTouched && !isLastNameValid}
-                <p class="form-error">Last name is required</p>
-              {/if}
-            </div>
-          </div>
+          <FormGroup columns={2}>
+            <Input
+              id="firstName"
+              label="First Name"
+              bind:value={shippingDetails.firstName}
+              bind:touched={firstNameTouched}
+              bind:valid={isFirstNameValid}
+              placeholder="John"
+              required={true}
+              errorMessage="First name is required"
+              on:input={resetFieldError}
+              on:blur={() => touchField('firstName')}
+            />
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="email">Email*</label>
-              <input
-                type="email"
-                id="email"
-                bind:value={shippingDetails.email}
-                on:input={resetFieldError}
-                on:blur={() => touchField('email')}
-                class="form-input {emailTouched && !isEmailValid ? 'input-error' : ''}"
-                required
-              />
-              {#if emailTouched && !isEmailValid}
-                <p class="form-error">Please enter a valid email address</p>
-              {/if}
-            </div>
-            <div class="form-group">
-              <label for="phone">Phone*</label>
-              <input
-                type="tel"
-                id="phone"
-                bind:value={shippingDetails.phone}
-                on:input={resetFieldError}
-                on:blur={() => touchField('phone')}
-                class="form-input {phoneTouched && !isPhoneValid ? 'input-error' : ''}"
-                required
-              />
-              {#if phoneTouched && !isPhoneValid}
-                <p class="form-error">Please enter a valid phone number</p>
-              {/if}
-            </div>
-          </div>
+            <Input
+              id="lastName"
+              label="Last Name"
+              bind:value={shippingDetails.lastName}
+              bind:touched={lastNameTouched}
+              bind:valid={isLastNameValid}
+              placeholder="Doe"
+              required={true}
+              errorMessage="Last name is required"
+              on:input={resetFieldError}
+              on:blur={() => touchField('lastName')}
+            />
+          </FormGroup>
+
+          <FormGroup columns={2}>
+            <EmailInput
+              id="email"
+              label="Email"
+              bind:value={shippingDetails.email}
+              bind:touched={emailTouched}
+              bind:valid={isEmailValid}
+              placeholder="your@email.com"
+              required={true}
+              on:input={resetFieldError}
+              on:blur={() => touchField('email')}
+            />
+
+            <PhoneInput
+              id="phone"
+              label="Phone"
+              bind:value={shippingDetails.phone}
+              bind:touched={phoneTouched}
+              bind:valid={isPhoneValid}
+              required={true}
+              on:input={resetFieldError}
+              on:blur={() => touchField('phone')}
+            />
+          </FormGroup>
 
           <div class="form-group full-width address-section">
             <h3 class="address-section-title">Shipping Address</h3>
 
-            <ReusableAddressForm
+            <AddressForm
               bind:addressData={addressData}
               showAddressFields={true}
               showAddressToggle={false}

@@ -1,10 +1,11 @@
 // src/lib/homepage/data/homepageData.server.ts
-import { client } from '$lib/sanity/client'
 import {
   allFeaturedProductsQuery,
   allCategoriesQuery,
   totalProductCountQuery
 } from './queries'
+
+import client from "$lib/sanity/client";
 
 /**
  * Fetch everything the homepage needs—all in one place.

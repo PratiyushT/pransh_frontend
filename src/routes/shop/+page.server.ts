@@ -1,7 +1,8 @@
 // src/routes/shop/+page.server.ts
 import type { PageServerLoad } from './$types';
-import { client }             from '$lib/sanity/client';
-import { buildProductsQuery } from '$lib/sanity/queryBuilder';
+import { buildProductsQuery } from '$lib/sanity/utils/queryBuilder';
+
+import client from "$lib/sanity/client";
 
 export const ssr = true;
 

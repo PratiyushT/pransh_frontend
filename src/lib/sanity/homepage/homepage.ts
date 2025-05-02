@@ -1,9 +1,10 @@
-import { client } from '../client';
-import { 
+import {
   allFeaturedProductsQuery, 
   allCategoriesQuery, 
   totalProductCountQuery 
-} from '../queries';
+} from '$lib/sanity/utils/queries';
+
+import client from "$lib/sanity/client";
 
 /**
  * Fetches all data needed for the homepage

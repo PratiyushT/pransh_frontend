@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
-  import ReusableAddressForm from '$lib/components/ReusableAddressForm.svelte';
-  import { signUp } from '$lib/auth/auth';
+  import AddressForm from '$lib/components/FormElements/AddressForm.svelte';
+  import { signUp } from '$lib/supabase/auth';
+  import { Input, PhoneInput, EmailInput, PasswordInput, FormGroup } from '$lib/components/FormElements';
 
   // Form data
   let firstName = '';
@@ -24,21 +25,14 @@
   let passwordTouched = false;
   let confirmPasswordTouched = false;
   let termsTouched = false;
-
-  // For phone number validation
   let phoneNumberTouched = false;
-  let phoneNumberError = '';
 
   // Password strength & visibility
   let passwordStrength = 0;
-  let showPassword = false;
-  let showConfirmPassword = false;
-
-  const togglePasswordVisibility = () => showPassword = !showPassword;
-  const toggleConfirmPasswordVisibility = () => showConfirmPassword = !showConfirmPassword;
 
   // Debounce helper
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
   function debouncedValidation() {
     if (debounceTimeout) clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
@@ -49,8 +43,6 @@
       }
       if (confirmPasswordTouched && password)
         isConfirmPasswordValid = confirmPassword === password;
-      if (phoneNumberTouched)
-        validatePhoneNumber(phoneNumber);
       if (formSubmitted && isFormValid)
         errorMessage = '';
     }, 300);
@@ -59,59 +51,6 @@
   // Simple validators
   function validateEmail(email: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
-
-  // Phone number validation
-  function validatePhoneNumber(phone: string) {
-    if (!phone) {
-      phoneNumberError = '';
-      return true; // Phone is optional in registration
-    }
-    // Remove all non-numeric characters for validation
-    const digits = phone.replace(/\D/g, '');
-    // Basic validation: 10-15 digits (international numbers can be longer)
-    if (digits.length < 10 || digits.length > 15) {
-      phoneNumberError = 'Phone number must have 10-15 digits';
-      return false;
-    }
-    // US format validation (optional)
-    const usPhoneRegex = /^(\+?1)?[\s-]?\(?(\d{3})\)?[\s-]?(\d{3})[\s-]?(\d{4})$/;
-    if (!usPhoneRegex.test(phone) && digits.length === 10) {
-      phoneNumberError = 'Format should be (555) 555-5555 or similar';
-      return false;
-    }
-    phoneNumberError = '';
-    return true;
-  }
-
-  // Format phone number as user types
-  function formatPhoneNumber(value: string) {
-    if (!value) return '';
-    // Remove all non-digit characters
-    const digits = value.replace(/\D/g, '');
-    // Format as (XXX) XXX-XXXX if it looks like a US number
-    if (digits.length <= 10) {
-      if (digits.length < 4) {
-        return digits;
-      } else if (digits.length < 7) {
-        return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-      } else {
-        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-      }
-    }
-    // For longer numbers (international), just keep as is with country code
-    return value;
-  }
-
-  // Handle phone number input
-  function handlePhoneInput(event: Event) {
-    const input = event.target as HTMLInputElement;
-    phoneNumberTouched = true;
-    // Format the phone number
-    const formattedNumber = formatPhoneNumber(input.value);
-    phoneNumber = formattedNumber;
-    // Reset error field
-    resetFieldError();
   }
 
   function checkPasswordStrength(p: string) {
@@ -182,23 +121,16 @@
   $: isPasswordValid = !passwordTouched || password.length >= 6;
   $: isConfirmPasswordValid = !confirmPasswordTouched || confirmPassword === password;
   $: isTermsAccepted = !termsTouched || acceptTerms;
-  $: isPhoneNumberValid = !phoneNumberTouched || (phoneNumber ? validatePhoneNumber(phoneNumber) : true);
+  $: isPhoneNumberValid = !phoneNumberTouched || true; // We'll use the component's validation
 
   $: isFormValid = firstName && lastName && email && password && confirmPassword &&
                    password === confirmPassword && acceptTerms &&
                    isFirstNameValid && isLastNameValid && isEmailValid && isPasswordValid &&
                    (!showAddressFields || isAddressFormValid);
 
-  // Update handleSubmit to validate phone number before submission
   async function handleSubmit() {
     formSubmitted = true;
     firstNameTouched = lastNameTouched = emailTouched = passwordTouched = confirmPasswordTouched = termsTouched = phoneNumberTouched = true;
-
-    // Validate phone number if provided
-    if (phoneNumber && !validatePhoneNumber(phoneNumber)) {
-      errorMessage = phoneNumberError || 'Please provide a valid phone number';
-      return;
-    }
 
     if (!isFormValid) {
       errorMessage = 'Please fix the errors in the form';
@@ -271,161 +203,101 @@
 
     <form on:submit|preventDefault={handleSubmit} class="space-y-6">
       <!-- Name grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="form-field">
-          <label for="firstName" class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-          <input
-            id="firstName"
-            type="text"
-            bind:value={firstName}
-            on:input={resetFieldError}
-            on:blur={() => touchField('firstName')}
-            class="w-full px-3 py-2 border {firstNameTouched && !isFirstNameValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-            placeholder="John"
-            required
-          >
-          {#if firstNameTouched && !isFirstNameValid}
-            <p class="mt-1 text-sm text-red-600">First name is required</p>
-          {/if}
-        </div>
-        <div class="form-field">
-          <label for="lastName" class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-          <input
-            id="lastName"
-            type="text"
-            bind:value={lastName}
-            on:input={resetFieldError}
-            on:blur={() => touchField('lastName')}
-            class="w-full px-3 py-2 border {lastNameTouched && !isLastNameValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-            placeholder="Doe"
-            required
-          >
-          {#if lastNameTouched && !isLastNameValid}
-            <p class="mt-1 text-sm text-red-600">Last name is required</p>
-          {/if}
-        </div>
-      </div>
+      <FormGroup columns={2}>
+        <Input
+          id="firstName"
+          label="First Name"
+          bind:value={firstName}
+          bind:touched={firstNameTouched}
+          bind:valid={isFirstNameValid}
+          placeholder="John"
+          required={true}
+          errorMessage="First name is required"
+          on:input={resetFieldError}
+          on:blur={() => touchField('firstName')}
+        />
+
+        <Input
+          id="lastName"
+          label="Last Name"
+          bind:value={lastName}
+          bind:touched={lastNameTouched}
+          bind:valid={isLastNameValid}
+          placeholder="Doe"
+          required={true}
+          errorMessage="Last name is required"
+          on:input={resetFieldError}
+          on:blur={() => touchField('lastName')}
+        />
+      </FormGroup>
+
       <div class="text-xs text-gray-500 mb-2">
         Please use your real name for shipping and account verification purposes.
       </div>
 
       <!-- Email -->
-      <div class="form-field">
-        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-        <input
-          id="email"
-          type="email"
-          bind:value={email}
-          on:input={resetFieldError}
-          on:blur={() => touchField('email')}
-          class="w-full px-3 py-2 border {emailTouched && !isEmailValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-          placeholder="your@email.com"
-          required
-        >
-        {#if emailTouched && !isEmailValid}
-          <p class="mt-1 text-sm text-red-600">Please enter a valid email address</p>
-        {/if}
-      </div>
+      <EmailInput
+        id="email"
+        label="Email Address"
+        bind:value={email}
+        bind:touched={emailTouched}
+        bind:valid={isEmailValid}
+        placeholder="your@email.com"
+        required={true}
+        on:input={resetFieldError}
+        on:blur={() => touchField('email')}
+      />
 
       <!-- Phone Number with validation -->
-      <div class="form-field">
-        <label for="phoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
-          Phone Number <span class="text-gray-400 text-xs">(Optional)</span>
-        </label>
-        <input
-          id="phoneNumber"
-          type="tel"
-          value={phoneNumber}
-          on:input={handlePhoneInput}
-          on:blur={() => touchField('phoneNumber')}
-          class="w-full px-3 py-2 border {phoneNumberTouched && !isPhoneNumberValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-          placeholder="(555) 555-5555"
-        >
-        {#if phoneNumberTouched && phoneNumberError}
-          <p class="mt-1 text-sm text-red-600">{phoneNumberError}</p>
-        {/if}
-      </div>
+      <PhoneInput
+        id="phoneNumber"
+        label="Phone Number"
+        bind:value={phoneNumber}
+        bind:touched={phoneNumberTouched}
+        bind:valid={isPhoneNumberValid}
+        required={false}
+        optional={true}
+        on:input={resetFieldError}
+        on:blur={() => touchField('phoneNumber')}
+      />
 
       <!-- Password -->
-      <div class="form-field">
-        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-        <div class="relative">
-          <input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            bind:value={password}
-            on:input={resetFieldError}
-            on:blur={() => touchField('password')}
-            class="w-full px-3 py-2 border {passwordTouched && !isPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-            placeholder="••••••••"
-            required
-          >
-          <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold focus:outline-none transition-colors" on:click={togglePasswordVisibility}>
-            {#if showPassword}
-              <!-- hide icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59"/></svg>
-            {:else}
-              <!-- show icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            {/if}
-          </button>
-        </div>
-        {#if passwordTouched}
-          <div class="mt-1 h-1 w-full bg-gray-200 rounded-full overflow-hidden">
-            <div class="strength-meter-bar {passwordStrength === 1 ? 'bg-red-500' : passwordStrength === 2 ? 'bg-yellow-500' : passwordStrength === 3 ? 'bg-green-500' : ''}" style="width: {passwordStrength * 33.33}%;"></div>
-          </div>
-          <p class="mt-1 text-xs {passwordStrength === 1 ? 'text-red-600' : passwordStrength === 2 ? 'text-yellow-600' : passwordStrength === 3 ? 'text-green-600' : 'text-gray-500'}">
-            {#if passwordStrength === 0} Enter a password
-            {:else if passwordStrength === 1} Weak password
-            {:else if passwordStrength === 2} Medium strength
-            {:else} Strong password {/if}
-          </p>
-          <ul class="mt-1 text-xs text-gray-500 list-disc pl-4">
-            <li class="{password.length >= 8 ? 'text-green-600' : ''}">At least 8 characters</li>
-            <li class="{/[A-Z]/.test(password) ? 'text-green-600' : ''}">At least one uppercase letter</li>
-            <li class="{/[0-9]/.test(password) ? 'text-green-600' : ''}">At least one number</li>
-            <li class="{/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : ''}">At least one special character</li>
-          </ul>
-          {#if passwordTouched && !isPasswordValid}
-            <p class="mt-1 text-sm text-red-600">Password must be at least 6 characters</p>
-          {/if}
-        {/if}
-      </div>
+      <PasswordInput
+        id="password"
+        label="Password"
+        bind:value={password}
+        bind:touched={passwordTouched}
+        bind:valid={isPasswordValid}
+        required={true}
+        minLength={6}
+        autocomplete="new-password"
+        errorMessage="Password must be at least 6 characters"
+        on:input={(e) => {
+          resetFieldError();
+          passwordStrength = e.detail.strength;
+        }}
+        on:blur={() => touchField('password')}
+      />
 
       <!-- Confirm Password -->
-      <div class="form-field">
-        <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-        <div class="relative">
-          <input
-            id="confirmPassword"
-            type={showConfirmPassword ? "text" : "password"}
-            bind:value={confirmPassword}
-            on:input={resetFieldError}
-            on:blur={() => touchField('confirmPassword')}
-            class="w-full px-3 py-2 border {confirmPasswordTouched && !isConfirmPasswordValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-            placeholder="••••••••"
-            required
-          >
-          <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold focus:outline-none transition-colors" on:click={toggleConfirmPasswordVisibility}>
-            {#if showConfirmPassword}
-              <!-- hide icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59"/></svg>
-            {:else}
-              <!-- show icon -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            {/if}
-          </button>
-        </div>
-        {#if confirmPasswordTouched && !isConfirmPasswordValid}
-          <p class="mt-1 text-sm text-red-600">Passwords do not match</p>
-        {/if}
-        {#if confirmPasswordTouched && confirmPassword === password}
-          <p class="mt-1 text-sm text-green-600">Passwords match</p>
-        {/if}
-      </div>
+      <PasswordInput
+        id="confirmPassword"
+        label="Confirm Password"
+        bind:value={confirmPassword}
+        bind:touched={confirmPasswordTouched}
+        bind:valid={isConfirmPasswordValid}
+        required={true}
+        isConfirmPassword={true}
+        passwordToMatch={password}
+        showStrengthIndicator={false}
+        showRequirements={false}
+        autocomplete="new-password"
+        on:input={resetFieldError}
+        on:blur={() => touchField('confirmPassword')}
+      />
 
       <!-- Address form -->
-      <ReusableAddressForm
+      <AddressForm
         bind:showAddressFields
         bind:addressData
         showAddressToggle={true}
@@ -448,12 +320,11 @@
               bind:checked={acceptTerms}
               on:change={() => touchField('terms')}
               class="h-4 w-4 text-gold focus:ring-gold border-gray-300 rounded"
-              required
             >
           </div>
           <div class="ml-3 text-sm">
-            <label for="terms" class="{termsTouched && !isTermsAccepted ? 'text-red-600' : 'text-gray-600'}">
-              I agree to the <a href="/terms" class="text-gold hover:text-gold-dark underline">Terms of Service</a> and <a href="/privacy" class="text-gold hover:text-gold-dark underline">Privacy Policy</a>
+            <label for="terms" class="text-gray-700">
+              I agree to the <a href="#" class="text-gold hover:text-gold-dark underline">Terms of Service</a> and <a href="#" class="text-gold hover:text-gold-dark underline">Privacy Policy</a>
             </label>
             {#if termsTouched && !isTermsAccepted}
               <p class="mt-1 text-sm text-red-600">You must accept the terms and conditions</p>
@@ -462,58 +333,49 @@
         </div>
       </div>
 
-      <!-- Actions -->
+      <!-- Submit button -->
       <div class="form-actions">
         <button
           type="submit"
+          class="w-full bg-gold hover:bg-gold-dark text-white font-medium py-2 px-4 rounded-sm focus:outline-none focus:ring-2 focus:ring-gold/50 transition disabled:opacity-50"
           disabled={isLoading}
-          class="w-full bg-gold hover:bg-gold-dark text-white py-2.5 px-4 rounded-sm transition-colors duration-300 flex justify-center"
         >
           {#if isLoading}
-            <span class="inline-block h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
-            Creating Account...
+            <span class="flex items-center justify-center">
+              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Creating Account...
+            </span>
           {:else}
             Create Account
           {/if}
         </button>
       </div>
 
-      <!-- Sign In Link -->
+      <!-- Login link -->
       <div class="text-center text-sm mt-6">
-        <span class="text-gray-600">Already have an account?</span>
-        <a href="/account/login" class="text-gold hover:text-gold-dark ml-1 transition-colors">Sign In</a>
+        Already have an account? <a href="/account/login" class="text-gold hover:text-gold-dark transition-colors">Sign in</a>
       </div>
     </form>
-  </div>
-
-  <div class="mt-8">
-    <a href="/" class="text-sm text-gray-600 hover:text-gold transition-colors flex items-center">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-      </svg>
-      Return to Shopping
-    </a>
   </div>
 </div>
 
 <style>
-  /* (all your existing styles unchanged) */
   .text-gold { color: #b8860b; }
-  .bg-gold { background-color: #b8860b; }
-  .border-gold { border-color: #b8860b; }
-  .hover\:bg-gold-dark:hover { background-color: #a67a09; }
   .hover\:text-gold-dark:hover { color:#a67a09; }
-  .focus\:border-gold:focus { border-color: #b8860b; }
-  .focus\:ring-gold\/20:focus { --tw-ring-color: rgb(184 134 11 / 0.2); }
-  .strength-meter-bar { transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out; height: 100%; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .animate-spin { animation: spin 1s linear infinite; }
-  .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-  .input-readonly { background-color: #f8f8f8; cursor: not-allowed; opacity: 0.8; border-color: #e2e8f0 !important; }
-  .mapbox-selection-notice { margin-bottom:1rem; padding:0.75rem; background-color:#f0f9ff; border:1px solid #bae6fd; border-radius:0.375rem; }
-  .mapbox-notice-content { display:flex; justify-content:space-between; align-items:center; }
-  .mapbox-notice-content p { font-size:0.875rem; color:#0284c7; margin:0; }
-  .edit-address-btn { font-size:0.75rem; color:#0284c7; background:none; border:none; padding:0; text-decoration:underline; cursor:pointer; }
-  .edit-address-btn:hover { color:#0369a1; }
+  .bg-gold { background-color: #b8860b; }
+  .hover\:bg-gold-dark:hover { background-color: #a67a09; }
+  .focus\:ring-gold { --tw-ring-color: #b8860b; }
+  .focus\:ring-gold\/50:focus { --tw-ring-color: rgb(184 134 11 / 0.5); }
+  .border-gold { border-color: #b8860b; }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 </style>

@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
-import { client } from '$lib/sanity/client';
-import { singleProductByIdQuery } from '$lib/sanity/queries';
+import { singleProductByIdQuery } from '$lib/sanity/utils/queries';
+
+import client from "$lib/sanity/client";
 
 export const load: PageServerLoad = async ({ url, cookies, request }) => {
   try {

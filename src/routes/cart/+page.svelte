@@ -13,8 +13,8 @@
   } from "$lib/stores";
   import { formatPrice } from "$lib/utils/data";
   import gsap from "gsap";
-  import { getCartProductDetails } from "$lib/sanity/sanityData";
-  import ColorPieChart from "$lib/components/ColorPieChart.svelte";
+  import { getCartProductDetails } from "$lib/sanity/utils/queriesTransform";
+  import ColorPieChart from "$lib/components/UI/ColorPieChart.svelte";
 
   let shippingCost = 15.0;
   let subtotal = 0;

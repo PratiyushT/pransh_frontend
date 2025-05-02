@@ -117,7 +117,7 @@ const data = await signUp({
 In the `auth.ts` file, this data is passed to Supabase user metadata:
 
 ```typescript
-// src/lib/auth/auth.ts - signUp function
+// src/lib/supabase/supabase.ts - signUp function
 export async function signUp({
   email,
   password,
@@ -198,7 +198,7 @@ const checkAuth = async () => {
 
     return true;
   } catch (err) {
-    console.error('Unexpected error during auth check:', err);
+    console.error('Unexpected error during supabase check:', err);
     goto('/account/login');
     return false;
   }

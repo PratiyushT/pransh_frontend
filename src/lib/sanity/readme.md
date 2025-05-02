@@ -282,13 +282,13 @@ Return fetched data or fallback
 
 ---
 
-## sanityData.ts
+## queriesTransform.ts
 
 **Purpose:**
 Provides high-level, typed functions to fetch and transform various data models (categories, products, colors, sizes) from Sanity.
 
 **File Path:**
-`src/lib/sanity/sanityData.ts`
+`src/lib/sanity/queriesTransform.ts`
 
 ### Imports
 ```ts

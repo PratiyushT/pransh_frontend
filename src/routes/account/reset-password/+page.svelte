@@ -2,9 +2,11 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
+  import { EmailInput } from '$lib/components/FormElements';
 
   // Form data
   let email = '';
+  let emailTouched = false; // Add this for EmailInput
   let isLoading = false;
   let formSubmitted = false;
   let resetRequested = false;
@@ -13,9 +15,17 @@
   // Form validation
   $: isEmailValid = !formSubmitted || (email.includes('@') && email.includes('.'));
 
+  // Handle email input reset
+  function resetFieldError() {
+    if (formSubmitted) {
+      errorMessage = '';
+    }
+  }
+
   // Handle reset password request
   const handleSubmit = async () => {
     formSubmitted = true;
+    emailTouched = true;
 
     if (!isEmailValid || !email) {
       errorMessage = 'Please enter a valid email address';
@@ -110,20 +120,18 @@
       <!-- Reset password form -->
       <form on:submit|preventDefault={handleSubmit} class="space-y-6">
         <!-- Email field -->
-        <div class="form-field">
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-          <input
-            type="email"
-            id="email"
-            bind:value={email}
-            class="w-full px-3 py-2 border {!isEmailValid ? 'border-red-300' : 'border-gray-300'} focus:border-gold focus:ring focus:ring-gold/20 outline-none transition rounded-sm"
-            placeholder="your@email.com"
-            required
-          >
-          {#if !isEmailValid && formSubmitted}
-            <p class="mt-1 text-sm text-red-600">Please enter a valid email address</p>
-          {/if}
-        </div>
+        <EmailInput
+          id="email"
+          label="Email Address"
+          bind:value={email}
+          bind:touched={emailTouched}
+          bind:valid={isEmailValid}
+          placeholder="your@email.com"
+          required={true}
+          errorMessage="Please enter a valid email address"
+          on:input={resetFieldError}
+          on:blur={() => emailTouched = true}
+        />
 
         <!-- Form actions -->
         <div class="form-actions">

@@ -4,8 +4,8 @@
   import { formatPrice } from '$lib/utils/data';
   import type { Product } from '$lib/types';
   import gsap from 'gsap';
-  import ProductCard from '$lib/components/ProductCard.svelte';
-  import QuickViewModal from '$lib/components/QuickViewModal.svelte';
+  import ProductCard from '$lib/components/UI/ProductCard.svelte';
+  import QuickViewModal from '$lib/components/UI/QuickViewModal.svelte';
 
   // Get product data from server
   export let data;

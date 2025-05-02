@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit'
-import { stripe } from '$lib/payments/server'
-import { client } from '$lib/sanity/client'
+import { stripe } from '$lib/stripe/server'
+
+
+import client from "$lib/sanity/client";
 
 export const POST = async ({ request }) => {
   try {

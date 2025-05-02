@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import gsap from 'gsap';
-  import { supabase } from '$lib/auth/client';
-  import ReusableAddressForm from '$lib/components/ReusableAddressForm.svelte';
+  import { supabase } from '$lib/supabase/client';
+  import AddressForm from '$lib/components/FormElements/AddressForm.svelte';
+  import { EmailInput, PhoneInput, PasswordInput } from '$lib/components/FormElements';
 
   // User data (in a real app, this would come from API)
   let user = {
@@ -473,7 +474,7 @@
 
       return true;
     } catch (err) {
-      console.error('Unexpected error during auth check:', err);
+      console.error('Unexpected error during supabase check:', err);
       goto('/account/login');
       return false;
     }
@@ -1151,7 +1152,7 @@
                 {/if}
               {:else}
                 <!-- Address Form -->
-                <ReusableAddressForm
+                <AddressForm
                   editMode={isEditMode}
                   address={currentEditAddress || {}}
                   on:saved={handleAddressSaved}
@@ -1197,33 +1198,36 @@
                 </div>
 
                 <div>
-                  <label for="settings-email" class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
-                  <input
-                    type="email"
+                  <EmailInput
                     id="settings-email"
-                    value={user.email}
-                    on:input={handleEmailInput}
-                    class="w-full px-3 py-2 border {emailTouched && emailError ? 'border-red-300' : 'border-gray-300'} rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
-                  >
-                  {#if emailTouched && emailError}
-                    <p class="mt-1 text-xs text-red-600">{emailError}</p>
-                  {/if}
+                    label="Email Address"
+                    bind:value={user.email}
+                    bind:touched={emailTouched}
+                    bind:valid={!emailError}
+                    errorMessage={emailError}
+                    required={true}
+                    on:input={(e) => {
+                      user.email = e.detail.value;
+                      validateEmail(user.email);
+                    }}
+                  />
                   <p class="mt-1 text-xs text-gray-500">Changing your email will require verification.</p>
                 </div>
 
                 <div>
-                  <label for="settings-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                  <input
-                    type="tel"
+                  <PhoneInput
                     id="settings-phone"
+                    label="Phone Number"
                     bind:value={user.phone_number}
-                    on:input={handlePhoneInput}
-                    placeholder="(555) 555-5555"
-                    class="w-full px-3 py-2 border {phoneNumberTouched && phoneNumberError ? 'border-red-300' : 'border-gray-300'} rounded-sm focus:outline-none focus:ring-gold focus:border-gold"
-                  >
-                  {#if phoneNumberTouched && phoneNumberError}
-                    <p class="mt-1 text-xs text-red-600">{phoneNumberError}</p>
-                  {/if}
+                    bind:touched={phoneNumberTouched}
+                    bind:valid={!phoneNumberError}
+                    required={false}
+                    optional={true}
+                    on:input={(e) => {
+                      phoneNumberTouched = true;
+                      // The component already handles formatting
+                    }}
+                  />
                 </div>
 
                 <div class="border-t border-gray-200 pt-6">
@@ -1246,130 +1250,47 @@
 
                   <div class="space-y-4">
                     <div>
-                      <label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">
-                        Current Password <span class="text-red-500">*</span> <span class="text-xs text-gray-500">(Required for account changes)</span>
-                      </label>
-                      <div class="relative">
-                        <input
-                          type={showCurrentPassword ? "text" : "password"}
-                          id="current-password"
-                          bind:value={currentPassword}
-                          class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold pr-10"
-                          placeholder="••••••••"
-                          autocomplete="current-password"
-                        >
-                        <button
-                          type="button"
-                          tabindex="-1"
-                          class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          on:click={toggleCurrentPasswordVisibility}
-                          aria-label={showCurrentPassword ? "Hide password" : "Show password"}
-                        >
-                          {#if showCurrentPassword}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.403-3.22 1.125-4.575M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18" />
-                            </svg>
-                          {:else}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          {/if}
-                        </button>
-                      </div>
+                      <PasswordInput
+                        id="current-password"
+                        label="Current Password"
+                        bind:value={currentPassword}
+                        required={true}
+                        autocomplete="current-password"
+                        showStrengthIndicator={false}
+                        showRequirements={false}
+                        errorMessage="Current password is required for account changes"
+                      />
+                      <p class="mt-1 text-xs text-gray-500">Required for account changes</p>
                     </div>
 
                     <div>
-                      <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                      <div class="relative">
-                        <input
-                          type={showNewPassword ? "text" : "password"}
-                          id="new-password"
-                          bind:value={newPassword}
-                          class="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-gold focus:border-gold pr-10"
-                          placeholder="••••••••"
-                          autocomplete="new-password"
-                          on:input={() => { newPasswordTouched = true; }}
-                        >
-                        <button
-                          type="button"
-                          tabindex="-1"
-                          class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          on:click={toggleNewPasswordVisibility}
-                          aria-label={showNewPassword ? "Hide password" : "Show password"}
-                        >
-                          {#if showNewPassword}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.403-3.22 1.125-4.575M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18" />
-                            </svg>
-                          {:else}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          {/if}
-                        </button>
-                      </div>
-                      {#if newPasswordTouched && newPassword}
-                        <div class="mt-1 text-xs">
-                          <div class="flex items-center gap-2">
-                            <div class="flex gap-1">
-                              <span class="block w-8 h-1 rounded-full {passwordStrength >= 1 ? 'bg-red-400' : 'bg-gray-200'}"></span>
-                              <span class="block w-8 h-1 rounded-full {passwordStrength >= 2 ? 'bg-yellow-400' : 'bg-gray-200'}"></span>
-                              <span class="block w-8 h-1 rounded-full {passwordStrength >= 3 ? 'bg-green-500' : 'bg-gray-200'}"></span>
-                            </div>
-                            <span class="ml-2 font-medium {passwordStrength === 1 ? 'text-red-500' : passwordStrength === 2 ? 'text-yellow-600' : passwordStrength === 3 ? 'text-green-600' : 'text-gray-500'}">
-                              {passwordStrength === 1 ? 'Weak' : passwordStrength === 2 ? 'Medium' : passwordStrength === 3 ? 'Strong' : ''}
-                            </span>
-                          </div>
-                          <ul class="mt-1 pl-4 list-disc text-gray-500">
-                            <li class={newPassword.length >= 8 ? "text-green-600" : ""}>At least 8 characters</li>
-                            <li class={/[A-Z]/.test(newPassword) ? "text-green-600" : ""}>Uppercase letter</li>
-                            <li class={/[a-z]/.test(newPassword) ? "text-green-600" : ""}>Lowercase letter</li>
-                            <li class={/[0-9]/.test(newPassword) ? "text-green-600" : ""}>Number</li>
-                            <li class={/[^A-Za-z0-9]/.test(newPassword) ? "text-green-600" : ""}>Special character</li>
-                          </ul>
-                        </div>
-                      {/if}
+                      <PasswordInput
+                        id="new-password"
+                        label="New Password"
+                        bind:value={newPassword}
+                        bind:touched={newPasswordTouched}
+                        autocomplete="new-password"
+                        required={false}
+                        on:input={(e) => {
+                          passwordStrength = e.detail.strength;
+                        }}
+                      />
                     </div>
 
                     <div>
-                      <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                      <div class="relative">
-                        <input
-                          type={showConfirmPassword ? "text" : "password"}
-                          id="confirm-password"
-                          bind:value={confirmPassword}
-                          class="w-full px-3 py-2 border {confirmPasswordTouched && confirmPassword && newPassword !== confirmPassword ? 'border-red-300' : 'border-gray-300'} rounded-sm focus:outline-none focus:ring-gold focus:border-gold pr-10"
-                          placeholder="••••••••"
-                          autocomplete="new-password"
-                          on:input={() => { confirmPasswordTouched = true; }}
-                        >
-                        <button
-                          type="button"
-                          tabindex="-1"
-                          class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          on:click={toggleConfirmPasswordVisibility}
-                          aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                        >
-                          {#if showConfirmPassword}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.403-3.22 1.125-4.575M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18" />
-                            </svg>
-                          {:else}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          {/if}
-                        </button>
-                      </div>
-                      {#if confirmPasswordTouched && confirmPassword && newPassword !== confirmPassword}
-                        <p class="mt-1 text-xs text-red-600">Passwords do not match</p>
-                      {/if}
+                      <PasswordInput
+                        id="confirm-password"
+                        label="Confirm New Password"
+                        bind:value={confirmPassword}
+                        bind:touched={confirmPasswordTouched}
+                        valid={newPassword === confirmPassword}
+                        isConfirmPassword={true}
+                        passwordToMatch={newPassword}
+                        autocomplete="new-password"
+                        showStrengthIndicator={false}
+                        showRequirements={false}
+                        required={false}
+                      />
                     </div>
                   </div>
                 </div>
