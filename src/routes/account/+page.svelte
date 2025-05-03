@@ -1203,7 +1203,7 @@
                     label="Email Address"
                     bind:value={user.email}
                     bind:touched={emailTouched}
-                    bind:valid={!emailError}
+                    valid={!emailError}
                     errorMessage={emailError}
                     required={true}
                     on:input={(e) => {
@@ -1220,7 +1220,7 @@
                     label="Phone Number"
                     bind:value={user.phone_number}
                     bind:touched={phoneNumberTouched}
-                    bind:valid={!phoneNumberError}
+                    valid={!phoneNumberError}
                     required={false}
                     optional={true}
                     on:input={(e) => {
