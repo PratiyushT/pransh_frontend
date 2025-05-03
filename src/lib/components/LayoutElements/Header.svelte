@@ -59,13 +59,13 @@
 <header class="header" bind:this={mainHeader} class:scrolled={isScrolled}>
   <div class="container">
     <div class="header-inner">
-      <a href="/static" class="brand-logo">
+      <a href="/" class="brand-logo">
         <img src="/images/header_logo.png" alt="Pransh Logo" height="40" style="aspect-ratio: 5/2; object-fit: contain; max-width: 160px; width: auto; display: block; margin: 0; padding: 0;" class="logo-image">
       </a>
 
       <nav class="hidden md:block">
         <ul class="nav-links">
-          <li><a href="/static" class="nav-link">Home</a></li>
+          <li><a href="/" class="nav-link">Home</a></li>
           <li><a href="/shop" class="nav-link">Shop</a></li>
           <li><a href="/about" class="nav-link">About & Contact</a></li>
         </ul>
